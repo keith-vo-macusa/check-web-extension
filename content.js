@@ -8,11 +8,31 @@ class WebsiteTestingAssistant {
         this.currentUrl = window.location.href;
         this.errorMarkers = [];
         this.errorBorders = [];
-        
+        this.userInfo  = null;
         this.init();
     }
     
-    init() {
+    // Simple UUID generator function
+    generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    async getUserInfo() {
+        try {
+            const result = await chrome.storage.local.get(['userInfo']);
+            return result.userInfo || null;
+        } catch (error) {
+            console.error('Error getting user info:', error);
+            return null;
+        }
+    }
+    
+    async init() {
+        this.userInfo = await this.getUserInfo();
         this.loadErrors();
         this.createStyles();
         this.bindEvents();
@@ -724,18 +744,20 @@ class WebsiteTestingAssistant {
         return comments.map(comment => `
             <div class="comment-item" data-comment-id="${comment.id}">
                 <div class="comment-avatar">
-                    <div class="avatar-circle">${comment.author.charAt(0).toUpperCase()}</div>
+                    <div class="avatar-circle">${comment.author?.name?.charAt(0).toUpperCase()}</div>
                 </div>
                 <div class="comment-content">
                     <div class="comment-header">
-                        <span class="comment-author">${comment.author}</span>
+                        <span class="comment-author">${comment.author?.name}</span>
                         <span class="comment-time">${this.formatTime(comment.timestamp)}</span>
                         ${comment.edited ? '<span class="comment-edited">(đã chỉnh sửa)</span>' : ''}
                     </div>
                     <div class="comment-text" data-original="${comment.text}">${comment.text}</div>
                     <div class="comment-actions">
-                        <button class="btn-edit-comment" data-comment-id="${comment.id}">Chỉnh sửa</button>
-                        <button class="btn-delete-comment" data-comment-id="${comment.id}">Xóa</button>
+                        ${comment.author?.id === this.userInfo?.id ? `
+                            <button class="btn-edit-comment" data-comment-id="${comment.id}">Chỉnh sửa</button>
+                            <button class="btn-delete-comment" data-comment-id="${comment.id}">Xóa</button>
+                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -806,9 +828,9 @@ class WebsiteTestingAssistant {
 
     addReply(error, text) {
         const comment = {
-            id: Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            id: this.generateUUID(),
             text: text,
-            author: 'Tester',
+            author: this.userInfo,
             timestamp: Date.now(),
             edited: false,
             editedAt: null
@@ -964,7 +986,7 @@ class WebsiteTestingAssistant {
         const rect = this.selectedElement.getBoundingClientRect();
         
         const error = {
-            id: Date.now() + Math.random().toString(36).substr(2, 9),
+            id: this.generateUUID(),
             // New identifier system
             elementIdentifiers: identifiers,
             // Keep legacy selector for backward compatibility
@@ -988,9 +1010,9 @@ class WebsiteTestingAssistant {
             status: 'open', // open, resolved, closed
             assignee: null,
             comments: [{
-                id: Date.now() + '_1',
+                id: this.generateUUID(),
                 text: comment,
-                author: 'Tester',
+                author: this.userInfo,
                 timestamp: Date.now(),
                 edited: false,
                 editedAt: null

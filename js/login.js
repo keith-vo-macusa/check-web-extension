@@ -15,8 +15,8 @@ class LoginManager {
             this.handleLogin();
         });
 
-        // Auto-focus username field
-        $('#username').focus();
+        // Auto-focus email field
+        $('#email').focus();
 
         // Handle Enter key
         $('#password').on('keypress', (e) => {
@@ -90,7 +90,8 @@ class LoginManager {
                 success: function (response) {
                     if (response.success) {
                         self.showSuccess(response.message);
-                        self.saveAuthState(email);
+                        const userInfo = response.data;
+                        self.saveAuthState(userInfo);
                         self.redirectToMain();
                     } else {
                         self.showError(response.message);
@@ -111,12 +112,12 @@ class LoginManager {
         }
     }
 
-    async saveAuthState(username) {
+    async saveAuthState(data) {
         try {
             const userInfo = {
-                username: username,
+                id: data.id,
+                name: data.name,
                 loginTime: new Date().toISOString(),
-                role: username === 'admin' ? 'admin' : 'tester'
             };
 
             await chrome.storage.local.set({
