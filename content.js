@@ -8,6 +8,35 @@ class WebsiteTestingAssistant {
         this.currentUrl = window.location.href;
         this.errorBorders = [];
         this.userInfo  = null;
+        
+        // Add jQuery getPath method
+        jQuery.fn.getPath = function () {
+            if (this.length != 1) throw 'Requires one element.';
+            var path, node = this;
+            while (node.length) {
+                var realNode = node[0], name = realNode.localName;
+                if (!name) break;
+                name = name.toLowerCase();
+
+                var parent = node.parent();
+                var siblings = parent.children(name);
+                
+                if (realNode.id) {
+                    name += '#' + realNode.id;
+                    path = name + (path ? '>' + path : '');
+                    break;
+                } else if (siblings.length > 1) {
+                    var index = siblings.index(realNode) + 1;
+                    if (index > 1) {
+                        name += ':nth-child(' + index + ')';
+                    }
+                }
+                path = name + (path ? '>' + path : '');
+                node = parent;
+            }
+            return path;
+        };
+        
         this.init();
     }
     
@@ -365,60 +394,12 @@ class WebsiteTestingAssistant {
             return document.body;
         }
         
-        // For better selection, find the most meaningful selectable element
-        let target = element;
-        let parent = element.parentElement;
-        let attempts = 0;
-        
-        // Go up to find better targets for small or text elements
-        while (parent && attempts < 8) {
-            const targetRect = target.getBoundingClientRect();
-            const parentRect = parent.getBoundingClientRect();
-            
-            // Skip if target is very small (likely text node or icon)
-            if (targetRect.width < 15 || targetRect.height < 15) {
-                target = parent;
-                parent = parent.parentElement;
-                attempts++;
-                continue;
-            }
-            
-            // Skip if target is just a text node or inline element
-            const computedStyle = window.getComputedStyle(target);
-            if (computedStyle.display === 'inline' && target.tagName !== 'A' && target.tagName !== 'BUTTON') {
-                target = parent;
-                parent = parent.parentElement;
-                attempts++;
-                continue;
-            }
-            
-            // Prefer semantic elements
-            const semanticTags = ['ARTICLE', 'SECTION', 'DIV', 'HEADER', 'FOOTER', 'NAV', 'MAIN', 'ASIDE', 'BUTTON', 'A', 'FORM', 'INPUT', 'TEXTAREA', 'SELECT'];
-            if (semanticTags.includes(target.tagName)) {
-                break;
-            }
-            
-            // If parent is significantly larger and also semantic, prefer it
-            if (semanticTags.includes(parent.tagName) && 
-                parentRect.width > targetRect.width * 1.5 && 
-                parentRect.height > targetRect.height * 1.5) {
-                target = parent;
-            }
-            
-            break;
-        }
-        
-        return target;
+        // Return the exact clicked element
+        return element;
     }
 
     isInteractiveElement(element) {
-        const interactiveTags = ['INPUT', 'BUTTON', 'A', 'SELECT', 'TEXTAREA'];
-        const interactiveRoles = ['button', 'link', 'tab', 'menuitem'];
-        
-        return interactiveTags.includes(element.tagName) ||
-               interactiveRoles.includes(element.getAttribute('role')) ||
-               element.hasAttribute('onclick') ||
-               element.style.cursor === 'pointer';
+        return false;
     }
     
     removeHighlight() {
@@ -893,23 +874,32 @@ class WebsiteTestingAssistant {
     async saveError(comment) {
         if (!this.selectedElement) return;
         
-        const identifiers = this.getElementIdentifiers(this.selectedElement);
+        const identifiers = {
+            cssSelector: this.getElementCSSSelector(this.selectedElement),
+            xpath: this.getElementXPath(this.selectedElement),
+            attributes: {
+                id: this.selectedElement.id,
+                class: this.selectedElement.className
+            }
+        };
+
+        // Test if we can find the element with these identifiers
+        const testFind = this.findElementByIdentifiers(identifiers);
+        if (!testFind || testFind !== this.selectedElement) {
+            console.error('Warning: Selected element might not be uniquely identified');
+            return;
+        }
+
         const rect = this.selectedElement.getBoundingClientRect();
-        
         const error = {
             id: this.generateUUID(),
-            // New identifier system
             elementIdentifiers: identifiers,
-            // Keep legacy selector for backward compatibility
-            selector: identifiers.cssSelector,
             timestamp: Date.now(),
-            // Minimal position data (only for fallback)
             position: {
                 viewport: {
                     width: window.innerWidth,
                     height: window.innerHeight
                 },
-                // Store relative position as percentages for better responsive support
                 relativePosition: {
                     topPercent: (rect.top / window.innerHeight) * 100,
                     leftPercent: (rect.left / window.innerWidth) * 100,
@@ -918,7 +908,7 @@ class WebsiteTestingAssistant {
                 }
             },
             url: this.currentUrl,
-            status: 'open', // open, resolved, closed
+            status: 'open',
             assignee: null,
             comments: [{
                 id: this.generateUUID(),
@@ -930,23 +920,25 @@ class WebsiteTestingAssistant {
             }]
         };
         
-        this.errors.push(error);
-        this.saveErrors();
-        this.createErrorBorder(error);
-        
-        // Notify popup
-        const browserAPI = window.chrome || window.browser;
-        browserAPI.runtime.sendMessage({ action: 'errorAdded' }).catch(() => {
-            // Popup might not be open, ignore error
-        });
+        // Verify one more time
+        if (this.findElementByIdentifiers(error.elementIdentifiers) === this.selectedElement) {
+            this.errors.push(error);
+            this.saveErrors();
+            this.createErrorBorder(error);
+            
+            const browserAPI = window.chrome || window.browser;
+            browserAPI.runtime.sendMessage({ action: 'errorAdded' }).catch(() => {
+                // Popup might not be open, ignore error
+            });
+        } else {
+            console.error('Failed to save error: Cannot reliably identify the selected element');
+        }
     }
     
     getElementIdentifiers(element) {
         return {
             xpath: this.getElementXPath(element),
             cssSelector: this.getElementCSSSelector(element),
-            textContent: element.textContent ? element.textContent.trim().substring(0, 50) : '',
-            tagName: element.tagName.toLowerCase(),
             attributes: this.getElementAttributes(element)
         };
     }
@@ -1054,7 +1046,15 @@ class WebsiteTestingAssistant {
     }
 
     findElementByIdentifiers(identifiers) {
-        // Try XPath first (most reliable)
+        // Try CSS selector first (most reliable for our case)
+        try {
+            const element = document.querySelector(identifiers.cssSelector);
+            if (element) return element;
+        } catch (e) {
+            console.log('CSS selector failed:', e);
+        }
+        
+        // Try XPath as backup
         try {
             const xpathResult = document.evaluate(
                 identifiers.xpath,
@@ -1069,17 +1069,18 @@ class WebsiteTestingAssistant {
         } catch (e) {
             console.log('XPath failed:', e);
         }
-        
-        // Try CSS selector
-        try {
-            const element = document.querySelector(identifiers.cssSelector);
-            if (element) return element;
-        } catch (e) {
-            console.log('CSS selector failed:', e);
+
+        // If both failed, try attributes as last resort
+        if (identifiers.attributes && Object.keys(identifiers.attributes).length > 0) {
+            for (const [attr, value] of Object.entries(identifiers.attributes)) {
+                if (attr === 'id' && value) {
+                    const element = document.getElementById(value);
+                    if (element) return element;
+                }
+            }
         }
         
-        // Fallback: find by tag name and attributes
-        return this.findElementByAttributes(identifiers);
+        return null;
     }
 
     findElementByAttributes(identifiers) {
