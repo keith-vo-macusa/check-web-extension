@@ -38,7 +38,6 @@ class WebsiteTestingAssistant {
         this.bindEvents();
         this.displayExistingErrors();
     }
-    
     createStyles() {
         if (!document.getElementById('testing-assistant-styles')) {
             const style = document.createElement('style');
@@ -101,33 +100,6 @@ class WebsiteTestingAssistant {
                 .testing-error-marker:hover {
                     transform: scale(1.1) !important;
                     box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4) !important;
-                }
-                
-                .testing-comment-tooltip {
-                    position: absolute !important;
-                    background: #2c3e50 !important;
-                    color: white !important;
-                    padding: 12px 16px !important;
-                    border-radius: 8px !important;
-                    font-size: 13px !important;
-                    line-height: 1.4 !important;
-                    max-width: 300px !important;
-                    z-index: 10000 !important;
-                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
-                    word-wrap: break-word !important;
-                }
-                
-                .testing-comment-tooltip::before {
-                    content: '' !important;
-                    position: absolute !important;
-                    top: -8px !important;
-                    left: 16px !important;
-                    width: 0 !important;
-                    height: 0 !important;
-                    border-left: 8px solid transparent !important;
-                    border-right: 8px solid transparent !important;
-                    border-bottom: 8px solid #2c3e50 !important;
                 }
                 
                 .testing-comment-modal {
@@ -528,10 +500,10 @@ class WebsiteTestingAssistant {
             this.closeModal();
         });
         
-        saveBtn.addEventListener('click', () => {
+        saveBtn.addEventListener('click', async () => {
             const comment = textarea.value.trim();
             if (comment) {
-                this.saveError(comment);
+                await this.saveError(comment);
                 this.closeModal();
             } else {
                 textarea.focus();
@@ -764,7 +736,7 @@ class WebsiteTestingAssistant {
         `).join('');
     }
 
-    bindThreadEvents(panel, error, marker) {
+    async bindThreadEvents(panel, error, marker) {
         // Close button
         panel.querySelector('.thread-close').addEventListener('click', () => {
             this.closeCommentThread();
@@ -775,10 +747,10 @@ class WebsiteTestingAssistant {
         const replyCancel = panel.querySelector('.btn-reply-cancel');
         const replySend = panel.querySelector('.btn-reply-send');
         
-        replySend.addEventListener('click', () => {
+        replySend.addEventListener('click', async () => {
             const text = replyInput.value.trim();
             if (text) {
-                this.addReply(error, text);
+                await this.addReply(error, text);
                 this.refreshCommentThread(panel, error);
                 replyInput.value = '';
             }
@@ -826,11 +798,11 @@ class WebsiteTestingAssistant {
         });
     }
 
-    addReply(error, text) {
+    async addReply(error, text) {
         const comment = {
             id: this.generateUUID(),
             text: text,
-            author: this.userInfo,
+            author: await this.getUserInfo(),
             timestamp: Date.now(),
             edited: false,
             editedAt: null
@@ -979,7 +951,7 @@ class WebsiteTestingAssistant {
         return `${Math.floor(diff / 86400000)} ngày trước`;
     }
     
-    saveError(comment) {
+    async saveError(comment) {
         if (!this.selectedElement) return;
         
         const identifiers = this.getElementIdentifiers(this.selectedElement);
@@ -1012,7 +984,7 @@ class WebsiteTestingAssistant {
             comments: [{
                 id: this.generateUUID(),
                 text: comment,
-                author: this.userInfo,
+                author: await this.getUserInfo(),
                 timestamp: Date.now(),
                 edited: false,
                 editedAt: null
@@ -1247,41 +1219,8 @@ class WebsiteTestingAssistant {
             }
         });
         
-        // Add hover effect and tooltip
-        let tooltip = null;
-        
-        border.addEventListener('mouseenter', () => {
-            border.classList.add('testing-border-hover');
-            
-            // Show tooltip
-            if (!tooltip) {
-                tooltip = document.createElement('div');
-                tooltip.className = 'testing-comment-tooltip';
-                const latestComment = error.comments[error.comments.length - 1];
-                tooltip.innerHTML = `
-                    <div class="tooltip-header">Lỗi #${this.errors.indexOf(error) + 1} • ${error.comments.length} comment${error.comments.length > 1 ? 's' : ''}</div>
-                    <div class="tooltip-preview">${latestComment.text.substring(0, 80)}${latestComment.text.length > 80 ? '...' : ''}</div>
-                `;
-                
-                // Position tooltip above border
-                const rect = border.getBoundingClientRect();
-                tooltip.style.position = 'fixed';
-                tooltip.style.top = `${rect.top - 80}px`;
-                tooltip.style.left = `${rect.left}px`;
-                tooltip.style.zIndex = '10001';
-                
-                document.body.appendChild(tooltip);
-            }
-        });
-        
         border.addEventListener('mouseleave', () => {
             border.classList.remove('testing-border-hover');
-            
-            // Remove tooltip
-            if (tooltip) {
-                tooltip.remove();
-                tooltip = null;
-            }
         });
         
         document.body.appendChild(border);
@@ -1512,24 +1451,6 @@ class WebsiteTestingAssistant {
         }
     }
 
-    positionTooltip(tooltip, marker, error) {
-        const markerRect = marker.getBoundingClientRect();
-        const tooltipWidth = 280;
-        
-        let left = markerRect.left;
-        let top = markerRect.top - 80;
-        
-        // Adjust if tooltip goes off screen
-        if (left + tooltipWidth > window.innerWidth) {
-            left = window.innerWidth - tooltipWidth - 10;
-        }
-        if (left < 10) left = 10;
-        if (top < 10) top = markerRect.bottom + 10;
-        
-        tooltip.style.top = `${top + window.scrollY}px`;
-        tooltip.style.left = `${left + window.scrollX}px`;
-    }
-
     isElementVisible(element) {
         const rect = element.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0 && 
@@ -1539,30 +1460,95 @@ class WebsiteTestingAssistant {
     
     loadErrors() {
         const browserAPI = window.chrome || window.browser;
-        browserAPI.storage.local.get([this.currentUrl], (result) => {
-            this.errors = result[this.currentUrl] || [];
+        
+        browserAPI.storage.local.get(['feedback'], (result) => {
+            if (result.feedback && result.feedback.path) {
+                const pathItem = result.feedback.path.find(p => p.full_url === this.currentUrl);
+                this.errors = pathItem ? pathItem.data : [];
+            } else {
+                // Fallback to old format if new structure doesn't exist
+                browserAPI.storage.local.get([this.currentUrl], (oldResult) => {
+                    this.errors = oldResult[this.currentUrl] || [];
+                });
+            }
         });
     }
     
     saveErrors() {
         const browserAPI = window.chrome || window.browser;
-        browserAPI.storage.local.set({ [this.currentUrl]: this.errors });
+        
+        // Get all stored data first
+        browserAPI.storage.local.get(['feedback'], (result) => {
+            let newStructure = result.feedback;
+            
+            // Initialize new structure if it doesn't exist
+            if (!newStructure) {
+                try {
+                    const domain = (new URL(this.currentUrl)).hostname;
+                    newStructure = {
+                        domain: domain,
+                        path: []
+                    };
+                } catch (e) {
+                    newStructure = {
+                        domain: "",
+                        path: []
+                    };
+                }
+            }
+            
+            // Update the current URL's data in the new structure
+            let pathIndex = newStructure.path.findIndex(p => p.full_url === this.currentUrl);
+            
+            if (pathIndex >= 0) {
+                newStructure.path[pathIndex].data = this.errors;
+            } else {
+                newStructure.path.push({
+                    full_url: this.currentUrl,
+                    data: this.errors
+                });
+            }
+            
+            // Save the new structure
+            browserAPI.storage.local.set({ 
+                feedback: newStructure,
+                // [this.currentUrl]: this.errors // Keep old format for compatibility during migration
+            });
+        });
     }
-    
+
     displayExistingErrors() {
         const browserAPI = window.chrome || window.browser;
-        browserAPI.storage.local.get([this.currentUrl], (result) => {
-            const errors = result[this.currentUrl] || [];
-            this.errors = errors; // Update local errors array
-            errors.forEach(error => {
-                this.createErrorMarker(error);
-                this.createErrorBorder(error);
-                // Immediately position marker after creation
-                const marker = this.errorMarkers[this.errorMarkers.length - 1];
-                if (marker) {
-                    this.positionMarker(marker, error);
-                }
-            });
+        
+        browserAPI.storage.local.get(['feedback'], (result) => {
+            let errors = [];
+            
+            if (result.feedback && result.feedback.path) {
+                const pathItem = result.feedback.path.find(p => p.full_url === this.currentUrl);
+                errors = pathItem ? pathItem.data : [];
+            } else {
+                // Fallback to old format
+                browserAPI.storage.local.get([this.currentUrl], (oldResult) => {
+                    errors = oldResult[this.currentUrl] || [];
+                    this.processExistingErrors(errors);
+                });
+                return;
+            }
+            
+            this.processExistingErrors(errors);
+        });
+    }
+    
+    processExistingErrors(errors) {
+        this.errors = errors; // Update local errors array
+        errors.forEach(error => {
+            this.createErrorMarker(error);
+            this.createErrorBorder(error);
+            // Immediately position marker after creation
+            const marker = this.errorMarkers[this.errorMarkers.length - 1];
+            if (marker) {
+                this.positionMarker(marker, error);
+            }
         });
     }
     
