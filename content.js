@@ -249,9 +249,18 @@ class WebsiteTestingAssistant {
         document.addEventListener('mouseover', this.boundHandleMouseOver, true);
         document.addEventListener('mouseout', this.boundHandleMouseOut, true);
         
-        // Add class and inline style for crosshair cursor
+        // Add class to body
         document.body.classList.add('testing-selection-mode');
-        document.body.style.cursor = 'crosshair !important';
+        
+        // Add style for elementor elements only
+        const style = document.createElement('style');
+        style.id = 'testing-cursor-style';
+        style.textContent = `
+            body.testing-selection-mode .elementor-element {
+                cursor: crosshair !important;
+            }
+        `;
+        document.head.appendChild(style);
         
         console.log('Testing Assistant activated');
     }
@@ -264,7 +273,13 @@ class WebsiteTestingAssistant {
         document.removeEventListener('mouseout', this.boundHandleMouseOut, true);
         
         document.body.classList.remove('testing-selection-mode');
-        document.body.style.cursor = '';
+        
+        // Remove cursor style
+        const cursorStyle = document.getElementById('testing-cursor-style');
+        if (cursorStyle) {
+            cursorStyle.remove();
+        }
+        
         this.removeHighlight();
         
         console.log('Testing Assistant deactivated');
@@ -306,7 +321,9 @@ class WebsiteTestingAssistant {
     handleMouseOver(event) {
         if (!this.isActive) return;
         
-        // Don't prevent default for animated elements
+        // Only handle elementor elements
+        if (!event.target.closest('.elementor-element')) return;
+        
         event.stopPropagation();
         
         // Get the actual target element (handle nested elements)
@@ -328,6 +345,9 @@ class WebsiteTestingAssistant {
     
     handleClick(event) {
         if (!this.isActive) return;
+        
+        // Only handle elementor elements
+        if (!event.target.closest('.elementor-element')) return;
         
         // Only prevent default for non-interactive elements
         if (!this.isInteractiveElement(event.target)) {
@@ -1284,45 +1304,57 @@ class WebsiteTestingAssistant {
     highlightError(errorId) {
         const error = this.errors.find(e => e.id === errorId);
         if (!error) return;
+
+        console.log(error);
         
         // Remove existing highlights
         document.querySelectorAll('.testing-error-highlight').forEach(el => {
             el.classList.remove('testing-error-highlight');
         });
+
+        //find div with data-error-id = error.id
+        const errorElement = document.querySelector(`div[data-error-id="${error.id}"]`);
+        if (errorElement) {
+            errorElement.classList.add('testing-error-highlight');
+            errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => {
+                errorElement.classList.remove('testing-error-highlight');
+            }, 1000);
+        }
         
-        // Try to find element using new identifier system
-        const element = this.findErrorElement(error);
-        if (element) {
-            element.classList.add('testing-error-highlight');
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // // Try to find element using new identifier system
+        // const element = this.findErrorElement(error);
+        // if (element) {
+        //     element.classList.add('testing-error-highlight');
+        //     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
 
             
-            // Remove highlight after 3 seconds
-            setTimeout(() => {
-                element.classList.remove('testing-error-highlight');
-            }, 1);
-        } else {
-            // Fallback scroll using relative position
-            if (error.position && error.position.relativePosition) {
-                const rel = error.position.relativePosition;
-                const top = (rel.topPercent / 100) * window.innerHeight;
-                const left = (rel.leftPercent / 100) * window.innerWidth;
+        //     // Remove highlight after 3 seconds
+        //     setTimeout(() => {
+        //         element.classList.remove('testing-error-highlight');
+        //     }, 1);
+        // } else {
+        //     // Fallback scroll using relative position
+        //     if (error.position && error.position.relativePosition) {
+        //         const rel = error.position.relativePosition;
+        //         const top = (rel.topPercent / 100) * window.innerHeight;
+        //         const left = (rel.leftPercent / 100) * window.innerWidth;
                 
-                window.scrollTo({
-                    top: top - window.innerHeight / 2,
-                    left: left - window.innerWidth / 2,
-                    behavior: 'smooth'
-                });
-            } else if (error.position && error.position.top !== undefined) {
-                // Legacy position fallback
-                window.scrollTo({
-                    top: error.position.top - window.innerHeight / 2,
-                    left: error.position.left - window.innerWidth / 2,
-                    behavior: 'smooth'
-                });
-            }
-        }
+        //         window.scrollTo({
+        //             top: top - window.innerHeight / 2,
+        //             left: left - window.innerWidth / 2,
+        //             behavior: 'smooth'
+        //         });
+        //     } else if (error.position && error.position.top !== undefined) {
+        //         // Legacy position fallback
+        //         window.scrollTo({
+        //             top: error.position.top - window.innerHeight / 2,
+        //             left: error.position.left - window.innerWidth / 2,
+        //             behavior: 'smooth'
+        //         });
+        //     }
+        // }
     }
     
     clearAllErrors() {

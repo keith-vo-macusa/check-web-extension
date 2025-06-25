@@ -7,20 +7,20 @@
 }
 
 /* Selection mode cursor */
-body.testing-selection-mode,
-body.testing-selection-mode * {
+body.testing-selection-mode .elementor-element,
+body.testing-selection-mode .elementor-element * {
     cursor: crosshair !important;
 }
 
 /* Override any specific cursor styles during selection */
-body.testing-selection-mode a,
-body.testing-selection-mode button,
-body.testing-selection-mode input,
-body.testing-selection-mode [role="button"],
-body.testing-selection-mode [class*="slider"],
-body.testing-selection-mode [class*="carousel"], 
-body.testing-selection-mode [class*="gallery"],
-body.testing-selection-mode [class*="swiper"] {
+body.testing-selection-mode .elementor-element a,
+body.testing-selection-mode .elementor-element button,
+body.testing-selection-mode .elementor-element input,
+body.testing-selection-mode .elementor-element [role="button"],
+body.testing-selection-mode .elementor-element [class*="slider"],
+body.testing-selection-mode .elementor-element [class*="carousel"], 
+body.testing-selection-mode .elementor-element [class*="gallery"],
+body.testing-selection-mode .elementor-element [class*="swiper"] {
     cursor: crosshair !important;
     pointer-events: auto !important;
 }
