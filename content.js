@@ -6,7 +6,6 @@ class WebsiteTestingAssistant {
         this.highlightOverlay = null;
         this.commentModal = null;
         this.currentUrl = window.location.href;
-        this.errorMarkers = [];
         this.errorBorders = [];
         this.userInfo  = null;
         this.init();
@@ -65,42 +64,7 @@ class WebsiteTestingAssistant {
                     z-index: 1 !important;
                 }
                 
-                .testing-error-marker {
-                    position: absolute !important;
-                    width: 24px !important;
-                    height: 24px !important;
-                    background: #ff4757 !important;
-                    border-radius: 50% !important;
-                    color: white !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    font-size: 12px !important;
-                    font-weight: bold !important;
-                    z-index: 9999 !important;
-                    cursor: pointer !important;
-                    box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3) !important;
-                    transition: all 0.2s ease !important;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
-                }
-                
-                .testing-error-marker.resolved {
-                    background: #28a745 !important;
-                }
-                
-                .testing-error-marker.fallback {
-                    position: fixed !important;
-                    top: 50% !important;
-                    left: 90% !important;
-                    right: auto !important;
-                    transform: translate(-50%, -50%) !important;
-                    opacity: 0.7 !important;
-                }
-                
-                .testing-error-marker:hover {
-                    transform: scale(1.1) !important;
-                    box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4) !important;
-                }
+
                 
                 .testing-comment-modal {
                     position: fixed !important;
@@ -262,7 +226,6 @@ class WebsiteTestingAssistant {
         // Throttle scroll events for performance
         if (!this.scrollThrottle) {
             this.scrollThrottle = setTimeout(() => {
-                this.updateMarkerVisibility();
                 this.repositionCommentPanel();
                 this.scrollThrottle = null;
             }, 1); // ~60fps
@@ -270,35 +233,8 @@ class WebsiteTestingAssistant {
     }
 
     updateAllMarkerPositions() {
-        // Reposition all markers for responsive layout
-        this.errorMarkers.forEach(marker => {
-            if (marker.errorData) {
-                const error = marker.errorData;
-                const element = this.findErrorElement(error);
-                
-                if (element && marker.parentElement === element) {
-                    // Element found and marker is attached - reposition responsively
-                    this.setResponsiveMarkerPosition(marker, element, error);
-                } else if (!marker.parentElement) {
-                    // Marker bị detached, cần reattach
-                    this.positionMarker(marker, error);
-                }
-            }
-        });
-        
-        // Also update error borders
+        // Update error borders
         this.updateAllErrorBorders();
-    }
-
-    updateMarkerVisibility() {
-        this.errorMarkers.forEach(marker => {
-            const rect = marker.getBoundingClientRect();
-            const isVisible = rect.top >= -50 && rect.left >= -50 && 
-                            rect.top <= window.innerHeight + 50 && 
-                            rect.left <= window.innerWidth + 50;
-            
-            marker.style.display = isVisible ? 'flex' : 'none';
-        });
     }
     
     activate() {
@@ -553,7 +489,7 @@ class WebsiteTestingAssistant {
         this.restoreSelection();
     }
 
-    showCommentThread(error, marker) {
+    showCommentThread(error, border) {
         // Close any existing thread
         this.closeCommentThread();
         
@@ -570,7 +506,7 @@ class WebsiteTestingAssistant {
         panel.className = 'testing-comment-thread';
         
         // Smart positioning with fixed position
-        this.positionCommentPanel(panel, marker);
+        this.positionCommentPanel(panel, border);
         
         // Create panel content
         panel.innerHTML = `
@@ -608,12 +544,12 @@ class WebsiteTestingAssistant {
         panel.addEventListener('click', (e) => e.stopPropagation());
         
         // Bind events
-        this.bindThreadEvents(panel, error, marker);
+        this.bindThreadEvents(panel, error, border);
         
         document.body.appendChild(backdrop);
         document.body.appendChild(panel);
         
-        this.commentThread = { backdrop, panel, error, marker };
+        this.commentThread = { backdrop, panel, error, border };
         
         // Focus reply input
         setTimeout(() => {
@@ -625,13 +561,9 @@ class WebsiteTestingAssistant {
         this.repositionCommentPanel();
     }
 
-    positionCommentPanel(panel, marker) {
+    positionCommentPanel(panel, border) {
         panel.className = 'testing-comment-thread';
         panel.style.position = 'fixed';
-        
-        // Since markers are hidden, use error border for positioning
-        const error = marker.errorData;
-        const border = document.querySelector(`.testing-error-border[data-error-id="${error.id}"]`);
         
         if (border) {
             const rect = border.getBoundingClientRect();
@@ -678,12 +610,12 @@ class WebsiteTestingAssistant {
     repositionCommentPanel() {
         if (!this.commentThread) return;
         
-        const { panel, marker } = this.commentThread;
+        const { panel, border } = this.commentThread;
         
-        // Check if marker is still visible and valid
-        if (marker && document.body.contains(marker)) {
-            // Reposition panel to follow marker
-            this.positionCommentPanel(panel, marker);
+        // Check if border is still visible and valid
+        if (border && document.body.contains(border)) {
+            // Reposition panel to follow border
+            this.positionCommentPanel(panel, border);
         }
     }
 
@@ -736,7 +668,7 @@ class WebsiteTestingAssistant {
         `).join('');
     }
 
-    async bindThreadEvents(panel, error, marker) {
+    async bindThreadEvents(panel, error, border) {
         // Close button
         panel.querySelector('.thread-close').addEventListener('click', () => {
             this.closeCommentThread();
@@ -769,7 +701,7 @@ class WebsiteTestingAssistant {
         
         // Resolve button
         panel.querySelector('.btn-resolve').addEventListener('click', () => {
-            this.toggleResolveError(error, marker);
+            this.toggleResolveError(error, border);
             this.refreshCommentThread(panel, error);
         });
         
@@ -811,8 +743,8 @@ class WebsiteTestingAssistant {
         error.comments.push(comment);
         this.saveErrors();
         
-        // Update marker if needed
-        this.updateErrorMarker(error);
+        // Update border if needed
+        this.updateErrorBorder(error);
     }
 
     editComment(error, commentId, panel) {
@@ -882,22 +814,16 @@ class WebsiteTestingAssistant {
     deleteComment(error, commentId) {
         error.comments = error.comments.filter(c => c.id !== commentId);
         this.saveErrors();
-        this.updateErrorMarker(error);
+        this.updateErrorBorder(error);
     }
 
-    toggleResolveError(error, marker) {
+    toggleResolveError(error, border) {
         error.status = error.status === 'resolved' ? 'open' : 'resolved';
         this.saveErrors();
-        this.updateErrorMarker(error);
+        this.updateErrorBorder(error);
     }
 
-    updateErrorMarker(error) {
-        const marker = document.querySelector(`[data-error-id="${error.id}"]`);
-        if (marker) {
-            marker.className = `testing-error-marker ${error.status === 'resolved' ? 'resolved' : ''}`;
-        }
-        
-        // Also update border
+    updateErrorBorder(error) {
         const border = document.querySelector(`.testing-error-border[data-error-id="${error.id}"]`);
         if (border) {
             border.className = `testing-error-border ${error.status || 'open'}`;
@@ -922,13 +848,6 @@ class WebsiteTestingAssistant {
         // Remove from errors array
         this.errors = this.errors.filter(e => e.id !== errorId);
         this.saveErrors();
-        
-        // Remove marker
-        const marker = document.querySelector(`[data-error-id="${errorId}"]`);
-        if (marker) {
-            marker.remove();
-            this.errorMarkers = this.errorMarkers.filter(m => m !== marker);
-        }
         
         // Remove border
         const border = document.querySelector(`.testing-error-border[data-error-id="${errorId}"]`);
@@ -993,7 +912,6 @@ class WebsiteTestingAssistant {
         
         this.errors.push(error);
         this.saveErrors();
-        this.createErrorMarker(error);
         this.createErrorBorder(error);
         
         // Notify popup
@@ -1177,24 +1095,7 @@ class WebsiteTestingAssistant {
         return null;
     }
     
-    createErrorMarker(error) {
-        // Disable markers to avoid responsive layout issues
-        // Create hidden placeholder marker to keep existing code working
-        const marker = document.createElement('div');
-        marker.className = 'testing-error-marker-hidden';
-        marker.dataset.errorId = error.id;
-        marker.style.display = 'none';
-        marker.style.visibility = 'hidden';
-        marker.style.position = 'absolute';
-        marker.style.pointerEvents = 'none';
-        marker.errorData = error;
-        
-        // Add to body but hidden
-        document.body.appendChild(marker);
-        this.errorMarkers.push(marker);
-        
-        return marker;
-    }
+
 
     createErrorBorder(error) {
         const element = this.findErrorElement(error);
@@ -1211,12 +1112,7 @@ class WebsiteTestingAssistant {
         // Add click handler to show thread
         border.addEventListener('click', (e) => {
             e.stopPropagation();
-            
-            // Get hidden marker for compatibility
-            const marker = document.querySelector(`[data-error-id="${error.id}"]`);
-            if (marker) {
-                this.showCommentThread(error, marker);
-            }
+            this.showCommentThread(error, border);
         });
         
         border.addEventListener('mouseleave', () => {
@@ -1260,153 +1156,6 @@ class WebsiteTestingAssistant {
         });
     }
 
-    positionMarker(marker, error) {
-        const element = this.findErrorElement(error);
-        
-        if (element) {
-            // Đơn giản: attach marker vào element như border
-            this.attachMarkerToElement(marker, element, error);
-        } else {
-            // Element không tìm thấy - fallback
-            this.positionFallbackMarker(marker, error);
-        }
-    }
-
-    attachMarkerToElement(marker, element, error) {
-        // Set element as relative positioned container
-        const elementStyle = window.getComputedStyle(element);
-        if (elementStyle.position === 'static') {
-            element.style.position = 'relative';
-        }
-        
-        // Remove marker from previous parent
-        if (marker.parentElement && marker.parentElement !== element) {
-            marker.remove();
-        }
-        
-        // Attach marker to element
-        if (!element.contains(marker)) {
-            element.appendChild(marker);
-        }
-        
-        // Responsive positioning based on element size and viewport
-        this.setResponsiveMarkerPosition(marker, element, error);
-    }
-
-    setResponsiveMarkerPosition(marker, element, error) {
-        marker.className = 'testing-error-marker';
-        marker.style.position = 'absolute';
-        marker.style.display = 'flex';
-        marker.style.zIndex = '9999';
-        marker.style.transform = 'none';
-        
-        // Add status class
-        if (error.status === 'resolved') {
-            marker.classList.add('resolved');
-        }
-        
-        // Get element and viewport dimensions
-        const elementRect = element.getBoundingClientRect();
-        const markerSize = 24; // Default marker size
-        const offset = 8; // Offset from element edge
-        
-        // Smart positioning based on available space and element size
-        this.calculateOptimalMarkerPosition(marker, element, elementRect, markerSize, offset);
-    }
-
-    calculateOptimalMarkerPosition(marker, element, elementRect, markerSize, offset) {
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-        
-        // Calculate available space around element
-        const spaceRight = viewportWidth - elementRect.right;
-        const spaceLeft = elementRect.left;
-        const spaceTop = elementRect.top;
-        const spaceBottom = viewportHeight - elementRect.bottom;
-        
-        // Determine best position based on available space
-        if (spaceRight >= markerSize + offset && elementRect.width > 50) {
-            // Position to the right
-            marker.style.right = `-${markerSize + offset}px`;
-            marker.style.top = '50%';
-            marker.style.left = 'auto';
-            marker.style.bottom = 'auto';
-            marker.style.transform = 'translateY(-50%)';
-            marker.classList.add('position-right');
-        } else if (spaceLeft >= markerSize + offset && elementRect.width > 50) {
-            // Position to the left
-            marker.style.left = `-${markerSize + offset}px`;
-            marker.style.top = '50%';
-            marker.style.right = 'auto';
-            marker.style.bottom = 'auto';
-            marker.style.transform = 'translateY(-50%)';
-            marker.classList.add('position-left');
-        } else if (spaceTop >= markerSize + offset) {
-            // Position above
-            marker.style.top = `-${markerSize + offset}px`;
-            marker.style.left = '50%';
-            marker.style.right = 'auto';
-            marker.style.bottom = 'auto';
-            marker.style.transform = 'translateX(-50%)';
-            marker.classList.add('position-top');
-        } else if (spaceBottom >= markerSize + offset) {
-            // Position below
-            marker.style.bottom = `-${markerSize + offset}px`;
-            marker.style.left = '50%';
-            marker.style.right = 'auto';
-            marker.style.top = 'auto';
-            marker.style.transform = 'translateX(-50%)';
-            marker.classList.add('position-bottom');
-        } else {
-            // Fallback: position inside element (top-right corner)
-            marker.style.top = `${offset}px`;
-            marker.style.right = `${offset}px`;
-            marker.style.left = 'auto';
-            marker.style.bottom = 'auto';
-            marker.style.transform = 'none';
-            marker.classList.add('position-inside');
-            
-            // Make marker smaller if element is small
-            if (elementRect.width < 60 || elementRect.height < 60) {
-                marker.style.width = '18px';
-                marker.style.height = '18px';
-                marker.style.fontSize = '10px';
-                marker.classList.add('compact');
-            }
-        }
-        
-        // Mobile responsive adjustments
-        if (viewportWidth <= 768) {
-            this.adjustMarkerForMobile(marker, element, elementRect);
-        }
-    }
-
-    adjustMarkerForMobile(marker, element, elementRect) {
-        // On mobile, prefer positions that don't extend outside viewport
-        const markerSize = 20; // Smaller on mobile
-        const offset = 4;
-        
-        marker.style.width = `${markerSize}px`;
-        marker.style.height = `${markerSize}px`;
-        marker.style.fontSize = '11px';
-        marker.classList.add('mobile');
-        
-        // Force inside positioning on very small elements or tight spaces
-        if (elementRect.width < 80 || elementRect.height < 40) {
-            marker.style.top = '2px';
-            marker.style.right = '2px';
-            marker.style.left = 'auto';
-            marker.style.bottom = 'auto';
-            marker.style.transform = 'none';
-            marker.className = 'testing-error-marker mobile compact position-inside';
-            
-            // Check if marker has error data for resolved status
-            if (marker.errorData && marker.errorData.status === 'resolved') {
-                marker.classList.add('resolved');
-            }
-        }
-    }
-
     findErrorElement(error) {
         // Use new identifier system if available
         if (error.elementIdentifiers) {
@@ -1423,32 +1172,6 @@ class WebsiteTestingAssistant {
         }
         
         return null;
-    }
-
-    // Function removed - không cần update position nữa
-
-    // Function removed - sử dụng attachMarkerToElement thay thế
-
-    positionFallbackMarker(marker, error) {
-        // Element không tìm thấy - attach vào body với absolute positioning
-        if (marker.parentElement) {
-            marker.remove();
-        }
-        
-        document.body.appendChild(marker);
-        marker.className = 'testing-error-marker fallback';
-        marker.style.position = 'fixed';
-        marker.style.top = '50%';
-        marker.style.left = '90%';
-        marker.style.transform = 'translate(-50%, -50%)';
-        marker.style.display = 'flex';
-        marker.style.zIndex = '9999';
-        marker.style.opacity = '0.7';
-        
-        // Add status class
-        if (error.status === 'resolved') {
-            marker.classList.add('resolved');
-        }
     }
 
     isElementVisible(element) {
@@ -1542,25 +1265,17 @@ class WebsiteTestingAssistant {
     processExistingErrors(errors) {
         this.errors = errors; // Update local errors array
         errors.forEach(error => {
-            this.createErrorMarker(error);
             this.createErrorBorder(error);
-            // Immediately position marker after creation
-            const marker = this.errorMarkers[this.errorMarkers.length - 1];
-            if (marker) {
-                this.positionMarker(marker, error);
-            }
         });
     }
     
     showAllErrors() {
-        // Markers are disabled - only show borders
         this.errorBorders.forEach(border => {
             border.style.display = 'block';
         });
     }
     
     hideAllErrors() {
-        // Markers are disabled - only hide borders
         this.errorBorders.forEach(border => {
             border.style.display = 'none';
         });
@@ -1581,13 +1296,7 @@ class WebsiteTestingAssistant {
             element.classList.add('testing-error-highlight');
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
-            // Update marker position after scroll
-            setTimeout(() => {
-                const marker = document.querySelector(`[data-error-id="${errorId}"]`);
-                if (marker) {
-                    this.positionMarker(marker, error);
-                }
-            }, 500);
+
             
             // Remove highlight after 3 seconds
             setTimeout(() => {
@@ -1617,10 +1326,6 @@ class WebsiteTestingAssistant {
     }
     
     clearAllErrors() {
-        // Remove all markers
-        this.errorMarkers.forEach(marker => marker.remove());
-        this.errorMarkers = [];
-        
         // Remove all borders
         this.errorBorders.forEach(border => border.remove());
         this.errorBorders = [];

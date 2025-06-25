@@ -176,66 +176,39 @@ $(document).ready(function() {
     }
     
     function loadErrorsList() {
-        console.log('=== loadErrorsList START ===');
-        console.log('loadErrorsList called');
+        console.log('=== loadErrorsList (NEW STRUCTURE) START ===');
         browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            console.log('tabs.query callback triggered');
             if (browserAPI.runtime.lastError) {
                 console.error('Error querying tabs:', browserAPI.runtime.lastError);
                 return;
             }
-            
             if (!tabs || !tabs[0]) {
                 console.error('No active tab found');
                 return;
             }
-            
             const url = tabs[0].url;
             console.log('Loading errors for URL:', url);
-            
-            browserAPI.storage.local.get([url], function(result) {
-                console.log('storage.get callback triggered');
+
+            // Load from new structure: feedback.path[].data
+            browserAPI.storage.local.get(['feedback'], function(result) {
                 if (browserAPI.runtime.lastError) {
                     console.error('Error accessing storage:', browserAPI.runtime.lastError);
                     return;
                 }
-                
-                console.log('Storage result:', result);
-                console.log('Storage result keys:', Object.keys(result));
-                console.log('URL being searched:', url);
-                const errors = result[url] || [];
-                console.log('Found errors:', errors);
-                console.log('errors type:', typeof errors, 'Array?', Array.isArray(errors));
-                
+                let errors = [];
+                if (result && result.feedback && Array.isArray(result.feedback.path)) {
+                    const pathItem = result.feedback.path.find(p => p.full_url === url);
+                    if (pathItem && Array.isArray(pathItem.data)) {
+                        errors = pathItem.data;
+                    }
+                }
+                // Fallback to old format if needed
+                if ((!errors || errors.length === 0) && result && result[url]) {
+                    errors = result[url];
+                }
+                console.log('Found errors (new structure):', errors);
                 displayErrors(errors);
                 updateErrorCount(errors.length);
-                
-                // // DEBUG: Force show test error to verify popup works
-                // if (errors.length === 0) {
-                //     console.log('No real errors, showing test UI');
-                //     $('#errorsList').html(`
-                //         <div class="error-item open" style="margin-bottom: 8px;">
-                //             <div class="error-header">
-                //                 <span class="error-number">#1</span>
-                //                 <span class="error-status">
-                //                     <span class="status-icon">🔴</span>
-                //                     <span class="status-text">Đang mở</span>
-                //                 </span>
-                //                 <span class="comment-count">1 comment</span>
-                //             </div>
-                //             <div class="comment">Test error - Popup đang hoạt động bình thường!</div>
-                //             <div class="meta">
-                //                 <span class="selector">body</span>
-                //                 <span class="timestamp">Vừa xong</span>
-                //             </div>
-                //         </div>
-                //         <div style="text-align: center; padding: 10px; color: #6c757d; font-size: 12px;">
-                //             ☝️ Đây là test error để kiểm tra popup<br>
-                //             Hãy tạo lỗi thật bằng cách activate extension
-                //         </div>
-                //     `);
-                //     $('#errorCount').text('1');
-                // }
             });
         });
     }
