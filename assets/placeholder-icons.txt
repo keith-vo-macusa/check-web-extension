@@ -1,0 +1,14 @@
+Để tạo icon cho extension, bạn có thể:
+
+1. Sử dụng file create-simple-icons.html để tạo icon
+2. Hoặc tạo icon đơn giản với emoji bug:
+
+- Mở https://favicon.io/favicon-generator/
+- Nhập emoji 🐛
+- Chọn background màu đỏ (#ff4757)
+- Tải về và đổi tên thành:
+  * icon16.png (16x16)
+  * icon48.png (48x48) 
+  * icon128.png (128x128)
+
+3. Hoặc tạm thời bỏ qua icon (extension vẫn chạy được) 

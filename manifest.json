@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "Website Testing Assistant",
+  "version": "1.0",
+  "description": "Chrome Extension hỗ trợ tester kiểm tra website, cho phép chọn vùng lỗi và thêm comment",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "screens/login.html",
+    "default_title": "Website Testing Assistant"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["lib/jquery.min.js", "content.js"],
+      "css": ["css/content.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/*",
+        "lib/*", 
+        "screens/login.html", 
+        "screens/popup.html",
+        "js/auth.js", 
+        "js/login.js", 
+        "js/popup.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "assets/icon16.png"
+  }
+} 

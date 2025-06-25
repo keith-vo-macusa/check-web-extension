@@ -1,0 +1,894 @@
+/* Content CSS for Website Testing Assistant */
+
+/* Prevent conflicts with website styles */
+.testing-assistant-container * {
+    box-sizing: border-box !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
+}
+
+/* Selection mode cursor */
+body.testing-selection-mode,
+body.testing-selection-mode * {
+    cursor: crosshair !important;
+}
+
+/* Override any specific cursor styles during selection */
+body.testing-selection-mode a,
+body.testing-selection-mode button,
+body.testing-selection-mode input,
+body.testing-selection-mode [role="button"],
+body.testing-selection-mode [class*="slider"],
+body.testing-selection-mode [class*="carousel"], 
+body.testing-selection-mode [class*="gallery"],
+body.testing-selection-mode [class*="swiper"] {
+    cursor: crosshair !important;
+    pointer-events: auto !important;
+}
+
+/* Modal styles */
+.testing-modal-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    z-index: 999999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: default !important;
+}
+
+.testing-comment-modal {
+    background: white !important;
+    border-radius: 8px !important;
+    padding: 24px !important;
+    max-width: 500px !important;
+    width: 90% !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+    position: relative !important;
+    cursor: default !important;
+}
+
+.testing-comment-modal * {
+    cursor: default !important;
+}
+
+.testing-comment-modal h3 {
+    margin: 0 0 16px 0 !important;
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    color: #333 !important;
+}
+
+.testing-comment-modal textarea {
+    width: 100% !important;
+    height: 100px !important;
+    padding: 12px !important;
+    border: 2px solid #e1e5e9 !important;
+    border-radius: 6px !important;
+    font-size: 14px !important;
+    font-family: inherit !important;
+    resize: vertical !important;
+    outline: none !important;
+    margin-bottom: 16px !important;
+    cursor: text !important;
+}
+
+.testing-comment-modal textarea:focus {
+    border-color: #007bff !important;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1) !important;
+}
+
+.testing-modal-buttons {
+    display: flex !important;
+    gap: 12px !important;
+    justify-content: flex-end !important;
+}
+
+.testing-modal-btn {
+    padding: 8px 16px !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.testing-modal-btn-primary {
+    background: #007bff !important;
+    color: white !important;
+}
+
+.testing-modal-btn-primary:hover {
+    background: #0056b3 !important;
+}
+
+.testing-modal-btn-secondary {
+    background: #6c757d !important;
+    color: white !important;
+}
+
+.testing-modal-btn-secondary:hover {
+    background: #545b62 !important;
+}
+
+/* Highlighted element during selection */
+.testing-element-highlight {
+    outline: 3px dashed #007bff !important;
+    outline-offset: 2px !important;
+    background: rgba(0, 123, 255, 0.1) !important;
+}
+
+/* Error marker animations */
+.testing-error-marker {
+    animation: testing-marker-appear 0.3s ease-out !important;
+}
+
+@keyframes testing-marker-appear {
+    from {
+        opacity: 0 !important;
+        transform: scale(0.5) !important;
+    }
+    to {
+        opacity: 1 !important;
+        transform: scale(1) !important;
+    }
+}
+
+/* Tooltip animations */
+.testing-comment-tooltip {
+    animation: testing-tooltip-appear 0.2s ease-out !important;
+}
+
+@keyframes testing-tooltip-appear {
+    from {
+        opacity: 0 !important;
+        transform: translateY(10px) !important;
+    }
+    to {
+        opacity: 1 !important;
+        transform: translateY(0) !important;
+    }
+}
+
+/* Modal animations */
+.testing-comment-modal {
+    animation: testing-modal-appear 0.3s ease-out !important;
+}
+
+.testing-modal-backdrop {
+    animation: testing-backdrop-appear 0.3s ease-out !important;
+}
+
+@keyframes testing-modal-appear {
+    from {
+        opacity: 0 !important;
+        transform: translate(-50%, -50%) scale(0.9) !important;
+    }
+    to {
+        opacity: 1 !important;
+        transform: translate(-50%, -50%) scale(1) !important;
+    }
+}
+
+@keyframes testing-backdrop-appear {
+    from {
+        opacity: 0 !important;
+    }
+    to {
+        opacity: 1 !important;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .testing-comment-modal {
+        width: 90vw !important;
+        padding: 16px !important;
+    }
+    
+    .testing-comment-tooltip {
+        max-width: 250px !important;
+        font-size: 12px !important;
+    }
+    
+    .testing-error-marker {
+        width: 24px !important;
+        height: 24px !important;
+        font-size: 11px !important;
+        border-width: 2px !important;
+    }
+    
+    .testing-comment-thread {
+        width: 90vw !important;
+        max-width: 320px !important;
+        max-height: 70vh !important;
+    }
+    
+    /* Mobile: always center panels */
+    .testing-comment-thread.position-right,
+    .testing-comment-thread.position-left {
+        left: 50vw !important;
+        right: auto !important;
+        top: 50vh !important;
+        transform: translate(-50%, -50%) !important;
+        position: fixed !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .testing-error-marker {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+    }
+    
+    .testing-comment-thread {
+        width: 95vw !important;
+        max-height: 80vh !important;
+        left: 2.5vw !important;
+        right: 2.5vw !important;
+        top: 10vh !important;
+    }
+    
+    .testing-comment-tooltip {
+        max-width: 200px !important;
+        font-size: 11px !important;
+    }
+}
+
+/* Ensure markers are always visible and clickable */
+.testing-error-marker {
+    min-width: 20px !important;
+    min-height: 20px !important;
+    z-index: 999996 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+}
+
+/* Responsive marker variations */
+.testing-error-marker.mobile {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 11px !important;
+}
+
+.testing-error-marker.compact {
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 10px !important;
+}
+
+.testing-error-marker.position-inside {
+    background: rgba(255, 71, 87, 0.9) !important;
+    border: 1px solid white !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+}
+
+.testing-error-marker.position-inside.resolved {
+    background: rgba(40, 167, 69, 0.9) !important;
+}
+
+/* Position-specific adjustments */
+.testing-error-marker.position-top,
+.testing-error-marker.position-bottom {
+    border-radius: 6px !important;
+}
+
+.testing-error-marker.position-left {
+    border-radius: 50% 12px 12px 50% !important;
+}
+
+.testing-error-marker.position-right {
+    border-radius: 12px 50% 50% 12px !important;
+}
+
+/* Improve positioning for various screen densities */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .testing-error-marker {
+        border-width: 1.5px !important;
+    }
+}
+
+/* Ensure markers don't interfere with page content */
+.testing-error-marker {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+/* Error border overlay styles */
+.testing-error-border {
+    position: absolute !important;
+    border: 3px solid #ff4757 !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
+                inset 0 0 0 1px rgba(255, 71, 87, 0.2) !important;
+    pointer-events: auto !important;
+    z-index: 999995 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    background: rgba(255, 71, 87, 0.05) !important;
+    border-radius: 2px !important;
+}
+
+.testing-error-border:hover,
+.testing-border-hover {
+    border-color: #ff3742 !important;
+    background: rgba(255, 71, 87, 0.1) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 
+                inset 0 0 0 1px rgba(255, 71, 87, 0.3),
+                0 0 12px rgba(255, 71, 87, 0.3) !important;
+    transform: scale(1.002) !important;
+}
+
+.testing-error-border.resolved {
+    border-color: #2e7d32 !important;
+    background: rgba(46, 125, 50, 0.05) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
+                inset 0 0 0 1px rgba(46, 125, 50, 0.2) !important;
+}
+
+.testing-error-border.resolved:hover {
+    border-color: #1b5e20 !important;
+    background: rgba(46, 125, 50, 0.1) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 
+                inset 0 0 0 1px rgba(46, 125, 50, 0.3),
+                0 0 12px rgba(46, 125, 50, 0.3) !important;
+}
+
+.testing-error-border.closed {
+    border-color: #6c757d !important;
+    background: rgba(108, 117, 125, 0.05) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
+                inset 0 0 0 1px rgba(108, 117, 125, 0.2) !important;
+}
+
+.testing-error-border.closed:hover {
+    border-color: #5a6268 !important;
+    background: rgba(108, 117, 125, 0.1) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 
+                inset 0 0 0 1px rgba(108, 117, 125, 0.3),
+                0 0 12px rgba(108, 117, 125, 0.3) !important;
+}
+
+/* Animate border appearance */
+.testing-error-border {
+    animation: borderFadeIn 0.3s ease-out !important;
+}
+
+@keyframes borderFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Sticky marker styles for out-of-viewport elements */
+.testing-marker-sticky {
+    background: #ff6b35 !important;
+    border-color: #ff4500 !important;
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3) !important;
+    animation: stickyPulse 2s infinite !important;
+}
+
+.testing-marker-sticky.resolved {
+    background: #ff8c42 !important;
+    border-color: #ff6b35 !important;
+}
+
+.sticky-arrow {
+    position: absolute !important;
+    top: -8px !important;
+    right: -8px !important;
+    width: 16px !important;
+    height: 16px !important;
+    background: #ff4500 !important;
+    color: white !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
+    z-index: 1 !important;
+}
+
+@keyframes stickyPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+/* Improved marker visibility on all backgrounds */
+.testing-error-marker {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), 
+                0 0 0 1px rgba(255, 255, 255, 0.5) !important;
+}
+
+.testing-error-marker.resolved {
+    box-shadow: 0 2px 6px rgba(46, 125, 50, 0.3), 
+                0 0 0 1px rgba(255, 255, 255, 0.5) !important;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .testing-highlight {
+        outline-color: #000000 !important;
+        background: rgba(255, 255, 0, 0.3) !important;
+    }
+    
+    .testing-error-marker {
+        border: 2px solid #000000 !important;
+    }
+}
+
+/* Thread styles - Figma-like */
+.testing-thread-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0, 0, 0, 0.3) !important;
+    z-index: 9999998 !important;
+    cursor: default !important;
+}
+
+.testing-comment-thread {
+    position: fixed !important;
+    width: 320px !important;
+    max-height: 500px !important;
+    background: white !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+    border: 1px solid #e1e5e9 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    z-index: 9999999 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    animation: threadSlideIn 0.2s ease-out !important;
+    cursor: default !important;
+}
+
+/* Position variations */
+.testing-comment-thread.position-right {
+    left: 30px !important;
+    top: 0 !important;
+}
+
+.testing-comment-thread.position-left {
+    right: 30px !important;
+    left: auto !important;
+    top: 0 !important;
+}
+
+.testing-comment-thread.position-center {
+    left: 50vw !important;
+    top: 50vh !important;
+    transform: translate(-50%, -50%) !important;
+    position: fixed !important;
+}
+
+.testing-comment-thread.position-above {
+    bottom: 30px !important;
+    top: auto !important;
+}
+
+.testing-comment-thread.position-center.position-above {
+    top: 20px !important;
+    bottom: auto !important;
+    transform: translate(-50%, 0) !important;
+}
+
+.testing-comment-thread * {
+    cursor: default !important;
+}
+
+.thread-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 16px !important;
+    border-bottom: 1px solid #f1f3f4 !important;
+}
+
+.thread-title {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+.thread-icon {
+    font-size: 16px !important;
+}
+
+.thread-title span:nth-child(2) {
+    font-weight: 600 !important;
+    color: #1a1a1a !important;
+    font-size: 14px !important;
+}
+
+.thread-status {
+    padding: 4px 8px !important;
+    border-radius: 12px !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+.status-open {
+    background: #e3f2fd !important;
+    color: #1976d2 !important;
+}
+
+.status-resolved {
+    background: #e8f5e8 !important;
+    color: #2e7d32 !important;
+}
+
+.status-closed {
+    background: #fafafa !important;
+    color: #616161 !important;
+}
+
+.thread-close {
+    background: none !important;
+    border: none !important;
+    font-size: 20px !important;
+    color: #9aa0a6 !important;
+    cursor: pointer !important;
+    padding: 4px !important;
+    border-radius: 4px !important;
+    transition: all 0.2s ease !important;
+}
+
+.thread-close:hover {
+    background: #f1f3f4 !important;
+    color: #5f6368 !important;
+}
+
+.thread-content {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: 420px !important;
+}
+
+.comments-list {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 0 16px !important;
+    max-height: 280px !important;
+}
+
+.comment-item {
+    display: flex !important;
+    gap: 12px !important;
+    padding: 12px 0 !important;
+    border-bottom: 1px solid #f8f9fa !important;
+}
+
+.comment-item:last-child {
+    border-bottom: none !important;
+}
+
+.comment-avatar {
+    flex-shrink: 0 !important;
+}
+
+.avatar-circle {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: #007AFF !important;
+    color: white !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+
+.comment-content {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.comment-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-bottom: 4px !important;
+}
+
+.comment-author {
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    color: #1a1a1a !important;
+}
+
+.comment-time {
+    font-size: 11px !important;
+    color: #9aa0a6 !important;
+}
+
+.comment-edited {
+    font-size: 11px !important;
+    color: #9aa0a6 !important;
+    font-style: italic !important;
+}
+
+.comment-text {
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+    color: #3c4043 !important;
+    margin-bottom: 8px !important;
+    word-wrap: break-word !important;
+}
+
+.comment-actions {
+    display: flex !important;
+    gap: 12px !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+}
+
+.comment-item:hover .comment-actions {
+    opacity: 1 !important;
+}
+
+.btn-edit-comment,
+.btn-delete-comment {
+    background: none !important;
+    border: none !important;
+    color: #5f6368 !important;
+    font-size: 11px !important;
+    cursor: pointer !important;
+    padding: 2px 4px !important;
+    border-radius: 4px !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-edit-comment:hover {
+    background: #f1f3f4 !important;
+    color: #1a73e8 !important;
+}
+
+.btn-delete-comment:hover {
+    background: #fce8e6 !important;
+    color: #d93025 !important;
+}
+
+.thread-actions {
+    border-top: 1px solid #f1f3f4 !important;
+    padding: 16px !important;
+}
+
+.reply-form {
+    margin-bottom: 12px !important;
+}
+
+.reply-input {
+    width: 100% !important;
+    min-height: 60px !important;
+    border: 1px solid #e1e5e9 !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    font-family: inherit !important;
+    resize: vertical !important;
+    margin-bottom: 8px !important;
+    cursor: text !important;
+}
+
+.reply-input:focus {
+    outline: none !important;
+    border-color: #007AFF !important;
+}
+
+.reply-buttons {
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: flex-end !important;
+}
+
+.btn-reply-cancel,
+.btn-reply-send {
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    border: none !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-reply-send {
+    background: #007AFF !important;
+    color: white !important;
+}
+
+.btn-reply-send:hover {
+    background: #0056CC !important;
+}
+
+.btn-reply-cancel {
+    background: transparent !important;
+    color: #5f6368 !important;
+}
+
+.btn-reply-cancel:hover {
+    background: #f1f3f4 !important;
+}
+
+.thread-meta {
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: space-between !important;
+}
+
+.btn-resolve,
+.btn-delete {
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    border: none !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-resolve {
+    background: #e8f5e8 !important;
+    color: #2e7d32 !important;
+}
+
+.btn-resolve.resolved {
+    background: #2e7d32 !important;
+    color: white !important;
+}
+
+.btn-resolve:hover {
+    background: #c8e6c9 !important;
+}
+
+.btn-resolve.resolved:hover {
+    background: #1b5e20 !important;
+}
+
+.btn-delete {
+    background: #fce8e6 !important;
+    color: #d93025 !important;
+}
+
+.btn-delete:hover {
+    background: #f28b82 !important;
+    color: white !important;
+}
+
+.edit-form {
+    margin-top: 8px !important;
+}
+
+.edit-input {
+    width: 100% !important;
+    min-height: 60px !important;
+    border: 1px solid #e1e5e9 !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+    font-size: 13px !important;
+    font-family: inherit !important;
+    resize: vertical !important;
+    margin-bottom: 8px !important;
+    cursor: text !important;
+}
+
+.edit-input:focus {
+    outline: none !important;
+    border-color: #007AFF !important;
+}
+
+.edit-buttons {
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: flex-end !important;
+}
+
+.btn-edit-cancel,
+.btn-edit-save {
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    border: none !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-edit-save {
+    background: #007AFF !important;
+    color: white !important;
+}
+
+.btn-edit-save:hover {
+    background: #0056CC !important;
+}
+
+.btn-edit-cancel {
+    background: transparent !important;
+    color: #5f6368 !important;
+}
+
+.btn-edit-cancel:hover {
+    background: #f1f3f4 !important;
+}
+
+/* Error marker resolved state */
+.testing-error-marker.resolved {
+    background: #2e7d32 !important;
+    border-color: #1b5e20 !important;
+}
+
+/* Tooltip improvements */
+.testing-comment-tooltip .tooltip-header {
+    font-weight: 600 !important;
+    margin-bottom: 4px !important;
+    color: #ffffff !important;
+}
+
+.testing-comment-tooltip .tooltip-preview {
+    color: #e0e0e0 !important;
+    line-height: 1.3 !important;
+}
+
+@keyframes threadSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes slideInPanel {
+    from {
+        opacity: 0;
+        transform: translateY(-15px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .testing-error-marker,
+    .testing-comment-tooltip,
+    .testing-comment-modal,
+    .testing-modal-backdrop,
+    .testing-comment-thread {
+        animation: none !important;
+    }
+    
+    .testing-error-highlight {
+        animation: none !important;
+    }
+} 

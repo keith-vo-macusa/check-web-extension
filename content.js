@@ -1,0 +1,1633 @@
+class WebsiteTestingAssistant {
+    constructor() {
+        this.isActive = false;
+        this.errors = [];
+        this.selectedElement = null;
+        this.highlightOverlay = null;
+        this.commentModal = null;
+        this.currentUrl = window.location.href;
+        this.errorMarkers = [];
+        this.errorBorders = [];
+        
+        this.init();
+    }
+    
+    init() {
+        this.loadErrors();
+        this.createStyles();
+        this.bindEvents();
+        this.displayExistingErrors();
+    }
+    
+    createStyles() {
+        if (!document.getElementById('testing-assistant-styles')) {
+            const style = document.createElement('style');
+            style.id = 'testing-assistant-styles';
+            style.textContent = `
+                .testing-highlight {
+                    outline: 3px solid #007bff !important;
+                    outline-offset: 2px !important;
+                    background: rgba(0, 123, 255, 0.1) !important;
+                    position: relative !important;
+                    z-index: 9998 !important;
+                    transition: all 0.2s ease !important;
+                }
+                
+                .testing-highlight:after {
+                    content: '' !important;
+                    position: absolute !important;
+                    top: -3px !important;
+                    left: -3px !important;
+                    right: -3px !important;
+                    bottom: -3px !important;
+                    border: 2px dashed rgba(0, 123, 255, 0.5) !important;
+                    border-radius: 4px !important;
+                    pointer-events: none !important;
+                    z-index: 1 !important;
+                }
+                
+                .testing-error-marker {
+                    position: absolute !important;
+                    width: 24px !important;
+                    height: 24px !important;
+                    background: #ff4757 !important;
+                    border-radius: 50% !important;
+                    color: white !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    font-size: 12px !important;
+                    font-weight: bold !important;
+                    z-index: 9999 !important;
+                    cursor: pointer !important;
+                    box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3) !important;
+                    transition: all 0.2s ease !important;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
+                }
+                
+                .testing-error-marker.resolved {
+                    background: #28a745 !important;
+                }
+                
+                .testing-error-marker.fallback {
+                    position: fixed !important;
+                    top: 50% !important;
+                    left: 90% !important;
+                    right: auto !important;
+                    transform: translate(-50%, -50%) !important;
+                    opacity: 0.7 !important;
+                }
+                
+                .testing-error-marker:hover {
+                    transform: scale(1.1) !important;
+                    box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4) !important;
+                }
+                
+                .testing-comment-tooltip {
+                    position: absolute !important;
+                    background: #2c3e50 !important;
+                    color: white !important;
+                    padding: 12px 16px !important;
+                    border-radius: 8px !important;
+                    font-size: 13px !important;
+                    line-height: 1.4 !important;
+                    max-width: 300px !important;
+                    z-index: 10000 !important;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
+                    word-wrap: break-word !important;
+                }
+                
+                .testing-comment-tooltip::before {
+                    content: '' !important;
+                    position: absolute !important;
+                    top: -8px !important;
+                    left: 16px !important;
+                    width: 0 !important;
+                    height: 0 !important;
+                    border-left: 8px solid transparent !important;
+                    border-right: 8px solid transparent !important;
+                    border-bottom: 8px solid #2c3e50 !important;
+                }
+                
+                .testing-comment-modal {
+                    position: fixed !important;
+                    top: 50% !important;
+                    left: 50% !important;
+                    transform: translate(-50%, -50%) !important;
+                    background: white !important;
+                    padding: 24px !important;
+                    border-radius: 12px !important;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important;
+                    z-index: 10001 !important;
+                    width: 400px !important;
+                    max-width: 90vw !important;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
+                }
+                
+                .testing-modal-backdrop {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    background: rgba(0, 0, 0, 0.5) !important;
+                    z-index: 10000 !important;
+                }
+                
+                .testing-comment-modal h3 {
+                    margin: 0 0 16px 0 !important;
+                    font-size: 18px !important;
+                    color: #2c3e50 !important;
+                    font-weight: 600 !important;
+                }
+                
+                .testing-comment-modal textarea {
+                    width: 100% !important;
+                    height: 100px !important;
+                    border: 2px solid #e9ecef !important;
+                    border-radius: 6px !important;
+                    padding: 12px !important;
+                    font-size: 14px !important;
+                    resize: vertical !important;
+                    font-family: inherit !important;
+                    box-sizing: border-box !important;
+                }
+                
+                .testing-comment-modal textarea:focus {
+                    outline: none !important;
+                    border-color: #007bff !important;
+                }
+                
+                .testing-modal-buttons {
+                    display: flex !important;
+                    gap: 12px !important;
+                    margin-top: 16px !important;
+                    justify-content: flex-end !important;
+                }
+                
+                .testing-modal-btn {
+                    padding: 10px 20px !important;
+                    border: none !important;
+                    border-radius: 6px !important;
+                    font-size: 14px !important;
+                    font-weight: 500 !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s ease !important;
+                    font-family: inherit !important;
+                }
+                
+                .testing-modal-btn-primary {
+                    background: #007bff !important;
+                    color: white !important;
+                }
+                
+                .testing-modal-btn-primary:hover {
+                    background: #0056b3 !important;
+                }
+                
+                .testing-modal-btn-secondary {
+                    background: #6c757d !important;
+                    color: white !important;
+                }
+                
+                .testing-modal-btn-secondary:hover {
+                    background: #545b62 !important;
+                }
+                
+                .testing-error-highlight {
+                    outline: 3px solid #ffc107 !important;
+                    outline-offset: 2px !important;
+                    background: rgba(255, 193, 7, 0.1) !important;
+                    animation: testing-pulse 2s ease-in-out !important;
+                }
+                
+                @keyframes testing-pulse {
+                    0%, 100% { outline-color: #ffc107; }
+                    50% { outline-color: #ff6b6b; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+    
+    bindEvents() {
+        // Cross-browser API wrapper
+        const browserAPI = window.chrome || window.browser;
+        
+        // Listen for messages from popup
+        browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            switch (request.action) {
+                case 'activate':
+                    this.activate();
+                    break;
+                case 'deactivate':
+                    this.deactivate();
+                    break;
+                case 'getState':
+                    sendResponse({ isActive: this.isActive });
+                    break;
+                case 'showAllErrors':
+                    this.showAllErrors();
+                    break;
+                case 'hideAllErrors':
+                    this.hideAllErrors();
+                    break;
+                case 'highlightError':
+                    this.highlightError(request.errorId);
+                    break;
+                case 'clearAllErrors':
+                    this.clearAllErrors();
+                    break;
+            }
+        });
+        
+        // Listen for window resize to reposition markers
+        window.addEventListener('resize', this.handleResize.bind(this));
+        
+        // Listen for scroll to update marker visibility
+        window.addEventListener('scroll', this.handleScroll.bind(this));
+        
+        // Listen for DOM changes that might affect element positions
+        if (window.ResizeObserver) {
+            this.resizeObserver = new ResizeObserver(() => {
+                this.updateAllMarkerPositions();
+            });
+            this.resizeObserver.observe(document.body);
+        }
+    }
+
+    handleResize() {
+        // Debounce resize events
+        clearTimeout(this.resizeTimeout);
+        this.resizeTimeout = setTimeout(() => {
+            this.updateAllMarkerPositions();
+            this.repositionCommentPanel();
+        }, 1);
+    }
+
+    handleScroll() {
+        // Throttle scroll events for performance
+        if (!this.scrollThrottle) {
+            this.scrollThrottle = setTimeout(() => {
+                this.updateMarkerVisibility();
+                this.repositionCommentPanel();
+                this.scrollThrottle = null;
+            }, 1); // ~60fps
+        }
+    }
+
+    updateAllMarkerPositions() {
+        // Reposition all markers for responsive layout
+        this.errorMarkers.forEach(marker => {
+            if (marker.errorData) {
+                const error = marker.errorData;
+                const element = this.findErrorElement(error);
+                
+                if (element && marker.parentElement === element) {
+                    // Element found and marker is attached - reposition responsively
+                    this.setResponsiveMarkerPosition(marker, element, error);
+                } else if (!marker.parentElement) {
+                    // Marker bị detached, cần reattach
+                    this.positionMarker(marker, error);
+                }
+            }
+        });
+        
+        // Also update error borders
+        this.updateAllErrorBorders();
+    }
+
+    updateMarkerVisibility() {
+        this.errorMarkers.forEach(marker => {
+            const rect = marker.getBoundingClientRect();
+            const isVisible = rect.top >= -50 && rect.left >= -50 && 
+                            rect.top <= window.innerHeight + 50 && 
+                            rect.left <= window.innerWidth + 50;
+            
+            marker.style.display = isVisible ? 'flex' : 'none';
+        });
+    }
+    
+    activate() {
+        this.isActive = true;
+        
+        // Store bound functions for proper removal
+        this.boundHandleClick = this.handleClick.bind(this);
+        this.boundHandleMouseOver = this.handleMouseOver.bind(this);
+        this.boundHandleMouseOut = this.handleMouseOut.bind(this);
+        
+        document.addEventListener('click', this.boundHandleClick, true);
+        document.addEventListener('mouseover', this.boundHandleMouseOver, true);
+        document.addEventListener('mouseout', this.boundHandleMouseOut, true);
+        
+        // Add class and inline style for crosshair cursor
+        document.body.classList.add('testing-selection-mode');
+        document.body.style.cursor = 'crosshair !important';
+        
+        console.log('Testing Assistant activated');
+    }
+    
+    deactivate() {
+        this.isActive = false;
+        
+        document.removeEventListener('click', this.boundHandleClick, true);
+        document.removeEventListener('mouseover', this.boundHandleMouseOver, true);
+        document.removeEventListener('mouseout', this.boundHandleMouseOut, true);
+        
+        document.body.classList.remove('testing-selection-mode');
+        document.body.style.cursor = '';
+        this.removeHighlight();
+        
+        console.log('Testing Assistant deactivated');
+    }
+    
+    tempDisableSelection() {
+        if (!this.isActive) return;
+        
+        // Store current state
+        this.wasActiveBeforeModal = true;
+        
+        // Remove event listeners temporarily
+        document.removeEventListener('click', this.boundHandleClick, true);
+        document.removeEventListener('mouseover', this.boundHandleMouseOver, true);
+        document.removeEventListener('mouseout', this.boundHandleMouseOut, true);
+        
+        // Remove crosshair cursor
+        document.body.classList.remove('testing-selection-mode');
+        document.body.style.cursor = '';
+        this.removeHighlight();
+    }
+    
+    restoreSelection() {
+        if (!this.wasActiveBeforeModal || !this.isActive) return;
+        
+        // Restore event listeners
+        document.addEventListener('click', this.boundHandleClick, true);
+        document.addEventListener('mouseover', this.boundHandleMouseOver, true);
+        document.addEventListener('mouseout', this.boundHandleMouseOut, true);
+        
+        // Restore crosshair cursor
+        document.body.classList.add('testing-selection-mode');
+        document.body.style.cursor = 'crosshair !important';
+        
+        // Reset state
+        this.wasActiveBeforeModal = false;
+    }
+    
+    handleMouseOver(event) {
+        if (!this.isActive) return;
+        
+        // Don't prevent default for animated elements
+        event.stopPropagation();
+        
+        // Get the actual target element (handle nested elements)
+        const targetElement = this.getTargetElement(event.target);
+        
+        this.removeHighlight();
+        targetElement.classList.add('testing-highlight');
+        this.selectedElement = targetElement;
+    }
+    
+    handleMouseOut(event) {
+        if (!this.isActive) return;
+        
+        event.stopPropagation();
+        
+        const targetElement = this.getTargetElement(event.target);
+        targetElement.classList.remove('testing-highlight');
+    }
+    
+    handleClick(event) {
+        if (!this.isActive) return;
+        
+        // Only prevent default for non-interactive elements
+        if (!this.isInteractiveElement(event.target)) {
+            event.preventDefault();
+        }
+        event.stopPropagation();
+        
+        this.selectedElement = this.getTargetElement(event.target);
+        this.showCommentModal();
+    }
+
+    getTargetElement(element) {
+        // Skip testing assistant elements
+        if (element.closest('.testing-error-marker, .testing-comment-thread, .testing-comment-modal, .testing-error-border')) {
+            return document.body;
+        }
+        
+        // For better selection, find the most meaningful selectable element
+        let target = element;
+        let parent = element.parentElement;
+        let attempts = 0;
+        
+        // Go up to find better targets for small or text elements
+        while (parent && attempts < 8) {
+            const targetRect = target.getBoundingClientRect();
+            const parentRect = parent.getBoundingClientRect();
+            
+            // Skip if target is very small (likely text node or icon)
+            if (targetRect.width < 15 || targetRect.height < 15) {
+                target = parent;
+                parent = parent.parentElement;
+                attempts++;
+                continue;
+            }
+            
+            // Skip if target is just a text node or inline element
+            const computedStyle = window.getComputedStyle(target);
+            if (computedStyle.display === 'inline' && target.tagName !== 'A' && target.tagName !== 'BUTTON') {
+                target = parent;
+                parent = parent.parentElement;
+                attempts++;
+                continue;
+            }
+            
+            // Prefer semantic elements
+            const semanticTags = ['ARTICLE', 'SECTION', 'DIV', 'HEADER', 'FOOTER', 'NAV', 'MAIN', 'ASIDE', 'BUTTON', 'A', 'FORM', 'INPUT', 'TEXTAREA', 'SELECT'];
+            if (semanticTags.includes(target.tagName)) {
+                break;
+            }
+            
+            // If parent is significantly larger and also semantic, prefer it
+            if (semanticTags.includes(parent.tagName) && 
+                parentRect.width > targetRect.width * 1.5 && 
+                parentRect.height > targetRect.height * 1.5) {
+                target = parent;
+            }
+            
+            break;
+        }
+        
+        return target;
+    }
+
+    isInteractiveElement(element) {
+        const interactiveTags = ['INPUT', 'BUTTON', 'A', 'SELECT', 'TEXTAREA'];
+        const interactiveRoles = ['button', 'link', 'tab', 'menuitem'];
+        
+        return interactiveTags.includes(element.tagName) ||
+               interactiveRoles.includes(element.getAttribute('role')) ||
+               element.hasAttribute('onclick') ||
+               element.style.cursor === 'pointer';
+    }
+    
+    removeHighlight() {
+        const highlighted = document.querySelectorAll('.testing-highlight');
+        highlighted.forEach(el => el.classList.remove('testing-highlight'));
+    }
+    
+    showCommentModal() {
+        if (!this.selectedElement) return;
+        
+        // Temporarily disable selection mode
+        this.tempDisableSelection();
+        
+        // Create backdrop
+        const backdrop = document.createElement('div');
+        backdrop.className = 'testing-modal-backdrop';
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'testing-comment-modal';
+        modal.innerHTML = `
+            <h3>💬 Thêm comment cho lỗi</h3>
+            <textarea placeholder="Mô tả lỗi hoặc ghi chú..." maxlength="500"></textarea>
+            <div class="testing-modal-buttons">
+                <button class="testing-modal-btn testing-modal-btn-secondary" data-action="cancel">Hủy</button>
+                <button class="testing-modal-btn testing-modal-btn-primary" data-action="save">Lưu</button>
+            </div>
+        `;
+        
+        const textarea = modal.querySelector('textarea');
+        const cancelBtn = modal.querySelector('[data-action="cancel"]');
+        const saveBtn = modal.querySelector('[data-action="save"]');
+        
+        cancelBtn.addEventListener('click', () => {
+            this.closeModal();
+        });
+        
+        saveBtn.addEventListener('click', () => {
+            const comment = textarea.value.trim();
+            if (comment) {
+                this.saveError(comment);
+                this.closeModal();
+            } else {
+                textarea.focus();
+            }
+        });
+        
+        backdrop.addEventListener('click', (e) => {
+            // Only close if clicking on backdrop, not modal content
+            if (e.target === backdrop) {
+                this.closeModal();
+            }
+        });
+        
+        // Handle Enter key
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                saveBtn.click();
+            }
+            if (e.key === 'Escape') {
+                this.closeModal();
+            }
+        });
+        
+        // Prevent modal content from triggering selection
+        modal.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        document.body.appendChild(backdrop);
+        document.body.appendChild(modal);
+        
+        this.commentModal = { backdrop, modal };
+        
+        // Focus textarea
+        setTimeout(() => textarea.focus(), 0);
+    }
+    
+    closeModal() {
+        if (this.commentModal) {
+            this.commentModal.backdrop.remove();
+            this.commentModal.modal.remove();
+            this.commentModal = null;
+        }
+        this.removeHighlight();
+        
+        // Re-enable selection mode if it was active
+        this.restoreSelection();
+    }
+
+    showCommentThread(error, marker) {
+        // Close any existing thread
+        this.closeCommentThread();
+        
+        // Temporarily disable selection if active
+        this.tempDisableSelection();
+        
+        // Create backdrop
+        const backdrop = document.createElement('div');
+        backdrop.className = 'testing-thread-backdrop';
+        backdrop.addEventListener('click', () => this.closeCommentThread());
+        
+        // Create thread panel
+        const panel = document.createElement('div');
+        panel.className = 'testing-comment-thread';
+        
+        // Smart positioning with fixed position
+        this.positionCommentPanel(panel, marker);
+        
+        // Create panel content
+        panel.innerHTML = `
+            <div class="thread-header">
+                <div class="thread-title">
+                    <span class="thread-icon">💬</span>
+                    <span>Lỗi #${this.errors.indexOf(error) + 1}</span>
+                    <div class="thread-status status-${error.status}">${this.getStatusText(error.status)}</div>
+                </div>
+                <button class="thread-close" aria-label="Đóng">×</button>
+            </div>
+            <div class="thread-content">
+                <div class="comments-list" id="comments-${error.id}">
+                    ${this.renderComments(error.comments)}
+                </div>
+                <div class="thread-actions">
+                    <div class="reply-form">
+                        <textarea placeholder="Thêm comment..." class="reply-input" maxlength="500"></textarea>
+                        <div class="reply-buttons">
+                            <button class="btn-reply-cancel">Hủy</button>
+                            <button class="btn-reply-send">Gửi</button>
+                        </div>
+                    </div>
+                    <div class="thread-meta">
+                        <button class="btn-resolve ${error.status === 'resolved' ? 'resolved' : ''}" data-error-id="${error.id}">
+                            ${error.status === 'resolved' ? '✓ Đã giải quyết' : 'Đánh dấu đã giải quyết'}
+                        </button>
+                        <button class="btn-delete" data-error-id="${error.id}">🗑 Xóa</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Stop propagation on panel clicks
+        panel.addEventListener('click', (e) => e.stopPropagation());
+        
+        // Bind events
+        this.bindThreadEvents(panel, error, marker);
+        
+        document.body.appendChild(backdrop);
+        document.body.appendChild(panel);
+        
+        this.commentThread = { backdrop, panel, error, marker };
+        
+        // Focus reply input
+        setTimeout(() => {
+            const replyInput = panel.querySelector('.reply-input');
+            if (replyInput) replyInput.focus();
+        }, 100);
+
+        // Reposition on scroll/resize
+        this.repositionCommentPanel();
+    }
+
+    positionCommentPanel(panel, marker) {
+        panel.className = 'testing-comment-thread';
+        panel.style.position = 'fixed';
+        
+        // Since markers are hidden, use error border for positioning
+        const error = marker.errorData;
+        const border = document.querySelector(`.testing-error-border[data-error-id="${error.id}"]`);
+        
+        if (border) {
+            const rect = border.getBoundingClientRect();
+            const spaceRight = window.innerWidth - rect.right;
+            const spaceLeft = rect.left;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            
+            if (spaceRight > 350) {
+                panel.style.left = `${rect.right + 10}px`;
+                panel.style.top = `${rect.top}px`;
+            } else if (spaceLeft > 350) {
+                panel.style.right = `${window.innerWidth - rect.left + 10}px`;
+                panel.style.top = `${rect.top}px`;
+            } else {
+                // Center on screen
+                panel.style.left = '50%';
+                panel.style.top = '50%';
+                panel.style.transform = 'translate(-50%, -50%)';
+            }
+            
+            // Adjust if panel goes below viewport
+            if (spaceBelow < 300 && panel.style.transform !== 'translate(-50%, -50%)') {
+                panel.style.top = `${Math.max(10, rect.bottom - 400)}px`;
+            }
+        } else {
+            // Fallback: center on screen
+            panel.style.left = '50%';
+            panel.style.top = '50%';
+            panel.style.transform = 'translate(-50%, -50%)';
+        }
+        
+        // Ensure panel stays within viewport bounds
+        setTimeout(() => {
+            const panelRect = panel.getBoundingClientRect();
+            if (panelRect.bottom > window.innerHeight - 10) {
+                panel.style.top = `${window.innerHeight - panelRect.height - 10}px`;
+            }
+            if (panelRect.top < 10) {
+                panel.style.top = '10px';
+            }
+        }, 10);
+    }
+
+    repositionCommentPanel() {
+        if (!this.commentThread) return;
+        
+        const { panel, marker } = this.commentThread;
+        
+        // Check if marker is still visible and valid
+        if (marker && document.body.contains(marker)) {
+            // Reposition panel to follow marker
+            this.positionCommentPanel(panel, marker);
+        }
+    }
+
+    closeCommentThread() {
+        if (this.commentThread) {
+            this.commentThread.backdrop.remove();
+            
+            // Remove panel from marker
+            if (this.commentThread.panel.parentElement) {
+                this.commentThread.panel.remove();
+            }
+            
+            this.commentThread = null;
+        }
+        
+        // Re-enable selection mode if it was active
+        this.restoreSelection();
+    }
+
+    getStatusText(status) {
+        const statusMap = {
+            'open': 'Mở',
+            'resolved': 'Đã giải quyết',
+            'closed': 'Đã đóng'
+        };
+        return statusMap[status] || 'Mở';
+    }
+
+    renderComments(comments) {
+        return comments.map(comment => `
+            <div class="comment-item" data-comment-id="${comment.id}">
+                <div class="comment-avatar">
+                    <div class="avatar-circle">${comment.author.charAt(0).toUpperCase()}</div>
+                </div>
+                <div class="comment-content">
+                    <div class="comment-header">
+                        <span class="comment-author">${comment.author}</span>
+                        <span class="comment-time">${this.formatTime(comment.timestamp)}</span>
+                        ${comment.edited ? '<span class="comment-edited">(đã chỉnh sửa)</span>' : ''}
+                    </div>
+                    <div class="comment-text" data-original="${comment.text}">${comment.text}</div>
+                    <div class="comment-actions">
+                        <button class="btn-edit-comment" data-comment-id="${comment.id}">Chỉnh sửa</button>
+                        <button class="btn-delete-comment" data-comment-id="${comment.id}">Xóa</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    bindThreadEvents(panel, error, marker) {
+        // Close button
+        panel.querySelector('.thread-close').addEventListener('click', () => {
+            this.closeCommentThread();
+        });
+        
+        // Reply functionality
+        const replyInput = panel.querySelector('.reply-input');
+        const replyCancel = panel.querySelector('.btn-reply-cancel');
+        const replySend = panel.querySelector('.btn-reply-send');
+        
+        replySend.addEventListener('click', () => {
+            const text = replyInput.value.trim();
+            if (text) {
+                this.addReply(error, text);
+                this.refreshCommentThread(panel, error);
+                replyInput.value = '';
+            }
+        });
+        
+        replyCancel.addEventListener('click', () => {
+            replyInput.value = '';
+        });
+        
+        // Ctrl+Enter to send
+        replyInput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                replySend.click();
+            }
+        });
+        
+        // Resolve button
+        panel.querySelector('.btn-resolve').addEventListener('click', () => {
+            this.toggleResolveError(error, marker);
+            this.refreshCommentThread(panel, error);
+        });
+        
+        // Delete button
+        panel.querySelector('.btn-delete').addEventListener('click', () => {
+            if (confirm('Bạn có chắc muốn xóa lỗi này?')) {
+                this.deleteError(error.id);
+                this.closeCommentThread();
+            }
+        });
+        
+        // Edit/Delete comment buttons
+        panel.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-edit-comment')) {
+                const commentId = e.target.dataset.commentId;
+                this.editComment(error, commentId, panel);
+            }
+            
+            if (e.target.classList.contains('btn-delete-comment')) {
+                const commentId = e.target.dataset.commentId;
+                if (confirm('Bạn có chắc muốn xóa comment này?')) {
+                    this.deleteComment(error, commentId);
+                    this.refreshCommentThread(panel, error);
+                }
+            }
+        });
+    }
+
+    addReply(error, text) {
+        const comment = {
+            id: Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            text: text,
+            author: 'Tester',
+            timestamp: Date.now(),
+            edited: false,
+            editedAt: null
+        };
+        
+        error.comments.push(comment);
+        this.saveErrors();
+        
+        // Update marker if needed
+        this.updateErrorMarker(error);
+    }
+
+    editComment(error, commentId, panel) {
+        const comment = error.comments.find(c => c.id === commentId);
+        if (!comment) return;
+        
+        const commentElement = panel.querySelector(`[data-comment-id="${commentId}"]`);
+        const textElement = commentElement.querySelector('.comment-text');
+        const originalText = textElement.dataset.original;
+        
+        // Create edit form
+        const editForm = document.createElement('div');
+        editForm.className = 'edit-form';
+        editForm.innerHTML = `
+            <textarea class="edit-input" maxlength="500">${originalText}</textarea>
+            <div class="edit-buttons">
+                <button class="btn-edit-cancel">Hủy</button>
+                <button class="btn-edit-save">Lưu</button>
+            </div>
+        `;
+        
+        // Replace text with edit form
+        textElement.style.display = 'none';
+        commentElement.querySelector('.comment-actions').style.display = 'none';
+        textElement.parentNode.appendChild(editForm);
+        
+        const editInput = editForm.querySelector('.edit-input');
+        editInput.focus();
+        editInput.setSelectionRange(editInput.value.length, editInput.value.length);
+        
+        // Cancel edit
+        editForm.querySelector('.btn-edit-cancel').addEventListener('click', () => {
+            this.cancelEdit(textElement, editForm);
+        });
+        
+        // Save edit
+        editForm.querySelector('.btn-edit-save').addEventListener('click', () => {
+            const newText = editInput.value.trim();
+            if (newText && newText !== originalText) {
+                comment.text = newText;
+                comment.edited = true;
+                comment.editedAt = Date.now();
+                this.saveErrors();
+                this.refreshCommentThread(panel, error);
+            } else {
+                this.cancelEdit(textElement, editForm);
+            }
+        });
+        
+        // Ctrl+Enter to save
+        editInput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                editForm.querySelector('.btn-edit-save').click();
+            }
+            if (e.key === 'Escape') {
+                this.cancelEdit(textElement, editForm);
+            }
+        });
+    }
+
+    cancelEdit(textElement, editForm) {
+        textElement.style.display = 'block';
+        textElement.parentNode.querySelector('.comment-actions').style.display = 'block';
+        editForm.remove();
+    }
+
+    deleteComment(error, commentId) {
+        error.comments = error.comments.filter(c => c.id !== commentId);
+        this.saveErrors();
+        this.updateErrorMarker(error);
+    }
+
+    toggleResolveError(error, marker) {
+        error.status = error.status === 'resolved' ? 'open' : 'resolved';
+        this.saveErrors();
+        this.updateErrorMarker(error);
+    }
+
+    updateErrorMarker(error) {
+        const marker = document.querySelector(`[data-error-id="${error.id}"]`);
+        if (marker) {
+            marker.className = `testing-error-marker ${error.status === 'resolved' ? 'resolved' : ''}`;
+        }
+        
+        // Also update border
+        const border = document.querySelector(`.testing-error-border[data-error-id="${error.id}"]`);
+        if (border) {
+            border.className = `testing-error-border ${error.status || 'open'}`;
+        }
+    }
+
+    refreshCommentThread(panel, error) {
+        const commentsList = panel.querySelector(`#comments-${error.id}`);
+        if (commentsList) {
+            commentsList.innerHTML = this.renderComments(error.comments);
+        }
+        
+        // Update resolve button
+        const resolveBtn = panel.querySelector('.btn-resolve');
+        if (resolveBtn) {
+            resolveBtn.textContent = error.status === 'resolved' ? '✓ Đã giải quyết' : 'Đánh dấu đã giải quyết';
+            resolveBtn.className = `btn-resolve ${error.status === 'resolved' ? 'resolved' : ''}`;
+        }
+    }
+
+    deleteError(errorId) {
+        // Remove from errors array
+        this.errors = this.errors.filter(e => e.id !== errorId);
+        this.saveErrors();
+        
+        // Remove marker
+        const marker = document.querySelector(`[data-error-id="${errorId}"]`);
+        if (marker) {
+            marker.remove();
+            this.errorMarkers = this.errorMarkers.filter(m => m !== marker);
+        }
+        
+        // Remove border
+        const border = document.querySelector(`.testing-error-border[data-error-id="${errorId}"]`);
+        if (border) {
+            border.remove();
+            this.errorBorders = this.errorBorders.filter(b => b !== border);
+        }
+        
+        // Notify popup
+        chrome.runtime.sendMessage({ action: 'errorDeleted' });
+    }
+
+    formatTime(timestamp) {
+        const now = Date.now();
+        const diff = now - timestamp;
+        
+        if (diff < 60000) return 'Vừa xong';
+        if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
+        return `${Math.floor(diff / 86400000)} ngày trước`;
+    }
+    
+    saveError(comment) {
+        if (!this.selectedElement) return;
+        
+        const identifiers = this.getElementIdentifiers(this.selectedElement);
+        const rect = this.selectedElement.getBoundingClientRect();
+        
+        const error = {
+            id: Date.now() + Math.random().toString(36).substr(2, 9),
+            // New identifier system
+            elementIdentifiers: identifiers,
+            // Keep legacy selector for backward compatibility
+            selector: identifiers.cssSelector,
+            timestamp: Date.now(),
+            // Minimal position data (only for fallback)
+            position: {
+                viewport: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                },
+                // Store relative position as percentages for better responsive support
+                relativePosition: {
+                    topPercent: (rect.top / window.innerHeight) * 100,
+                    leftPercent: (rect.left / window.innerWidth) * 100,
+                    widthPercent: (rect.width / window.innerWidth) * 100,
+                    heightPercent: (rect.height / window.innerHeight) * 100
+                }
+            },
+            url: this.currentUrl,
+            status: 'open', // open, resolved, closed
+            assignee: null,
+            comments: [{
+                id: Date.now() + '_1',
+                text: comment,
+                author: 'Tester',
+                timestamp: Date.now(),
+                edited: false,
+                editedAt: null
+            }]
+        };
+        
+        this.errors.push(error);
+        this.saveErrors();
+        this.createErrorMarker(error);
+        this.createErrorBorder(error);
+        
+        // Notify popup
+        const browserAPI = window.chrome || window.browser;
+        browserAPI.runtime.sendMessage({ action: 'errorAdded' }).catch(() => {
+            // Popup might not be open, ignore error
+        });
+    }
+    
+    getElementIdentifiers(element) {
+        return {
+            xpath: this.getElementXPath(element),
+            cssSelector: this.getElementCSSSelector(element),
+            textContent: element.textContent ? element.textContent.trim().substring(0, 50) : '',
+            tagName: element.tagName.toLowerCase(),
+            attributes: this.getElementAttributes(element)
+        };
+    }
+
+    getElementXPath(element) {
+        if (element.id) {
+            return `//*[@id="${element.id}"]`;
+        }
+        
+        const parts = [];
+        let current = element;
+        
+        while (current && current !== document.body) {
+            let tagName = current.tagName.toLowerCase();
+            let index = 1;
+            
+            // Count siblings with same tag name
+            let sibling = current.previousElementSibling;
+            while (sibling) {
+                if (sibling.tagName.toLowerCase() === tagName) {
+                    index++;
+                }
+                sibling = sibling.previousElementSibling;
+            }
+            
+            // Check if there are siblings with same tag name after current element
+            let hasNextSiblings = false;
+            sibling = current.nextElementSibling;
+            while (sibling) {
+                if (sibling.tagName.toLowerCase() === tagName) {
+                    hasNextSiblings = true;
+                    break;
+                }
+                sibling = sibling.nextElementSibling;
+            }
+            
+            // Add index only if there are multiple siblings with same tag
+            if (index > 1 || hasNextSiblings) {
+                parts.unshift(`${tagName}[${index}]`);
+            } else {
+                parts.unshift(tagName);
+            }
+            
+            current = current.parentElement;
+        }
+        
+        return '//' + parts.join('/');
+    }
+
+    getElementCSSSelector(element) {
+        // Prefer ID if available
+        if (element.id) {
+            return `#${element.id}`;
+        }
+        
+        let selector = element.tagName.toLowerCase();
+        
+        // Add classes if available (limit to 3 most specific)
+        if (element.className) {
+            const classes = element.className.split(' ')
+                .filter(c => c.trim() && !c.startsWith('testing-'))
+                .slice(0, 3);
+            if (classes.length > 0) {
+                selector += '.' + classes.join('.');
+            }
+        }
+        
+        // Add attributes for better specificity
+        const importantAttrs = ['data-testid', 'data-id', 'name', 'type', 'role'];
+        for (const attr of importantAttrs) {
+            if (element.hasAttribute(attr)) {
+                selector += `[${attr}="${element.getAttribute(attr)}"]`;
+                break; // One attribute is usually enough
+            }
+        }
+        
+        // If still not specific enough, add nth-child
+        if (!element.id && !element.className) {
+            const parent = element.parentElement;
+            if (parent) {
+                const siblings = Array.from(parent.children).filter(child => 
+                    child.tagName === element.tagName
+                );
+                if (siblings.length > 1) {
+                    const index = siblings.indexOf(element) + 1;
+                    selector += `:nth-child(${index})`;
+                }
+            }
+        }
+        
+        return selector;
+    }
+
+    getElementAttributes(element) {
+        const attrs = {};
+        const importantAttrs = ['id', 'class', 'data-testid', 'data-id', 'name', 'type', 'role', 'href'];
+        
+        importantAttrs.forEach(attr => {
+            if (element.hasAttribute(attr)) {
+                attrs[attr] = element.getAttribute(attr);
+            }
+        });
+        
+        return attrs;
+    }
+
+    findElementByIdentifiers(identifiers) {
+        // Try XPath first (most reliable)
+        try {
+            const xpathResult = document.evaluate(
+                identifiers.xpath,
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            );
+            if (xpathResult.singleNodeValue) {
+                return xpathResult.singleNodeValue;
+            }
+        } catch (e) {
+            console.log('XPath failed:', e);
+        }
+        
+        // Try CSS selector
+        try {
+            const element = document.querySelector(identifiers.cssSelector);
+            if (element) return element;
+        } catch (e) {
+            console.log('CSS selector failed:', e);
+        }
+        
+        // Fallback: find by tag name and attributes
+        return this.findElementByAttributes(identifiers);
+    }
+
+    findElementByAttributes(identifiers) {
+        const elements = document.getElementsByTagName(identifiers.tagName);
+        
+        for (let element of elements) {
+            let score = 0;
+            
+            // Check attributes match
+            for (const [attr, value] of Object.entries(identifiers.attributes)) {
+                if (element.getAttribute(attr) === value) {
+                    score += attr === 'id' ? 10 : (attr === 'class' ? 5 : 3);
+                }
+            }
+            
+            // Check text content similarity
+            if (identifiers.textContent && element.textContent) {
+                const elementText = element.textContent.trim().substring(0, 50);
+                if (elementText === identifiers.textContent) {
+                    score += 5;
+                } else if (elementText.includes(identifiers.textContent) || 
+                          identifiers.textContent.includes(elementText)) {
+                    score += 2;
+                }
+            }
+            
+            // Return element with highest score (threshold of 5)
+            if (score >= 5) {
+                return element;
+            }
+        }
+        
+        return null;
+    }
+    
+    createErrorMarker(error) {
+        // Disable markers to avoid responsive layout issues
+        // Create hidden placeholder marker to keep existing code working
+        const marker = document.createElement('div');
+        marker.className = 'testing-error-marker-hidden';
+        marker.dataset.errorId = error.id;
+        marker.style.display = 'none';
+        marker.style.visibility = 'hidden';
+        marker.style.position = 'absolute';
+        marker.style.pointerEvents = 'none';
+        marker.errorData = error;
+        
+        // Add to body but hidden
+        document.body.appendChild(marker);
+        this.errorMarkers.push(marker);
+        
+        return marker;
+    }
+
+    createErrorBorder(error) {
+        const element = this.findErrorElement(error);
+        if (!element) return;
+        
+        // Create border overlay
+        const border = document.createElement('div');
+        border.className = 'testing-error-border';
+        border.dataset.errorId = error.id;
+        
+        // Position border to match element
+        this.positionErrorBorder(border, error, element);
+        
+        // Add click handler to show thread
+        border.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // Get hidden marker for compatibility
+            const marker = document.querySelector(`[data-error-id="${error.id}"]`);
+            if (marker) {
+                this.showCommentThread(error, marker);
+            }
+        });
+        
+        // Add hover effect and tooltip
+        let tooltip = null;
+        
+        border.addEventListener('mouseenter', () => {
+            border.classList.add('testing-border-hover');
+            
+            // Show tooltip
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.className = 'testing-comment-tooltip';
+                const latestComment = error.comments[error.comments.length - 1];
+                tooltip.innerHTML = `
+                    <div class="tooltip-header">Lỗi #${this.errors.indexOf(error) + 1} • ${error.comments.length} comment${error.comments.length > 1 ? 's' : ''}</div>
+                    <div class="tooltip-preview">${latestComment.text.substring(0, 80)}${latestComment.text.length > 80 ? '...' : ''}</div>
+                `;
+                
+                // Position tooltip above border
+                const rect = border.getBoundingClientRect();
+                tooltip.style.position = 'fixed';
+                tooltip.style.top = `${rect.top - 80}px`;
+                tooltip.style.left = `${rect.left}px`;
+                tooltip.style.zIndex = '10001';
+                
+                document.body.appendChild(tooltip);
+            }
+        });
+        
+        border.addEventListener('mouseleave', () => {
+            border.classList.remove('testing-border-hover');
+            
+            // Remove tooltip
+            if (tooltip) {
+                tooltip.remove();
+                tooltip = null;
+            }
+        });
+        
+        document.body.appendChild(border);
+        this.errorBorders.push(border);
+    }
+
+    positionErrorBorder(border, error, element) {
+        if (!element) {
+            element = this.findErrorElement(error);
+            if (!element) {
+                border.style.display = 'none';
+                return;
+            }
+        }
+        
+        const rect = element.getBoundingClientRect();
+        
+        // Position border to overlay the element
+        border.style.position = 'absolute';
+        border.style.top = `${rect.top + window.scrollY}px`;
+        border.style.left = `${rect.left + window.scrollX}px`;
+        border.style.width = `${rect.width}px`;
+        border.style.height = `${rect.height}px`;
+        border.style.display = 'block';
+        
+        // Add status class
+        border.className = `testing-error-border ${error.status || 'open'}`;
+    }
+
+    updateAllErrorBorders() {
+        this.errorBorders.forEach(border => {
+            const errorId = border.dataset.errorId;
+            const error = this.errors.find(e => e.id === errorId);
+            if (error) {
+                this.positionErrorBorder(border, error);
+            }
+        });
+    }
+
+    positionMarker(marker, error) {
+        const element = this.findErrorElement(error);
+        
+        if (element) {
+            // Đơn giản: attach marker vào element như border
+            this.attachMarkerToElement(marker, element, error);
+        } else {
+            // Element không tìm thấy - fallback
+            this.positionFallbackMarker(marker, error);
+        }
+    }
+
+    attachMarkerToElement(marker, element, error) {
+        // Set element as relative positioned container
+        const elementStyle = window.getComputedStyle(element);
+        if (elementStyle.position === 'static') {
+            element.style.position = 'relative';
+        }
+        
+        // Remove marker from previous parent
+        if (marker.parentElement && marker.parentElement !== element) {
+            marker.remove();
+        }
+        
+        // Attach marker to element
+        if (!element.contains(marker)) {
+            element.appendChild(marker);
+        }
+        
+        // Responsive positioning based on element size and viewport
+        this.setResponsiveMarkerPosition(marker, element, error);
+    }
+
+    setResponsiveMarkerPosition(marker, element, error) {
+        marker.className = 'testing-error-marker';
+        marker.style.position = 'absolute';
+        marker.style.display = 'flex';
+        marker.style.zIndex = '9999';
+        marker.style.transform = 'none';
+        
+        // Add status class
+        if (error.status === 'resolved') {
+            marker.classList.add('resolved');
+        }
+        
+        // Get element and viewport dimensions
+        const elementRect = element.getBoundingClientRect();
+        const markerSize = 24; // Default marker size
+        const offset = 8; // Offset from element edge
+        
+        // Smart positioning based on available space and element size
+        this.calculateOptimalMarkerPosition(marker, element, elementRect, markerSize, offset);
+    }
+
+    calculateOptimalMarkerPosition(marker, element, elementRect, markerSize, offset) {
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Calculate available space around element
+        const spaceRight = viewportWidth - elementRect.right;
+        const spaceLeft = elementRect.left;
+        const spaceTop = elementRect.top;
+        const spaceBottom = viewportHeight - elementRect.bottom;
+        
+        // Determine best position based on available space
+        if (spaceRight >= markerSize + offset && elementRect.width > 50) {
+            // Position to the right
+            marker.style.right = `-${markerSize + offset}px`;
+            marker.style.top = '50%';
+            marker.style.left = 'auto';
+            marker.style.bottom = 'auto';
+            marker.style.transform = 'translateY(-50%)';
+            marker.classList.add('position-right');
+        } else if (spaceLeft >= markerSize + offset && elementRect.width > 50) {
+            // Position to the left
+            marker.style.left = `-${markerSize + offset}px`;
+            marker.style.top = '50%';
+            marker.style.right = 'auto';
+            marker.style.bottom = 'auto';
+            marker.style.transform = 'translateY(-50%)';
+            marker.classList.add('position-left');
+        } else if (spaceTop >= markerSize + offset) {
+            // Position above
+            marker.style.top = `-${markerSize + offset}px`;
+            marker.style.left = '50%';
+            marker.style.right = 'auto';
+            marker.style.bottom = 'auto';
+            marker.style.transform = 'translateX(-50%)';
+            marker.classList.add('position-top');
+        } else if (spaceBottom >= markerSize + offset) {
+            // Position below
+            marker.style.bottom = `-${markerSize + offset}px`;
+            marker.style.left = '50%';
+            marker.style.right = 'auto';
+            marker.style.top = 'auto';
+            marker.style.transform = 'translateX(-50%)';
+            marker.classList.add('position-bottom');
+        } else {
+            // Fallback: position inside element (top-right corner)
+            marker.style.top = `${offset}px`;
+            marker.style.right = `${offset}px`;
+            marker.style.left = 'auto';
+            marker.style.bottom = 'auto';
+            marker.style.transform = 'none';
+            marker.classList.add('position-inside');
+            
+            // Make marker smaller if element is small
+            if (elementRect.width < 60 || elementRect.height < 60) {
+                marker.style.width = '18px';
+                marker.style.height = '18px';
+                marker.style.fontSize = '10px';
+                marker.classList.add('compact');
+            }
+        }
+        
+        // Mobile responsive adjustments
+        if (viewportWidth <= 768) {
+            this.adjustMarkerForMobile(marker, element, elementRect);
+        }
+    }
+
+    adjustMarkerForMobile(marker, element, elementRect) {
+        // On mobile, prefer positions that don't extend outside viewport
+        const markerSize = 20; // Smaller on mobile
+        const offset = 4;
+        
+        marker.style.width = `${markerSize}px`;
+        marker.style.height = `${markerSize}px`;
+        marker.style.fontSize = '11px';
+        marker.classList.add('mobile');
+        
+        // Force inside positioning on very small elements or tight spaces
+        if (elementRect.width < 80 || elementRect.height < 40) {
+            marker.style.top = '2px';
+            marker.style.right = '2px';
+            marker.style.left = 'auto';
+            marker.style.bottom = 'auto';
+            marker.style.transform = 'none';
+            marker.className = 'testing-error-marker mobile compact position-inside';
+            
+            // Check if marker has error data for resolved status
+            if (marker.errorData && marker.errorData.status === 'resolved') {
+                marker.classList.add('resolved');
+            }
+        }
+    }
+
+    findErrorElement(error) {
+        // Use new identifier system if available
+        if (error.elementIdentifiers) {
+            return this.findElementByIdentifiers(error.elementIdentifiers);
+        }
+        
+        // Fallback to legacy selector
+        if (error.selector) {
+            try {
+                return document.querySelector(error.selector);
+            } catch (e) {
+                console.log('Legacy selector failed:', e);
+            }
+        }
+        
+        return null;
+    }
+
+    // Function removed - không cần update position nữa
+
+    // Function removed - sử dụng attachMarkerToElement thay thế
+
+    positionFallbackMarker(marker, error) {
+        // Element không tìm thấy - attach vào body với absolute positioning
+        if (marker.parentElement) {
+            marker.remove();
+        }
+        
+        document.body.appendChild(marker);
+        marker.className = 'testing-error-marker fallback';
+        marker.style.position = 'fixed';
+        marker.style.top = '50%';
+        marker.style.left = '90%';
+        marker.style.transform = 'translate(-50%, -50%)';
+        marker.style.display = 'flex';
+        marker.style.zIndex = '9999';
+        marker.style.opacity = '0.7';
+        
+        // Add status class
+        if (error.status === 'resolved') {
+            marker.classList.add('resolved');
+        }
+    }
+
+    positionTooltip(tooltip, marker, error) {
+        const markerRect = marker.getBoundingClientRect();
+        const tooltipWidth = 280;
+        
+        let left = markerRect.left;
+        let top = markerRect.top - 80;
+        
+        // Adjust if tooltip goes off screen
+        if (left + tooltipWidth > window.innerWidth) {
+            left = window.innerWidth - tooltipWidth - 10;
+        }
+        if (left < 10) left = 10;
+        if (top < 10) top = markerRect.bottom + 10;
+        
+        tooltip.style.top = `${top + window.scrollY}px`;
+        tooltip.style.left = `${left + window.scrollX}px`;
+    }
+
+    isElementVisible(element) {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && 
+               rect.top < window.innerHeight && rect.bottom > 0 &&
+               rect.left < window.innerWidth && rect.right > 0;
+    }
+    
+    loadErrors() {
+        const browserAPI = window.chrome || window.browser;
+        browserAPI.storage.local.get([this.currentUrl], (result) => {
+            this.errors = result[this.currentUrl] || [];
+        });
+    }
+    
+    saveErrors() {
+        const browserAPI = window.chrome || window.browser;
+        browserAPI.storage.local.set({ [this.currentUrl]: this.errors });
+    }
+    
+    displayExistingErrors() {
+        const browserAPI = window.chrome || window.browser;
+        browserAPI.storage.local.get([this.currentUrl], (result) => {
+            const errors = result[this.currentUrl] || [];
+            this.errors = errors; // Update local errors array
+            errors.forEach(error => {
+                this.createErrorMarker(error);
+                this.createErrorBorder(error);
+                // Immediately position marker after creation
+                const marker = this.errorMarkers[this.errorMarkers.length - 1];
+                if (marker) {
+                    this.positionMarker(marker, error);
+                }
+            });
+        });
+    }
+    
+    showAllErrors() {
+        // Markers are disabled - only show borders
+        this.errorBorders.forEach(border => {
+            border.style.display = 'block';
+        });
+    }
+    
+    hideAllErrors() {
+        // Markers are disabled - only hide borders
+        this.errorBorders.forEach(border => {
+            border.style.display = 'none';
+        });
+    }
+    
+    highlightError(errorId) {
+        const error = this.errors.find(e => e.id === errorId);
+        if (!error) return;
+        
+        // Remove existing highlights
+        document.querySelectorAll('.testing-error-highlight').forEach(el => {
+            el.classList.remove('testing-error-highlight');
+        });
+        
+        // Try to find element using new identifier system
+        const element = this.findErrorElement(error);
+        if (element) {
+            element.classList.add('testing-error-highlight');
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Update marker position after scroll
+            setTimeout(() => {
+                const marker = document.querySelector(`[data-error-id="${errorId}"]`);
+                if (marker) {
+                    this.positionMarker(marker, error);
+                }
+            }, 500);
+            
+            // Remove highlight after 3 seconds
+            setTimeout(() => {
+                element.classList.remove('testing-error-highlight');
+            }, 1);
+        } else {
+            // Fallback scroll using relative position
+            if (error.position && error.position.relativePosition) {
+                const rel = error.position.relativePosition;
+                const top = (rel.topPercent / 100) * window.innerHeight;
+                const left = (rel.leftPercent / 100) * window.innerWidth;
+                
+                window.scrollTo({
+                    top: top - window.innerHeight / 2,
+                    left: left - window.innerWidth / 2,
+                    behavior: 'smooth'
+                });
+            } else if (error.position && error.position.top !== undefined) {
+                // Legacy position fallback
+                window.scrollTo({
+                    top: error.position.top - window.innerHeight / 2,
+                    left: error.position.left - window.innerWidth / 2,
+                    behavior: 'smooth'
+                });
+            }
+        }
+    }
+    
+    clearAllErrors() {
+        // Remove all markers
+        this.errorMarkers.forEach(marker => marker.remove());
+        this.errorMarkers = [];
+        
+        // Remove all borders
+        this.errorBorders.forEach(border => border.remove());
+        this.errorBorders = [];
+        
+        // Clear data
+        this.errors = [];
+        this.saveErrors();
+    }
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        new WebsiteTestingAssistant();
+    });
+} else {
+    new WebsiteTestingAssistant();
+} 
