@@ -304,7 +304,7 @@ body.testing-selection-mode [class*="swiper"] {
 
 /* Error border overlay styles */
 .testing-error-border {
-    position: absolute !important;
+    /* position: absolute !important;
     border: 3px solid #ff4757 !important;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
                 inset 0 0 0 1px rgba(255, 71, 87, 0.2) !important;
@@ -313,7 +313,7 @@ body.testing-selection-mode [class*="swiper"] {
     cursor: pointer !important;
     transition: all 0.2s ease !important;
     background: rgba(255, 71, 87, 0.05) !important;
-    border-radius: 2px !important;
+    border-radius: 2px !important; */
 }
 
 .testing-error-border:hover,

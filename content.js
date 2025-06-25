@@ -51,6 +51,48 @@ class WebsiteTestingAssistant {
                     transition: all 0.2s ease !important;
                 }
                 
+                .testing-error-border {
+                    position: absolute !important;
+                    pointer-events: none !important;
+                    z-index: 9999 !important;
+                    outline: 3px solid #ffc107 !important;
+                    outline-offset: 2px !important;
+                    background: transparent !important;
+                    transition: all 0.2s ease !important;
+                }
+                
+                .testing-error-border::after {
+                    content: '' !important;
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    pointer-events: auto !important;
+                    cursor: pointer !important;
+                }
+                
+                .testing-error-border.resolved {
+                    outline-color: #28a745 !important;
+                }
+                
+                .testing-error-border.closed {
+                    outline-color: #dc3545 !important;
+                }
+                
+                .testing-error-border:hover {
+                    outline-style: dashed !important;
+                    background: rgba(255, 193, 7, 0.1) !important;
+                }
+                
+                .testing-error-border.resolved:hover {
+                    background: rgba(40, 167, 69, 0.1) !important;
+                }
+                
+                .testing-error-border.closed:hover {
+                    background: rgba(220, 53, 69, 0.1) !important;
+                }
+                
                 .testing-highlight:after {
                     content: '' !important;
                     position: absolute !important;
@@ -63,8 +105,6 @@ class WebsiteTestingAssistant {
                     pointer-events: none !important;
                     z-index: 1 !important;
                 }
-                
-
                 
                 .testing-comment-modal {
                     position: fixed !important;
@@ -1101,13 +1141,37 @@ class WebsiteTestingAssistant {
         const element = this.findErrorElement(error);
         if (!element) return;
         
-        // Create border overlay
-        const border = document.createElement('div');
-        border.className = 'testing-error-border';
-        border.dataset.errorId = error.id;
+        // Check if border already exists
+        if (document.querySelector(`.testing-error-border[data-error-id="${error.id}"]`)) {
+            return;
+        }
         
-        // Position border to match element
-        this.positionErrorBorder(border, error, element);
+        // Create border element
+        const border = document.createElement('div');
+        border.className = `testing-error-border ${error.status || 'open'}`;
+        border.dataset.errorId = error.id;
+        border.dataset.targetElement = this.getElementIdentifiers(element).cssSelector;
+        
+        // Insert border before the target element
+        element.insertAdjacentElement('beforebegin', border);
+        
+        // Position border over the element
+        const updateBorderPosition = () => {
+            const rect = element.getBoundingClientRect();
+            border.style.width = `${rect.width}px`;
+            border.style.height = `${rect.height}px`;
+        };
+        
+        // Initial position
+        updateBorderPosition();
+        
+        // Update position on resize if needed
+        if (window.ResizeObserver) {
+            const resizeObserver = new ResizeObserver(updateBorderPosition);
+            resizeObserver.observe(element);
+            // Store observer reference for cleanup
+            border.resizeObserver = resizeObserver;
+        }
         
         // Add click handler to show thread
         border.addEventListener('click', (e) => {
@@ -1119,31 +1183,7 @@ class WebsiteTestingAssistant {
             border.classList.remove('testing-border-hover');
         });
         
-        document.body.appendChild(border);
         this.errorBorders.push(border);
-    }
-
-    positionErrorBorder(border, error, element) {
-        if (!element) {
-            element = this.findErrorElement(error);
-            if (!element) {
-                border.style.display = 'none';
-                return;
-            }
-        }
-        
-        const rect = element.getBoundingClientRect();
-        
-        // Position border to overlay the element
-        border.style.position = 'absolute';
-        border.style.top = `${rect.top + window.scrollY}px`;
-        border.style.left = `${rect.left + window.scrollX}px`;
-        border.style.width = `${rect.width}px`;
-        border.style.height = `${rect.height}px`;
-        border.style.display = 'block';
-        
-        // Add status class
-        border.className = `testing-error-border ${error.status || 'open'}`;
     }
 
     updateAllErrorBorders() {
@@ -1326,8 +1366,13 @@ class WebsiteTestingAssistant {
     }
     
     clearAllErrors() {
-        // Remove all borders
-        this.errorBorders.forEach(border => border.remove());
+        // Remove all borders and cleanup observers
+        this.errorBorders.forEach(border => {
+            if (border.resizeObserver) {
+                border.resizeObserver.disconnect();
+            }
+            border.remove();
+        });
         this.errorBorders = [];
         
         // Clear data
