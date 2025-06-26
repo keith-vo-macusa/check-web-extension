@@ -92,7 +92,7 @@ class WebsiteTestingAssistant {
                     padding: 24px !important;
                     border-radius: 12px !important;
                     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important;
-                    z-index: 10001 !important;
+                    z-index: 2147483647 !important;
                     width: 400px !important;
                     max-width: 90vw !important;
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
