@@ -9,6 +9,7 @@ class WebsiteTestingAssistant {
         this.errorBorders = [];
         this.userInfo  = null; 
         this.init();
+        this.rangeBreakpoint = 20;
     }
     
     // Simple UUID generator function
@@ -1204,17 +1205,7 @@ class WebsiteTestingAssistant {
 
         // Determine if border should be visible based on current breakpoint
         const width = window.innerWidth;
-        let currentBreakpoint;
-        if (width >= 1024) {
-            currentBreakpoint = 'desktop';
-        } else if (width >= 768 && width < 1024) {
-            currentBreakpoint = 'tablet';
-        } else {
-            currentBreakpoint = 'mobile';
-        }
-
-        // Set initial visibility
-        const shouldShow = !error.breakpoint || error.breakpoint.type === currentBreakpoint;
+        const shouldShow = !error.breakpoint || Math.abs(error.breakpoint.width - width) <= this.rangeBreakpoint;
         border.style.display = shouldShow ? 'block' : 'none';
     }
 
@@ -1247,15 +1238,7 @@ class WebsiteTestingAssistant {
 
     shouldShowErrorBorder(error) {
         const width = window.innerWidth;
-        let currentBreakpoint;
-        if (width >= 1024) {
-            currentBreakpoint = 'desktop';
-        } else if (width >= 768 && width < 1024) {
-            currentBreakpoint = 'tablet';
-        } else {
-            currentBreakpoint = 'mobile';
-        }
-        return !error.breakpoint || error.breakpoint.type === currentBreakpoint;
+        return !error.breakpoint || Math.abs(error.breakpoint.width - width) <= this.rangeBreakpoint;
     }
 
     updateAllErrorBorders() {
