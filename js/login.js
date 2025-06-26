@@ -24,6 +24,24 @@ class LoginManager {
                 this.handleLogin();
             }
         });
+
+        // Password visibility toggle
+        const togglePassword = $('#togglePassword');
+        const passwordInput = $('#password');
+        const eyeIcon = togglePassword.find('.eye-icon i');
+
+        togglePassword.click(function() {
+            // Toggle password visibility
+            const type = passwordInput.attr('type') === 'password' ? 'text' : 'password';
+            passwordInput.attr('type', type);
+            
+            // Toggle eye icon
+            if (type === 'password') {
+                eyeIcon.removeClass('fa-eye').addClass('fa-eye-slash');
+            } else {
+                eyeIcon.removeClass('fa-eye-slash').addClass('fa-eye');
+            }
+        });
     }
 
     async checkAuthStatus() {
@@ -97,8 +115,8 @@ class LoginManager {
                         self.showError(response.message);
                     }
                 },
-                error: function (response) {
-                    self.showError(response.message);
+                error: function (response, xhr, status, error) {
+                    self.showError(response.responseJSON.message);
                 },
                 complete: function (response) {
                     self.showLoading(false);
@@ -140,7 +158,7 @@ class LoginManager {
             $('#loginBtn').prop('disabled', true).text('Đang xác thực...');
         } else {
             $('#loading').hide();
-            $('#loginBtn').prop('disabled', false).text('🚀 Đăng nhập');
+            $('#loginBtn').prop('disabled', false).text('Đang đăng nhập...');
         }
     }
 
