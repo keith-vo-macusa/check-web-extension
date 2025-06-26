@@ -304,3 +304,122 @@ body {
 .logout-btn:hover {
     background: #545b62;
 }
+
+.breakpoint-indicator {
+    background: #f5f5f5;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.breakpoint-label {
+    color: #666;
+    font-size: 12px;
+}
+
+.breakpoint-value {
+    font-weight: bold;
+    color: #2196F3;
+    text-transform: capitalize;
+}
+
+.breakpoint-size {
+    color: #666;
+    font-size: 12px;
+}
+
+.error-breakpoint {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.breakpoint-type {
+    background: #E3F2FD;
+    color: #1976D2;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    text-transform: capitalize;
+}
+
+.breakpoint-width {
+    color: #666;
+    font-size: 12px;
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.open {
+    background: #FFF3E0;
+    color: #E65100;
+}
+
+.status-badge.resolved {
+    background: #E8F5E9;
+    color: #2E7D32;
+}
+
+.status-badge.closed {
+    background: #ECEFF1;
+    color: #455A64;
+}
+
+.breakpoint-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 8px;
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.filter-btn {
+    padding: 4px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+    background: #f0f0f0;
+}
+
+.filter-btn.active {
+    background: #2196F3;
+    color: white;
+    border-color: #1976D2;
+}
+
+.filter-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 8px 12px;
+    background: #E3F2FD;
+    border-radius: 4px;
+}
+
+.filter-label {
+    color: #666;
+    font-size: 12px;
+}
+
+.filter-value {
+    color: #1976D2;
+    font-weight: 500;
+    text-transform: capitalize;
+}

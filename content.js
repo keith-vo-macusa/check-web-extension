@@ -871,20 +871,20 @@ class WebsiteTestingAssistant {
             }
         };
 
-        console.log(identifiers);
-
-        // Test if we can find the element with these identifiers
-        const testFind = this.findElementByIdentifiers(identifiers);
-        if (!testFind || testFind !== this.selectedElement) {
-            console.error('Warning: Selected element might not be uniquely identified');
-            return;
-        }
+        const width = window.innerWidth;
 
         const rect = this.selectedElement.getBoundingClientRect();
+        
+        const currentBreakpoint = this.getCurrentBreakpoint(width);
+
         const error = {
             id: this.generateUUID(),
             elementIdentifiers: identifiers,
             timestamp: Date.now(),
+            breakpoint: {
+                type: currentBreakpoint,
+                width: width,
+            },
             position: {
                 viewport: {
                     width: window.innerWidth,
@@ -910,7 +910,6 @@ class WebsiteTestingAssistant {
             }]
         };
         
-        // Verify one more time
         if (this.findElementByIdentifiers(error.elementIdentifiers) === this.selectedElement) {
             this.errors.push(error);
             this.saveErrors();
@@ -918,13 +917,22 @@ class WebsiteTestingAssistant {
             
             const browserAPI = window.chrome || window.browser;
             browserAPI.runtime.sendMessage({ action: 'errorAdded' }).catch(() => {
-                // Popup might not be open, ignore error
+                alert('Failed to save error: Cannot reliably identify the selected element');
             });
         } else {
             console.error('Failed to save error: Cannot reliably identify the selected element');
         }
     }
-    
+
+    getCurrentBreakpoint(width) {
+        if (width >= 1024) {
+            return 'desktop';
+        } else if (width >= 768 && width < 1024) {
+            return 'tablet';
+        } else {
+            return 'mobile';
+        }
+    }
 
     getElementXPath(element) {
         // Kiểm tra phần tử hợp lệ
@@ -1196,6 +1204,21 @@ class WebsiteTestingAssistant {
         
         document.body.appendChild(border);
         this.errorBorders.push(border);
+
+        // Determine if border should be visible based on current breakpoint
+        const width = window.innerWidth;
+        let currentBreakpoint;
+        if (width >= 1024) {
+            currentBreakpoint = 'desktop';
+        } else if (width >= 768 && width < 1024) {
+            currentBreakpoint = 'tablet';
+        } else {
+            currentBreakpoint = 'mobile';
+        }
+
+        // Set initial visibility
+        const shouldShow = !error.breakpoint || error.breakpoint.type === currentBreakpoint;
+        border.style.display = shouldShow ? 'block' : 'none';
     }
 
     positionErrorBorder(border, error, element) {
@@ -1206,19 +1229,36 @@ class WebsiteTestingAssistant {
                 return;
             }
         }
+
+        const shouldShow = this.shouldShowErrorBorder(error);
+        border.style.display = shouldShow ? 'block' : 'none';
+        if (shouldShow) {
+            const rect = element.getBoundingClientRect();
         
-        const rect = element.getBoundingClientRect();
-        
-        // Position border to overlay the element
-        border.style.position = 'absolute';
-        border.style.top = `${rect.top + window.scrollY}px`;
-        border.style.left = `${rect.left + window.scrollX}px`;
-        border.style.width = `${rect.width}px`;
-        border.style.height = `${rect.height}px`;
-        border.style.display = 'block';
-        
-        // Add status class
-        border.className = `testing-error-border ${error.status || 'open'}`;
+            // Position border to overlay the element
+            border.style.position = 'absolute';
+            border.style.top = `${rect.top + window.scrollY}px`;
+            border.style.left = `${rect.left + window.scrollX}px`;
+            border.style.width = `${rect.width}px`;
+            border.style.height = `${rect.height}px`;
+            border.style.display = 'block';
+            
+            // Add status class
+            border.className = `testing-error-border ${error.status || 'open'}`;
+        }
+    }
+
+    shouldShowErrorBorder(error) {
+        const width = window.innerWidth;
+        let currentBreakpoint;
+        if (width >= 1024) {
+            currentBreakpoint = 'desktop';
+        } else if (width >= 768 && width < 1024) {
+            currentBreakpoint = 'tablet';
+        } else {
+            currentBreakpoint = 'mobile';
+        }
+        return !error.breakpoint || error.breakpoint.type === currentBreakpoint;
     }
 
     updateAllErrorBorders() {
@@ -1345,9 +1385,8 @@ class WebsiteTestingAssistant {
     }
     
     showAllErrors() {
-        this.errorBorders.forEach(border => {
-            border.style.display = 'block';
-        });
+        // Instead of showing all errors, only show errors for current breakpoint
+        this.updateErrorBordersVisibility();
     }
     
     hideAllErrors() {

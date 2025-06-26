@@ -213,58 +213,88 @@ $(document).ready(function() {
         });
     }
     
+    // Add breakpoint filter buttons to HTML
+    $('#controls').append(`
+        <div class="breakpoint-filters">
+            <button class="filter-btn active" data-breakpoint="all">Tất cả</button>
+            <button class="filter-btn" data-breakpoint="desktop">Desktop</button>
+            <button class="filter-btn" data-breakpoint="tablet">Tablet</button>
+            <button class="filter-btn" data-breakpoint="mobile">Mobile</button>
+        </div>
+    `);
+
+    let selectedBreakpoint = 'all';
+
+    // Handle breakpoint filter clicks
+    $('.filter-btn').click(function() {
+        $('.filter-btn').removeClass('active');
+        $(this).addClass('active');
+        selectedBreakpoint = $(this).data('breakpoint');
+        loadErrorsList();
+    });
+    
     function displayErrors(errors) {
         console.log('=== displayErrors START ===');
-        console.log('displayErrors called with:', errors);
-        console.log('errors.length:', errors ? errors.length : 'undefined');
+        console.log('Total errors:', errors.length);
         
         const container = $('#errorsList');
-        console.log('Container found:', container.length > 0);
-        console.log('Container HTML before:', container.html().substring(0, 100));
-        
-        if (!errors || errors.length === 0) {
-            console.log('No errors, showing empty message');
-            container.html('<div class="no-errors">Chưa có lỗi nào được ghi nhận</div>');
-            console.log('Empty message set, container HTML now:', container.html().substring(0, 100));
-            return;
-        }
-        
-        console.log('Clearing container and adding', errors.length, 'errors');
         container.empty();
         
-        errors.forEach((error, index) => {
-            console.log(`Processing error ${index + 1}:`, error);
+        if (!errors || errors.length === 0) {
+            container.html('<div class="no-errors">Chưa có lỗi nào được ghi nhận</div>');
+            return;
+        }
+
+        // Filter errors based on selected breakpoint
+        const filteredErrors = errors.filter(error => {
+            if (selectedBreakpoint === 'all') return true;
+            if (!error.breakpoint) return selectedBreakpoint === 'all';
+            return error.breakpoint.type === selectedBrerangesakpoint;
+        });
+
+        if (filteredErrors.length === 0) {
+            container.html(`<div class="no-errors">Không có lỗi nào ${selectedBreakpoint !== 'all' ? `trong breakpoint ${selectedBreakpoint}` : ''}</div>`);
+            return;
+        }
+
+        // Add breakpoint indicators
+        container.append(`
+            <div class="filter-indicator">
+                <span class="filter-label">Đang lọc:</span>
+                <span class="filter-value">${selectedBreakpoint === 'all' ? 'Tất cả breakpoint' : `Breakpoint ${selectedBreakpoint}`}</span>
+            </div>
+        `);
+
+        filteredErrors.forEach((error, index) => {
+            const errorItem = $('<div>').addClass('error-item');
             
-            // Get latest comment and comment count
-            const comments = error.comments || [{text: error.comment || 'Không có comment'}];
-            const latestComment = comments[comments.length - 1];
-            const commentCount = comments.length;
+            // Format timestamp
+            const date = new Date(error.timestamp);
+            const timeString = date.toLocaleString('vi-VN');
             
-            console.log(`Error ${index + 1} - Comments:`, commentCount, 'Latest:', latestComment);
+            // Get latest comment
+            const latestComment = error.comments[error.comments.length - 1];
             
-            // Get status info
-            const statusIcon = error.status === 'resolved' ? '✅' : 
-                              error.status === 'closed' ? '🔒' : '🔴';
-            const statusText = error.status === 'resolved' ? 'Đã giải quyết' : 
-                              error.status === 'closed' ? 'Đã đóng' : 'Đang mở';
+            // Create status badge
+            const statusBadge = $('<span>').addClass('status-badge');
+            if (error.status === 'resolved') {
+                statusBadge.addClass('resolved').text('Đã giải quyết');
+            } else if (error.status === 'closed') {
+                statusBadge.addClass('closed').text('Đã đóng');
+            } else {
+                statusBadge.addClass('open').text('Đang mở');
+            }
             
-            const errorItem = $(`
-                <div class="error-item ${error.status || 'open'}" data-id="${error.id}">
-                    <div class="error-header">
-                        <span class="error-number">#${index + 1}</span>
-                        <span class="error-status">
-                            <span class="status-icon">${statusIcon}</span>
-                            <span class="status-text">${statusText}</span>
-                        </span>
-                        <span class="comment-count">${commentCount} comment${commentCount > 1 ? 's' : ''}</span>
-                    </div>
-                    <div class="comment">${latestComment.text.length > 80 ? 
-                        latestComment.text.substring(0, 80) + '...' : 
-                        latestComment.text}</div>
-                    <div class="meta">
-                        <span class="selector">${getDisplaySelector(error)}</span>
-                        <span class="timestamp">${formatTime(error.timestamp)}</span>
-                    </div>
+            errorItem.html(`
+                <div class="error-header">
+                    <span class="error-number">#${index + 1}</span>
+                    ${statusBadge.prop('outerHTML')}
+                    <span class="error-time">${timeString}</span>
+                </div>
+                <div class="error-comment">${latestComment.text}</div>
+                <div class="error-breakpoint">
+                    <span class="breakpoint-type">${error.breakpoint ? error.breakpoint.type : 'all'}</span>
+                    <span class="breakpoint-width">${error.breakpoint ? error.breakpoint.width + 'px' : ''}</span>
                 </div>
             `);
             
@@ -273,10 +303,8 @@ $(document).ready(function() {
             });
             
             container.append(errorItem);
-            console.log(`Error ${index + 1} appended to container`);
         });
         
-        console.log('Final container HTML:', container.html().substring(0, 200));
         console.log('=== displayErrors END ===');
     }
     
