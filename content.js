@@ -7,7 +7,8 @@ class WebsiteTestingAssistant {
         this.commentModal = null;
         this.currentUrl = window.location.href;
         this.errorBorders = [];
-        this.userInfo  = null; 
+        this.userInfo = null;
+        this.apiEndpoint = 'https://checkwise.macusaone.com/api_domain_data.php';
         this.init();
         this.rangeBreakpoint = 20;
     }
@@ -33,7 +34,7 @@ class WebsiteTestingAssistant {
     
     async init() {
         this.userInfo = await this.getUserInfo();
-        this.loadErrors();
+        await this.fetchDataFromAPI();
         this.createStyles();
         this.bindEvents();
         this.displayExistingErrors();
@@ -730,11 +731,32 @@ class WebsiteTestingAssistant {
             editedAt: null
         };
         
+        // Add comment locally first
         error.comments.push(comment);
-        this.saveErrors();
         
-        // Update border if needed
-        this.updateErrorBorder(error);
+        // Get current feedback data
+        let feedbackData = await this.getFeedbackData();
+        
+        // Find and update the error
+        const pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
+        if (pathIndex !== -1) {
+            const errorIndex = feedbackData.path[pathIndex].data.findIndex(e => e.id === error.id);
+            if (errorIndex !== -1) {
+                feedbackData.path[pathIndex].data[errorIndex] = error;
+                
+                // Update API with full feedback data
+                const updatedInAPI = await this.updateToAPI(feedbackData);
+                
+                if (updatedInAPI) {
+                    this.saveErrors();
+                    this.updateErrorBorder(error);
+                } else {
+                    // Rollback if API update fails
+                    error.comments.pop();
+                    alert('Failed to save comment to server. Please try again.');
+                }
+            }
+        }
     }
 
     editComment(error, commentId, panel) {
@@ -834,20 +856,44 @@ class WebsiteTestingAssistant {
         }
     }
 
-    deleteError(errorId) {
-        // Remove from errors array
-        this.errors = this.errors.filter(e => e.id !== errorId);
-        this.saveErrors();
+    async deleteError(errorId) {
+        // Get current feedback data
+        let feedbackData = await this.getFeedbackData();
         
-        // Remove border
-        const border = document.querySelector(`.testing-error-border[data-error-id="${errorId}"]`);
-        if (border) {
-            border.remove();
-            this.errorBorders = this.errorBorders.filter(b => b !== border);
+        // Find and remove the error
+        const pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
+        if (pathIndex !== -1) {
+            const errorIndex = feedbackData.path[pathIndex].data.findIndex(e => e.id === errorId);
+            if (errorIndex !== -1) {
+                feedbackData.path[pathIndex].data.splice(errorIndex, 1);
+                
+                // Remove empty path entries
+                if (feedbackData.path[pathIndex].data.length === 0) {
+                    feedbackData.path.splice(pathIndex, 1);
+                }
+
+                // Update API with modified feedback data
+                const updatedInAPI = await this.updateToAPI(feedbackData);
+                
+                if (updatedInAPI) {
+                    // Update local state
+                    this.errors = this.errors.filter(e => e.id !== errorId);
+                    this.saveErrors();
+                    
+                    // Remove border
+                    const border = document.querySelector(`.testing-error-border[data-error-id="${errorId}"]`);
+                    if (border) {
+                        border.remove();
+                        this.errorBorders = this.errorBorders.filter(b => b !== border);
+                    }
+                    
+                    // Notify popup
+                    chrome.runtime.sendMessage({ action: 'errorDeleted' });
+                } else {
+                    alert('Failed to delete error from server. Please try again.');
+                }
+            }
         }
-        
-        // Notify popup
-        chrome.runtime.sendMessage({ action: 'errorDeleted' });
     }
 
     formatTime(timestamp) {
@@ -873,9 +919,7 @@ class WebsiteTestingAssistant {
         };
 
         const width = window.innerWidth;
-
         const rect = this.selectedElement.getBoundingClientRect();
-        
         const currentBreakpoint = this.getCurrentBreakpoint(width);
 
         const error = {
@@ -912,14 +956,35 @@ class WebsiteTestingAssistant {
         };
         
         if (this.findElementByIdentifiers(error.elementIdentifiers) === this.selectedElement) {
-            this.errors.push(error);
-            this.saveErrors();
-            this.createErrorBorder(error);
+            // Get current feedback data
+            let feedbackData = await this.getFeedbackData();
             
-            const browserAPI = window.chrome || window.browser;
-            browserAPI.runtime.sendMessage({ action: 'errorAdded' }).catch(() => {
-                alert('Failed to save error: Cannot reliably identify the selected element');
-            });
+            // Add new error to the appropriate path
+            let pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
+            if (pathIndex === -1) {
+                feedbackData.path.push({
+                    full_url: this.currentUrl,
+                    data: [error]
+                });
+            } else {
+                feedbackData.path[pathIndex].data.push(error);
+            }
+
+            // Update API with full feedback data
+            const savedToAPI = await this.updateToAPI(feedbackData);
+            
+            if (savedToAPI) {
+                this.errors.push(error);
+                this.saveErrors();
+                this.createErrorBorder(error);
+                
+                const browserAPI = window.chrome || window.browser;
+                browserAPI.runtime.sendMessage({ action: 'errorAdded' }).catch(() => {
+                    console.error('Failed to send message to extension');
+                });
+            } else {
+                alert('Failed to save error to server. Please try again.');
+            }
         } else {
             console.error('Failed to save error: Cannot reliably identify the selected element');
         }
@@ -1472,6 +1537,72 @@ class WebsiteTestingAssistant {
         this.saveErrors();
     }
     
+    async fetchDataFromAPI() {
+        try {
+            const response = await $.ajax({
+                url: this.apiEndpoint,
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    domain: new URL(this.currentUrl).hostname,
+                    action: 'get'
+                }
+            });
+
+            
+            
+            // Update local storage with API data
+            if (response) {
+                const data = response.data;
+                const browserAPI = window.chrome || window.browser;
+                await browserAPI.storage.local.set({
+                    feedback: {
+                        domain: new URL(this.currentUrl).hostname,
+                        path: data?.path || []
+                    }
+                });
+                
+                // Update local errors for current URL
+                const pathItem = data?.path.find(p => p.full_url === this.currentUrl);
+                this.errors = pathItem ? pathItem.data : [];
+                this.displayExistingErrors();
+            }
+        } catch (error) {
+            console.error('Error fetching data from API:', error);
+        }
+    }
+
+    async updateToAPI(feedbackData) {
+        try {
+            const response = await $.ajax({
+                url: this.apiEndpoint + '?action=set',
+                method: 'POST',
+                contentType: 'application/json',
+                data:  JSON.stringify(feedbackData)
+            });
+
+            if(response) {
+                return response.success;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating API:', error);
+            return false;
+        }
+    }
+
+    // Helper method to get full feedback data from storage
+    async getFeedbackData() {
+        const browserAPI = window.chrome || window.browser;
+        return new Promise((resolve) => {
+            browserAPI.storage.local.get(['feedback'], (result) => {
+                resolve(result.feedback || {
+                    domain: new URL(this.currentUrl).hostname,
+                    path: []
+                });
+            });
+        });
+    }
 }
 
 // Initialize when DOM is ready
