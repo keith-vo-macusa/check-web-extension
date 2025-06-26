@@ -1,5 +1,6 @@
 $(document).ready(function() {
     let isActive = false;
+    let errorsVisible = true; // Add state for errors visibility
     let selectedBreakpoint = 'all'; // Default to show all breakpoints
     
     console.log('Popup loaded');
@@ -16,6 +17,22 @@ $(document).ready(function() {
     }
     
     console.log('Using Chrome/Edge API');
+    
+    // Load saved visibility state from localStorage
+    const savedVisibility = localStorage.getItem('errorsVisible');
+    if (savedVisibility !== null) {
+        errorsVisible = savedVisibility === 'true';
+        $('#toggleErrors').prop('checked', errorsVisible);
+        
+        // Apply initial state to the page
+        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
+            if (tabs[0]) {
+                browserAPI.tabs.sendMessage(tabs[0].id, {
+                    action: errorsVisible ? 'showAllErrors' : 'hideAllErrors'
+                });
+            }
+        });
+    }
     
     // Load initial state
     loadExtensionState();
@@ -44,21 +61,20 @@ $(document).ready(function() {
         updateUI();
     });
     
-    // Show all errors
-    $('#showAllErrors').click(function() {
+    // Toggle errors visibility with switch
+    $('#toggleErrors').change(function() {
+        errorsVisible = $(this).prop('checked');
+        console.log('Toggle switch changed:', errorsVisible);
+        
+        // Save to localStorage
+        localStorage.setItem('errorsVisible', errorsVisible);
+        
         browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            browserAPI.tabs.sendMessage(tabs[0].id, {
-                action: 'showAllErrors'
-            });
-        });
-    });
-    
-    // Hide all errors
-    $('#hideAllErrors').click(function() {
-        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            browserAPI.tabs.sendMessage(tabs[0].id, {
-                action: 'hideAllErrors'
-            });
+            if (tabs[0]) {
+                browserAPI.tabs.sendMessage(tabs[0].id, {
+                    action: errorsVisible ? 'showAllErrors' : 'hideAllErrors'
+                });
+            }
         });
     });
     
@@ -68,13 +84,13 @@ $(document).ready(function() {
             browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
                 const url = tabs[0].url;
                 browserAPI.storage.local.set({[url]: []}, function() {
-                    loadErrorsList();
                     browserAPI.tabs.sendMessage(tabs[0].id, {
                         action: 'clearAllErrors'
                     });
                 });
             });
         }
+        loadErrorsList();
     });
     
     
@@ -119,9 +135,9 @@ $(document).ready(function() {
         const header = $('.header');
         header.append(`
             <div class="user-info">
-                <span class="user-id">${userInfo.id}</span>
-                <span class="user-name">${userInfo.name}</span>
-                <button id="logoutBtn" class="logout-btn">🚪 Đăng xuất</button>
+                <span class="user-id">ID: ${userInfo.id}</span>
+                <span class="user-name">Tên: ${userInfo.name}</span>
+                <button id="logoutBtn" class="logout-btn">Đăng xuất</button>
             </div>
         `);
 

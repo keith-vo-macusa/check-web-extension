@@ -231,13 +231,19 @@ class WebsiteTestingAssistant {
     }
 
     handleResize() {
-        this.updateAllMarkerPositions();
-        this.repositionCommentPanel();
+        const isVisible = localStorage.getItem('errorsVisible');
+        if (isVisible) {
+            this.updateAllMarkerPositions();
+            this.repositionCommentPanel();
+        }
     }
 
     handleScroll() {
-        this.updateAllMarkerPositions();
-        this.repositionCommentPanel();
+        const isVisible = localStorage.getItem('errorsVisible');
+        if (isVisible) {
+            this.updateAllMarkerPositions();
+            this.repositionCommentPanel();
+        }
     }
 
     updateAllMarkerPositions() {
@@ -1378,6 +1384,17 @@ class WebsiteTestingAssistant {
     showAllErrors() {
         // Instead of showing all errors, only show errors for current breakpoint
         this.updateErrorBordersVisibility();
+    }
+
+    updateErrorBordersVisibility() {
+        this.errorBorders.forEach(border => {
+            console.log(border);
+            const width = window.innerWidth;
+            const errorId = border.dataset.errorId;
+            const error = this.errors.find(e => e.id === errorId);
+            const shouldShow = this.shouldShowErrorBorder(error);
+            border.style.display = shouldShow ? 'block' : 'none';
+        });
     }
     
     hideAllErrors() {
