@@ -33,7 +33,7 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     width: 100% !important;
     height: 100% !important;
     background: rgba(0, 0, 0, 0.5) !important;
-    z-index: 999999 !important;
+    z-index: 2147483647 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
