@@ -213,6 +213,9 @@ class WebsiteTestingAssistant {
                 case 'clearAllErrors':
                     this.clearAllErrors();
                     break;
+                case 'removeError':
+                    this.removeError(request.errorId);
+                    break;
             }
         });
         
@@ -1451,6 +1454,24 @@ class WebsiteTestingAssistant {
         this.errors = [];
         this.saveErrors();
     }
+
+    removeError(errorId) {
+        // Remove error from local array
+        this.errors = this.errors.filter(error => error.id !== errorId);
+        
+        // Remove corresponding border elements
+        this.errorBorders = this.errorBorders.filter(border => {
+            if (border.dataset.errorId === errorId) {
+                border.remove();
+                return false;
+            }
+            return true;
+        });
+        
+        // Persist changes to storage
+        this.saveErrors();
+    }
+    
 }
 
 // Initialize when DOM is ready

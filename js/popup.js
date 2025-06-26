@@ -303,6 +303,7 @@ $(document).ready(function() {
                     <span class="error-number">#${index + 1}</span>
                     ${statusBadge.prop('outerHTML')}
                     <span class="error-time">${timeString}</span>
+                    <button class="delete-error-btn" title="Xóa lỗi này">🗑️</button>
                 </div>
                 <div class="error-comment">${latestComment.text}</div>
                 <div class="error-breakpoint">
@@ -310,6 +311,14 @@ $(document).ready(function() {
                     <span class="breakpoint-width">${error.breakpoint ? error.breakpoint.width + 'px' : ''}</span>
                 </div>
             `);
+            
+            // Add click handler for delete button
+            errorItem.find('.delete-error-btn').click(function(e) {
+                e.stopPropagation(); // Prevent triggering the error highlight
+                if (confirm('Bạn có chắc muốn xóa lỗi này không?')) {
+                    deleteError(error.id);
+                }
+            });
             
             errorItem.click(function() {
                 highlightError(error.id);
@@ -429,6 +438,57 @@ $(document).ready(function() {
         return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', {
             hour: '2-digit',
             minute: '2-digit'
+        });
+    }
+
+    function deleteError(errorId) {
+        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
+            if (!tabs || !tabs[0]) {
+                console.error('No active tab found');
+                return;
+            }
+            const url = tabs[0].url;
+
+            // Get current feedback data
+            browserAPI.storage.local.get(['feedback'], function(result) {
+                if (browserAPI.runtime.lastError) {
+                    console.error('Error accessing storage:', browserAPI.runtime.lastError);
+                    return;
+                }
+
+                let feedback = result.feedback || { path: [] };
+                const pathIndex = feedback.path.findIndex(p => p.full_url === url);
+
+                if (pathIndex !== -1) {
+                    // Find and remove the error with matching ID
+                    const errorIndex = feedback.path[pathIndex].data.findIndex(e => e.id === errorId);
+                    if (errorIndex !== -1) {
+                        feedback.path[pathIndex].data.splice(errorIndex, 1);
+
+                        // If no errors left for this URL, remove the path entry
+                        if (feedback.path[pathIndex].data.length === 0) {
+                            feedback.path.splice(pathIndex, 1);
+                        }
+
+                        // Save updated feedback data
+                        browserAPI.storage.local.set({ feedback }, function() {
+                            if (browserAPI.runtime.lastError) {
+                                console.error('Error saving to storage:', browserAPI.runtime.lastError);
+                                return;
+                            }
+
+                            // Notify content script to remove the error highlight
+                            browserAPI.tabs.sendMessage(tabs[0].id, {
+                                action: 'removeError',
+                                errorId: errorId
+                            });
+
+                            // Refresh the errors list
+                            loadErrorsList();
+                        });
+                    }
+                }
+            });
         });
     }
 }); 
