@@ -19,9 +19,7 @@ $(document).ready(function() {
     console.log('Using Chrome/Edge API');
     
     // Load saved visibility state from localStorage
-    const savedVisibility = localStorage.getItem('errorsVisible');
-    if (savedVisibility !== null) {
-        errorsVisible = savedVisibility === 'true';
+
         $('#toggleErrors').prop('checked', errorsVisible);
         
         // Apply initial state to the page
@@ -32,7 +30,7 @@ $(document).ready(function() {
                 });
             }
         });
-    }
+   
     
     // Load initial state
     loadExtensionState();
