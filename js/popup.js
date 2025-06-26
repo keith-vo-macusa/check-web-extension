@@ -1,5 +1,6 @@
 $(document).ready(function() {
     let isActive = false;
+    let selectedBreakpoint = 'all'; // Default to show all breakpoints
     
     console.log('Popup loaded');
     
@@ -223,8 +224,6 @@ $(document).ready(function() {
         </div>
     `);
 
-    let selectedBreakpoint = 'all';
-
     // Handle breakpoint filter clicks
     $('.filter-btn').click(function() {
         $('.filter-btn').removeClass('active');
@@ -249,7 +248,7 @@ $(document).ready(function() {
         const filteredErrors = errors.filter(error => {
             if (selectedBreakpoint === 'all') return true;
             if (!error.breakpoint) return selectedBreakpoint === 'all';
-            return error.breakpoint.type === selectedBrerangesakpoint;
+            return error.breakpoint.type === selectedBreakpoint;
         });
 
         if (filteredErrors.length === 0) {
@@ -257,11 +256,11 @@ $(document).ready(function() {
             return;
         }
 
-        // Add breakpoint indicators
+        // Add error count
         container.append(`
-            <div class="filter-indicator">
-                <span class="filter-label">Đang lọc:</span>
-                <span class="filter-value">${selectedBreakpoint === 'all' ? 'Tất cả breakpoint' : `Breakpoint ${selectedBreakpoint}`}</span>
+            <div class="error-count">
+                <span>Tổng số lỗi: ${filteredErrors.length}</span>
+                <span class="breakpoint-label">${selectedBreakpoint === 'all' ? 'Tất cả breakpoint' : `Breakpoint ${selectedBreakpoint}`}</span>
             </div>
         `);
 

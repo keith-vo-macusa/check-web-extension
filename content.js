@@ -231,22 +231,13 @@ class WebsiteTestingAssistant {
     }
 
     handleResize() {
-        // Debounce resize events
-        clearTimeout(this.resizeTimeout);
-        this.resizeTimeout = setTimeout(() => {
-            this.updateAllMarkerPositions();
-            this.repositionCommentPanel();
-        }, 1);
+        this.updateAllMarkerPositions();
+        this.repositionCommentPanel();
     }
 
     handleScroll() {
-        // Throttle scroll events for performance
-        if (!this.scrollThrottle) {
-            this.scrollThrottle = setTimeout(() => {
-                this.repositionCommentPanel();
-                this.scrollThrottle = null;
-            }, 1); // ~60fps
-        }
+        this.updateAllMarkerPositions();
+        this.repositionCommentPanel();
     }
 
     updateAllMarkerPositions() {
