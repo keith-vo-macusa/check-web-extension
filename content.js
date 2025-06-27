@@ -691,9 +691,9 @@ class WebsiteTestingAssistant {
         });
         
         // Resolve button
-        panel.querySelector('.btn-resolve').addEventListener('click', () => {
-            this.toggleResolveError(error, border);
-            this.refreshCommentThread(panel, error);
+        panel.querySelector('.btn-resolve').addEventListener('click', async () => {
+            await this.toggleResolveError(error, border);
+            await this.refreshCommentThread(panel, error);
         });
         
         // Delete button
@@ -705,7 +705,7 @@ class WebsiteTestingAssistant {
         });
         
         // Edit/Delete comment buttons
-        panel.addEventListener('click', (e) => {
+        panel.addEventListener('click', async (e) => {
             if (e.target.classList.contains('btn-edit-comment')) {
                 const commentId = e.target.dataset.commentId;
                 this.editComment(error, commentId, panel);
@@ -714,8 +714,8 @@ class WebsiteTestingAssistant {
             if (e.target.classList.contains('btn-delete-comment')) {
                 const commentId = e.target.dataset.commentId;
                 if (confirm('Bạn có chắc muốn xóa comment này?')) {
-                    this.deleteComment(error, commentId);
-                    this.refreshCommentThread(panel, error);
+                    await this.deleteComment(error, commentId);
+                    await this.refreshCommentThread(panel, error);
                 }
             }
         });
@@ -823,16 +823,76 @@ class WebsiteTestingAssistant {
         editForm.remove();
     }
 
-    deleteComment(error, commentId) {
-        error.comments = error.comments.filter(c => c.id !== commentId);
-        this.saveErrors();
-        this.updateErrorBorder(error);
+    async deleteComment(error, commentId) {
+        try {
+            // Store original comments for rollback if needed
+            const originalComments = [...error.comments];
+            
+            // Remove comment locally
+            error.comments = error.comments.filter(c => c.id !== commentId);
+            
+            // Find and update in this.errors array
+            const errorIndex = this.errors.findIndex(e => e.id === error.id);
+            if (errorIndex !== -1) {
+                this.errors[errorIndex] = error;
+            }
+            
+            // Save to localStorage first
+            await this.saveErrors();
+            console.log("Saved to localStorage");
+            
+            // Get updated feedback data and sync with API
+            let feedbackData = await this.getFeedbackData();
+            await this.updateToAPI(feedbackData);
+            console.log("Synced with API");
+            
+            // Update UI last
+            this.updateAllErrorBorders();
+            console.log("Comment deleted successfully");
+        } catch (err) {
+            console.error("Error in deleteComment:", err);
+            // Rollback changes if something fails
+            if (errorIndex !== -1) {
+                error.comments = originalComments;
+                this.errors[errorIndex] = error;
+                this.updateAllErrorBorders();
+            }
+        }
     }
 
-    toggleResolveError(error, border) {
-        error.status = error.status === 'resolved' ? 'open' : 'resolved';
-        this.saveErrors();
-        this.updateErrorBorder(error);
+    async toggleResolveError(error, border) {
+        try {
+            console.log("Before toggle - status:", error.status);
+            error.status = error.status == 'open' ? 'resolved' : 'open';
+            console.log("After toggle - status:", error.status);
+            
+            // Find and update in this.errors array
+            const errorIndex = this.errors.findIndex(e => e.id === error.id);
+            if (errorIndex !== -1) {
+                this.errors[errorIndex] = error;
+            }
+            
+            // Save to localStorage first
+            await this.saveErrors();
+            console.log("Saved to localStorage");
+            
+            // Get updated feedback data and sync with API
+            let feedbackData = await this.getFeedbackData();
+            await this.updateToAPI(feedbackData);
+            console.log("Synced with API");
+            
+            // Update UI last
+            this.updateAllErrorBorders();
+            console.log("Final error state:", error);
+        } catch (err) {
+            console.error("Error in toggleResolveError:", err);
+            // Rollback changes if something fails
+            if (errorIndex !== -1) {
+                error.status = error.status == 'open' ? 'resolved' : 'open';
+                this.errors[errorIndex] = error;
+                this.updateErrorBorder(error);
+            }
+        }
     }
 
     updateErrorBorder(error) {
@@ -842,7 +902,7 @@ class WebsiteTestingAssistant {
         }
     }
 
-    refreshCommentThread(panel, error) {
+    async refreshCommentThread(panel, error) {
         const commentsList = panel.querySelector(`#comments-${error.id}`);
         if (commentsList) {
             commentsList.innerHTML = this.renderComments(error.comments);
@@ -1360,45 +1420,51 @@ class WebsiteTestingAssistant {
         });
     }
     
-    saveErrors() {
+    async saveErrors() {
         const browserAPI = window.chrome || window.browser;
         
-        // Get all stored data first
-        browserAPI.storage.local.get(['feedback'], (result) => {
-            let newStructure = result.feedback;
-            
-            // Initialize new structure if it doesn't exist
-            if (!newStructure) {
-                try {
-                    const domain = (new URL(this.currentUrl)).hostname;
-                    newStructure = {
-                        domain: domain,
-                        path: []
-                    };
-                } catch (e) {
-                    newStructure = {
-                        domain: "",
-                        path: []
-                    };
+        return new Promise((resolve, reject) => {
+            // Get all stored data first
+            browserAPI.storage.local.get(['feedback'], (result) => {
+                let newStructure = result.feedback;
+                
+                // Initialize new structure if it doesn't exist
+                if (!newStructure) {
+                    try {
+                        const domain = (new URL(this.currentUrl)).hostname;
+                        newStructure = {
+                            domain: domain,
+                            path: []
+                        };
+                    } catch (e) {
+                        newStructure = {
+                            domain: "",
+                            path: []
+                        };
+                    }
                 }
-            }
-            
-            // Update the current URL's data in the new structure
-            let pathIndex = newStructure.path.findIndex(p => p.full_url === this.currentUrl);
-            
-            if (pathIndex >= 0) {
-                newStructure.path[pathIndex].data = this.errors;
-            } else {
-                newStructure.path.push({
-                    full_url: this.currentUrl,
-                    data: this.errors
+                
+                // Update the current URL's data in the new structure
+                let pathIndex = newStructure.path.findIndex(p => p.full_url === this.currentUrl);
+                
+                if (pathIndex >= 0) {
+                    newStructure.path[pathIndex].data = this.errors;
+                } else {
+                    newStructure.path.push({
+                        full_url: this.currentUrl,
+                        data: this.errors
+                    });
+                }
+                
+                // Save the new structure
+                browserAPI.storage.local.set({ feedback: newStructure }, () => {
+                    if (browserAPI.runtime.lastError) {
+                        console.error('Error saving to storage:', browserAPI.runtime.lastError);
+                        reject(browserAPI.runtime.lastError);
+                    } else {
+                        resolve();
+                    }
                 });
-            }
-            
-            // Save the new structure
-            browserAPI.storage.local.set({ 
-                feedback: newStructure,
-                // [this.currentUrl]: this.errors // Keep old format for compatibility during migration
             });
         });
     }
