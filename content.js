@@ -35,157 +35,10 @@ class WebsiteTestingAssistant {
     async init() {
         this.userInfo = await this.getUserInfo();
         await this.fetchDataFromAPI();
-        this.createStyles();
         this.bindEvents();
         this.displayExistingErrors();
     }
-    createStyles() {
-        if (!document.getElementById('testing-assistant-styles')) {
-            const style = document.createElement('style');
-            style.id = 'testing-assistant-styles';
-            style.textContent = `
-                .testing-highlight {
-                    outline: 3px solid #007bff !important;
-                    outline-offset: 2px !important;
-                    position: relative !important;
-                    z-index: 2147483646 !important;
-                    transition: all 0.2s ease !important;
-                    pointer-events: auto !important;
-                    transform: translateZ(0) !important;
-                    isolation: isolate !important;
-                    /* Remove background property completely */
-                }
 
-                .testing-highlight::before {
-                    content: '' !important;
-                    position: absolute !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    right: 0 !important;
-                    bottom: 0 !important;
-                    background: rgba(0, 123, 255, 0.1) !important;
-                    pointer-events: none !important;
-                    z-index: 2147483646 !important;
-                    mix-blend-mode: multiply !important; /* This helps preserve background images */
-                }
-                
-                .testing-highlight:after {
-                    content: '' !important;
-                    position: absolute !important;
-                    top: -3px !important;
-                    left: -3px !important;
-                    right: -3px !important;
-                    bottom: -3px !important;
-                    border: 2px dashed rgba(0, 123, 255, 0.5) !important;
-                    border-radius: 4px !important;
-                    pointer-events: none !important;
-                    z-index: 2147483646 !important;
-                    background: transparent !important;
-                }
-                
-
-                
-                .testing-comment-modal {
-                    position: fixed !important;
-                    top: 50% !important;
-                    left: 50% !important;
-                    transform: translate(-50%, -50%) !important;
-                    background: white !important;
-                    padding: 24px !important;
-                    border-radius: 12px !important;
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important;
-                    z-index: 2147483647 !important;
-                    width: 400px !important;
-                    max-width: 90vw !important;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
-                }
-                
-                .testing-modal-backdrop {
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100% !important;
-                    height: 100% !important;
-                    background: rgba(0, 0, 0, 0.5) !important;
-                    z-index: 10000 !important;
-                }
-                
-                .testing-comment-modal h3 {
-                    margin: 0 0 16px 0 !important;
-                    font-size: 18px !important;
-                    color: #2c3e50 !important;
-                    font-weight: 600 !important;
-                }
-                
-                .testing-comment-modal textarea {
-                    width: 100% !important;
-                    height: 100px !important;
-                    border: 2px solid #e9ecef !important;
-                    border-radius: 6px !important;
-                    padding: 12px !important;
-                    font-size: 14px !important;
-                    resize: vertical !important;
-                    font-family: inherit !important;
-                    box-sizing: border-box !important;
-                }
-                
-                .testing-comment-modal textarea:focus {
-                    outline: none !important;
-                    border-color: #007bff !important;
-                }
-                
-                .testing-modal-buttons {
-                    display: flex !important;
-                    gap: 12px !important;
-                    margin-top: 16px !important;
-                    justify-content: flex-end !important;
-                }
-                
-                .testing-modal-btn {
-                    padding: 10px 20px !important;
-                    border: none !important;
-                    border-radius: 6px !important;
-                    font-size: 14px !important;
-                    font-weight: 500 !important;
-                    cursor: pointer !important;
-                    transition: all 0.2s ease !important;
-                    font-family: inherit !important;
-                }
-                
-                .testing-modal-btn-primary {
-                    background: #007bff !important;
-                    color: white !important;
-                }
-                
-                .testing-modal-btn-primary:hover {
-                    background: #0056b3 !important;
-                }
-                
-                .testing-modal-btn-secondary {
-                    background: #6c757d !important;
-                    color: white !important;
-                }
-                
-                .testing-modal-btn-secondary:hover {
-                    background: #545b62 !important;
-                }
-                
-                .testing-error-highlight {
-                    outline: 3px solid #ffc107 !important;
-                    outline-offset: 2px !important;
-                    background: rgba(255, 193, 7, 0.1) !important;
-                    animation: testing-pulse 2s ease-in-out !important;
-                }
-                
-                @keyframes testing-pulse {
-                    0%, 100% { outline-color: #ffc107; }
-                    50% { outline-color: #ff6b6b; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-    }
-    
     bindEvents() {
         // Cross-browser API wrapper
         const browserAPI = window.chrome || window.browser;
@@ -229,7 +82,7 @@ class WebsiteTestingAssistant {
         // Listen for DOM changes that might affect element positions
         if (window.ResizeObserver) {
             this.resizeObserver = new ResizeObserver(() => {
-                this.updateAllMarkerPositions();
+                this.updateAllErrorBorders();
             });
             this.resizeObserver.observe(document.body);
         }
@@ -238,22 +91,15 @@ class WebsiteTestingAssistant {
     handleResize() {
         const isVisible = localStorage.getItem('errorsVisible');
         if (isVisible) {
-            this.updateAllMarkerPositions();
-            this.repositionCommentPanel();
+            this.updateAllErrorBorders();
         }
     }
 
     handleScroll() {
         const isVisible = localStorage.getItem('errorsVisible');
         if (isVisible) {
-            this.updateAllMarkerPositions();
-            this.repositionCommentPanel();
+            this.updateAllErrorBorders();
         }
-    }
-
-    updateAllMarkerPositions() {
-        // Update error borders
-        this.updateAllErrorBorders();
     }
     
     activate() {
@@ -270,18 +116,7 @@ class WebsiteTestingAssistant {
         
         // Add class to body
         document.body.classList.add('testing-selection-mode');
-        
-        // Add style for elementor elements only
-        const style = document.createElement('style');
-        style.id = 'testing-cursor-style';
-        style.textContent = `
-            body.testing-selection-mode .elementor-element {
-                cursor: crosshair !important;
-            }
-        `;
-        document.head.appendChild(style);
-        
-        console.log('Testing Assistant activated');
+
     }
     
     deactivate() {
@@ -293,32 +128,8 @@ class WebsiteTestingAssistant {
         
         document.body.classList.remove('testing-selection-mode');
         
-        // Remove cursor style
-        const cursorStyle = document.getElementById('testing-cursor-style');
-        if (cursorStyle) {
-            cursorStyle.remove();
-        }
-        
         this.removeHighlight();
         
-        console.log('Testing Assistant deactivated');
-    }
-    
-    tempDisableSelection() {
-        if (!this.isActive) return;
-        
-        // Store current state
-        this.wasActiveBeforeModal = true;
-        
-        // Remove event listeners temporarily
-        document.removeEventListener('click', this.boundHandleClick, true);
-        document.removeEventListener('mouseover', this.boundHandleMouseOver, true);
-        document.removeEventListener('mouseout', this.boundHandleMouseOut, true);
-        
-        // Remove crosshair cursor
-        document.body.classList.remove('testing-selection-mode');
-        document.body.style.cursor = '';
-        this.removeHighlight();
     }
     
     restoreSelection() {
@@ -400,9 +211,6 @@ class WebsiteTestingAssistant {
     showCommentModal() {
         if (!this.selectedElement) return;
         
-        // Temporarily disable selection mode
-        this.tempDisableSelection();
-        
         // Create backdrop
         const backdrop = document.createElement('div');
         backdrop.className = 'testing-modal-backdrop';
@@ -438,34 +246,15 @@ class WebsiteTestingAssistant {
         });
         
         backdrop.addEventListener('click', (e) => {
-            // Only close if clicking on backdrop, not modal content
             if (e.target === backdrop) {
                 this.closeModal();
             }
-        });
-        
-        // Handle Enter key
-        textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.ctrlKey) {
-                saveBtn.click();
-            }
-            if (e.key === 'Escape') {
-                this.closeModal();
-            }
-        });
-        
-        // Prevent modal content from triggering selection
-        modal.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
+        }); 
         
         document.body.appendChild(backdrop);
         document.body.appendChild(modal);
         
         this.commentModal = { backdrop, modal };
-        
-        // Focus textarea
-        setTimeout(() => textarea.focus(), 0);
     }
     
     closeModal() {
@@ -474,38 +263,28 @@ class WebsiteTestingAssistant {
             this.commentModal.modal.remove();
             this.commentModal = null;
         }
-        this.removeHighlight();
-        
-        // Re-enable selection mode if it was active
-        this.restoreSelection();
+        // this.removeHighlight();
     }
 
     showCommentThread(error, border) {
         // Close any existing thread
         this.closeCommentThread();
-        
-        // Temporarily disable selection if active
-        this.tempDisableSelection();
-        
+                
         // Create backdrop
         const backdrop = document.createElement('div');
-        backdrop.className = 'testing-thread-backdrop';
+        backdrop.className = 'testing-modal-backdrop';
         backdrop.addEventListener('click', () => this.closeCommentThread());
         
         // Create thread panel
         const panel = document.createElement('div');
-        panel.className = 'testing-comment-thread';
-        
-        // Smart positioning with fixed position
-        this.positionCommentPanel(panel, border);
-        
+        panel.className = 'testing-comment-modal';
         // Create panel content
         panel.innerHTML = `
             <div class="thread-header">
                 <div class="thread-title">
                     <span class="thread-icon">💬</span>
                     <span>Lỗi #${this.errors.indexOf(error) + 1}</span>
-                    <div class="thread-status status-${error.status}">${this.getStatusText(error.status)}</div>
+                    <div class="thread-status status-${error.status}">${window.getStatusText(error.status)}</div>
                 </div>
                 <button class="thread-close" aria-label="Đóng">×</button>
             </div>
@@ -531,83 +310,10 @@ class WebsiteTestingAssistant {
             </div>
         `;
         
-        // Stop propagation on panel clicks
-        panel.addEventListener('click', (e) => e.stopPropagation());
-        
-        // Bind events
         this.bindThreadEvents(panel, error, border);
-        
         document.body.appendChild(backdrop);
         document.body.appendChild(panel);
-        
         this.commentThread = { backdrop, panel, error, border };
-        
-        // Focus reply input
-        setTimeout(() => {
-            const replyInput = panel.querySelector('.reply-input');
-            if (replyInput) replyInput.focus();
-        }, 100);
-
-        // Reposition on scroll/resize
-        this.repositionCommentPanel();
-    }
-
-    positionCommentPanel(panel, border) {
-        panel.className = 'testing-comment-thread';
-        panel.style.position = 'fixed';
-        
-        if (border) {
-            const rect = border.getBoundingClientRect();
-            const spaceRight = window.innerWidth - rect.right;
-            const spaceLeft = rect.left;
-            const spaceBelow = window.innerHeight - rect.bottom;
-            
-            if (spaceRight > 350) {
-                panel.style.left = `${rect.right + 10}px`;
-                panel.style.top = `${rect.top}px`;
-            } else if (spaceLeft > 350) {
-                panel.style.right = `${window.innerWidth - rect.left + 10}px`;
-                panel.style.top = `${rect.top}px`;
-            } else {
-                // Center on screen
-                panel.style.left = '50%';
-                panel.style.top = '50%';
-                panel.style.transform = 'translate(-50%, -50%)';
-            }
-            
-            // Adjust if panel goes below viewport
-            if (spaceBelow < 300 && panel.style.transform !== 'translate(-50%, -50%)') {
-                panel.style.top = `${Math.max(10, rect.bottom - 400)}px`;
-            }
-        } else {
-            // Fallback: center on screen
-            panel.style.left = '50%';
-            panel.style.top = '50%';
-            panel.style.transform = 'translate(-50%, -50%)';
-        }
-        
-        // Ensure panel stays within viewport bounds
-        setTimeout(() => {
-            const panelRect = panel.getBoundingClientRect();
-            if (panelRect.bottom > window.innerHeight - 10) {
-                panel.style.top = `${window.innerHeight - panelRect.height - 10}px`;
-            }
-            if (panelRect.top < 10) {
-                panel.style.top = '10px';
-            }
-        }, 10);
-    }
-
-    repositionCommentPanel() {
-        if (!this.commentThread) return;
-        
-        const { panel, border } = this.commentThread;
-        
-        // Check if border is still visible and valid
-        if (border && document.body.contains(border)) {
-            // Reposition panel to follow border
-            this.positionCommentPanel(panel, border);
-        }
     }
 
     closeCommentThread() {
@@ -621,19 +327,9 @@ class WebsiteTestingAssistant {
             
             this.commentThread = null;
         }
-        
-        // Re-enable selection mode if it was active
-        this.restoreSelection();
     }
 
-    getStatusText(status) {
-        const statusMap = {
-            'open': 'Mở',
-            'resolved': 'Đã giải quyết',
-            'closed': 'Đã đóng'
-        };
-        return statusMap[status] || 'Mở';
-    }
+   
 
     renderComments(comments) {
         return comments.map(comment => `
@@ -644,7 +340,7 @@ class WebsiteTestingAssistant {
                 <div class="comment-content">
                     <div class="comment-header">
                         <span class="comment-author">${comment.author?.name}</span>
-                        <span class="comment-time">${this.formatTime(comment.timestamp)}</span>
+                        <span class="comment-time">${window.formatTime(comment.timestamp)}</span>
                         ${comment.edited ? '<span class="comment-edited">(đã chỉnh sửa)</span>' : ''}
                     </div>
                     <div class="comment-text" data-original="${comment.text}">${comment.text}</div>
@@ -682,14 +378,7 @@ class WebsiteTestingAssistant {
         replyCancel.addEventListener('click', () => {
             replyInput.value = '';
         });
-        
-        // Ctrl+Enter to send
-        replyInput.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                replySend.click();
-            }
-        });
-        
+                
         // Resolve button
         panel.querySelector('.btn-resolve').addEventListener('click', async () => {
             await this.toggleResolveError(error, border);
@@ -987,31 +676,17 @@ class WebsiteTestingAssistant {
         }
     }
 
-    formatTime(timestamp) {
-        const now = Date.now();
-        const diff = now - timestamp;
-        
-        if (diff < 60000) return 'Vừa xong';
-        if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
-        if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
-        return `${Math.floor(diff / 86400000)} ngày trước`;
-    }
+    
     
     async saveError(comment) {
         if (!this.selectedElement) return;
         
         const identifiers = {
-            cssSelector: this.getElementCSSSelector(this.selectedElement),
-            xpath: this.getElementXPath(this.selectedElement),
-            attributes: {
-                id: this.selectedElement.id,
-                class: this.selectedElement.className
-            }
+            xpath: window.getElementXPath(this.selectedElement),
         };
 
         const width = window.innerWidth;
-        const rect = this.selectedElement.getBoundingClientRect();
-        const currentBreakpoint = this.getCurrentBreakpoint(width);
+        const currentBreakpoint = window.getCurrentBreakpoint(width);
 
         const error = {
             id: this.generateUUID(),
@@ -1025,12 +700,6 @@ class WebsiteTestingAssistant {
                 viewport: {
                     width: window.innerWidth,
                     height: window.innerHeight
-                },
-                relativePosition: {
-                    topPercent: (rect.top / window.innerHeight) * 100,
-                    leftPercent: (rect.left / window.innerWidth) * 100,
-                    widthPercent: (rect.width / window.innerWidth) * 100,
-                    heightPercent: (rect.height / window.innerHeight) * 100
                 }
             },
             url: this.currentUrl,
@@ -1046,7 +715,7 @@ class WebsiteTestingAssistant {
             }]
         };
         
-        if (this.findElementByIdentifiers(error.elementIdentifiers) === this.selectedElement) {
+        if (window.findElementByIdentifiers(error.elementIdentifiers) === this.selectedElement) {
             // Get current feedback data
             let feedbackData = await this.getFeedbackData();
             
@@ -1080,261 +749,6 @@ class WebsiteTestingAssistant {
             console.error('Failed to save error: Cannot reliably identify the selected element');
         }
     }
-
-    getCurrentBreakpoint(width) {
-        if (width >= 1024) {
-            return 'desktop';
-        } else if (width >= 768 && width < 1024) {
-            return 'tablet';
-        } else {
-            return 'mobile';
-        }
-    }
-
-    getElementXPath(element) {
-        // Kiểm tra phần tử hợp lệ
-        if (!element || element.nodeType !== 1) return '';
-    
-        // Trả về XPath dựa trên ID nếu có
-        if (element.id) {
-            return `//*[@id="${CSS.escape(element.id)}"]`;
-        }
-    
-        const parts = [];
-        let current = element;
-    
-        while (current && current !== document.documentElement) {
-            const tagName = current.tagName.toLowerCase();
-    
-            // Nếu phần tử hiện tại hoặc cha có ID, sử dụng nó và dừng
-            if (current.id) {
-                parts.unshift(`*[@id="${CSS.escape(current.id)}"]`);
-                break;
-            }
-    
-            // Lấy tất cả anh em cùng tên thẻ
-            const siblings = Array.from(current.parentElement?.children || [])
-                .filter(sibling => sibling.tagName.toLowerCase() === tagName);
-            const index = siblings.indexOf(current) + 1;
-    
-            // Chỉ thêm chỉ số nếu có nhiều anh em cùng tên thẻ
-            const selector = siblings.length > 1 ? `${tagName}[${index}]` : tagName;
-            parts.unshift(selector);
-    
-            current = current.parentElement;
-        }
-    
-        return parts.length > 0 ? '//' + parts.join('/') : '/';
-    }
-
-    getElementCSSSelector(element) {
-        // Kiểm tra phần tử hợp lệ
-        if (!element || element.nodeType !== 1) return '';
-    
-        // Trả về bộ chọn ID nếu có
-        if (element.id) {
-            return `#${CSS.escape(element.id)}`;
-        }
-    
-        let selector = '';
-    
-        // Thêm các lớp hợp lệ
-        if (element.className) {
-            const classes = element.className.split(' ')
-                .filter(c => c.trim() && !c.startsWith('testing-'));
-            if (classes.length > 0) {
-                selector = '.' + classes.map(c => CSS.escape(c)).join('.');
-            }
-        }
-    
-        // Nếu không có lớp, sử dụng tên thẻ
-        if (!selector) {
-            selector = element.tagName.toLowerCase();
-        }
-    
-        // Thêm :nth-child nếu cần
-        try {
-            const parent = element.parentElement;
-            if (parent && document.querySelectorAll(selector).length > 1) {
-                const siblings = Array.from(parent.children)
-                    .filter(child => child.tagName.toLowerCase() === element.tagName.toLowerCase());
-                const index = siblings.indexOf(element) + 1;
-                if (siblings.length > 1) {
-                    selector += `:nth-child(${index})`;
-                }
-            }
-        } catch (e) {
-            console.warn('Error checking :nth-child:', e);
-        }
-    
-        // Kiểm tra tính duy nhất và thêm ngữ cảnh cha
-        try {
-            if (document.querySelectorAll(selector).length > 1 && element.parentElement) {
-                const parentSelector = getElementCSSSelector(element.parentElement);
-                if (parentSelector) {
-                    selector = `${parentSelector} > ${selector}`;
-                }
-            }
-        } catch (e) {
-            console.warn('Error checking selector uniqueness:', e);
-        }
-    
-        // Thêm thuộc tính nếu vẫn không duy nhất
-        if (document.querySelectorAll(selector).length > 1) {
-            const importantAttrs = ['data-testid', 'data-id', 'name', 'type', 'role'];
-            for (const attr of importantAttrs) {
-                if (element.hasAttribute(attr)) {
-                    selector += `[${attr}="${CSS.escape(element.getAttribute(attr))}"]`;
-                    break;
-                }
-            }
-        }
-    
-        return selector;
-    }
-
-    getJsPath(element) {
-        // Kiểm tra phần tử hợp lệ
-        if (!element || element.nodeType !== 1) return '';
-    
-        // Trả về document.getElementById nếu có ID
-        if (element.id) {
-            return `document.getElementById('${CSS.escape(element.id)}')`;
-        }
-    
-        let selector = '';
-    
-        // Thêm lớp nếu có
-        if (element.className) {
-            const classes = element.className.split(' ')
-                .filter(c => c.trim() && !c.startsWith('testing-'));
-            if (classes.length > 0) {
-                selector = '.' + classes.map(c => CSS.escape(c)).join('.');
-            }
-        }
-    
-        // Nếu không có lớp, sử dụng tên thẻ
-        if (!selector) {
-            selector = element.tagName.toLowerCase();
-        }
-    
-        // Thêm :nth-child nếu cần
-        try {
-            const parent = element.parentElement;
-            if (parent) {
-                const siblings = Array.from(parent.children);
-                const index = siblings.indexOf(element) + 1;
-                if (document.querySelectorAll(selector).length > 1 && siblings.length > 1) {
-                    selector += `:nth-child(${index})`;
-                }
-            }
-        } catch (e) {
-            console.warn('Error checking :nth-child:', e);
-        }
-    
-        // Kiểm tra tính duy nhất và thêm ngữ cảnh cha
-        try {
-            if (document.querySelectorAll(selector).length > 1 && element.parentElement) {
-                const parentSelector = getElementCSSSelector(element.parentElement);
-                if (parentSelector) {
-                    selector = `${parentSelector} > ${selector}`;
-                }
-            }
-        } catch (e) {
-            console.warn('Error checking selector uniqueness:', e);
-        }
-    
-        return `document.querySelector('${selector}')`;
-    }
-
-    getElementAttributes(element) {
-        const attrs = {};
-        const importantAttrs = ['id', 'class', 'data-testid', 'data-id', 'name', 'type', 'role', 'href'];
-        
-        importantAttrs.forEach(attr => {
-            if (element.hasAttribute(attr)) {
-                attrs[attr] = element.getAttribute(attr);
-            }
-        });
-        
-        return attrs;
-    }
-
-    findElementByIdentifiers(identifiers) {
-        // Thử CSS selector
-        try {
-            const elements = document.querySelectorAll(identifiers.cssSelector);
-            if (elements.length === 1) return elements[0];
-            if (elements.length > 1) {
-                console.warn('CSS selector matches multiple elements:', identifiers.cssSelector);
-            }
-        } catch (e) {
-            console.warn('CSS selector failed:', e);
-        }
-    
-        // Thử XPath
-        try {
-            const xpathResult = document.evaluate(
-                identifiers.xpath,
-                document,
-                null,
-                XPathResult.FIRST_ORDERED_NODE_TYPE,
-                null
-            );
-            if (xpathResult.singleNodeValue) return xpathResult.singleNodeValue;
-        } catch (e) {
-            console.warn('XPath failed:', e);
-        }
-    
-        // Thử thuộc tính ID
-        if (identifiers.attributes?.id) {
-            const element = document.getElementById(identifiers.attributes.id);
-            if (element) return element;
-        }
-    
-        // Cảnh báo nếu không tìm thấy
-        console.warn('No unique element found for identifiers:', identifiers);
-        return null;
-    }
-
-    findElementByAttributes(identifiers) {
-        const elements = document.getElementsByTagName(identifiers.tagName);
-        let bestElement = null;
-        let highestScore = 0;
-    
-        for (let element of elements) {
-            let score = 0;
-            for (const [attr, value] of Object.entries(identifiers.attributes || {})) {
-                if (element.getAttribute(attr) === value) {
-                    score += attr === 'id' ? 10 : (attr === 'class' ? 5 : 3);
-                }
-            }
-    
-            if (identifiers.textContent && element.textContent) {
-                const elementText = element.textContent.trim().substring(0, 50);
-                if (elementText === identifiers.textContent.trim().substring(0, 50)) {
-                    score += 5;
-                } else if (
-                    elementText.includes(identifiers.textContent) ||
-                    identifiers.textContent.includes(elementText)
-                ) {
-                    score += 2;
-                }
-            }
-    
-            if (score >= 8 && score > highestScore) {
-                bestElement = element;
-                highestScore = score;
-            }
-        }
-    
-        if (!bestElement) {
-            console.warn('No element found with sufficient score for:', identifiers);
-        }
-    
-        return bestElement;
-    }
-    
 
 
     createErrorBorder(error) {
@@ -1413,26 +827,10 @@ class WebsiteTestingAssistant {
     findErrorElement(error) {
         // Use new identifier system if available
         if (error.elementIdentifiers) {
-            return this.findElementByIdentifiers(error.elementIdentifiers);
+            return window.findElementByIdentifiers(error.elementIdentifiers);
         }
-        
-        // Fallback to legacy selector
-        if (error.selector) {
-            try {
-                return document.querySelector(error.selector);
-            } catch (e) {
-                console.log('Legacy selector failed:', e);
-            }
-        }
-        
-        return null;
-    }
 
-    isElementVisible(element) {
-        const rect = element.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && 
-               rect.top < window.innerHeight && rect.bottom > 0 &&
-               rect.left < window.innerWidth && rect.right > 0;
+        return null;
     }
     
     loadErrors() {
@@ -1654,8 +1052,6 @@ class WebsiteTestingAssistant {
                 }
             });
 
-            
-            
             // Update local storage with API data
             if (response) {
                 const data = response.data;
@@ -1670,7 +1066,6 @@ class WebsiteTestingAssistant {
                 // Update local errors for current URL
                 const pathItem = data?.path.find(p => p.full_url === this.currentUrl);
                 this.errors = pathItem ? pathItem.data : [];
-                this.displayExistingErrors();
             }
         } catch (error) {
             console.error('Error fetching data from API:', error);

@@ -18,7 +18,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["lib/jquery.min.js", "content.js"],
+      "js": ["lib/jquery.min.js", "js/utils.js", "content.js"],
       "css": ["css/content.css"],
       "run_at": "document_end"
     }
