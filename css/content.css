@@ -329,6 +329,7 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     background: rgba(46, 125, 50, 0.05) !important;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
                 inset 0 0 0 1px rgba(46, 125, 50, 0.2) !important;
+    z-index: 999994 !important;
 }
 
 .testing-error-border.resolved:hover {

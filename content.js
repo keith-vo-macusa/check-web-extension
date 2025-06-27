@@ -1607,7 +1607,7 @@ class WebsiteTestingAssistant {
         // }
     }
     
-    clearAllErrors() {
+    async clearAllErrors() {
         // Remove all borders
         this.errorBorders.forEach(border => border.remove());
         this.errorBorders = [];
@@ -1615,9 +1615,15 @@ class WebsiteTestingAssistant {
         // Clear data
         this.errors = [];
         this.saveErrors();
+        const feedbackData = {
+            domain: new URL(this.currentUrl).hostname,
+            path: []
+        }
+        await this.updateToAPI(feedbackData);
+        this.updateAllErrorBorders();
     }
 
-    removeError(errorId) {
+    async removeError(errorId) {
         // Remove error from local array
         this.errors = this.errors.filter(error => error.id !== errorId);
         
@@ -1632,6 +1638,8 @@ class WebsiteTestingAssistant {
         
         // Persist changes to storage
         this.saveErrors();
+        const feedbackData = await this.getFeedbackData();
+        await this.updateToAPI(feedbackData);
     }
     
     async fetchDataFromAPI() {
