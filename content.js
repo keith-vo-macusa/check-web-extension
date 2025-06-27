@@ -708,7 +708,7 @@ class WebsiteTestingAssistant {
         panel.addEventListener('click', async (e) => {
             if (e.target.classList.contains('btn-edit-comment')) {
                 const commentId = e.target.dataset.commentId;
-                this.editComment(error, commentId, panel);
+                await this.editComment(error, commentId, panel);
             }
             
             if (e.target.classList.contains('btn-delete-comment')) {
@@ -759,13 +759,16 @@ class WebsiteTestingAssistant {
         }
     }
 
-    editComment(error, commentId, panel) {
+    async editComment(error, commentId, panel) {
         const comment = error.comments.find(c => c.id === commentId);
         if (!comment) return;
         
         const commentElement = panel.querySelector(`[data-comment-id="${commentId}"]`);
         const textElement = commentElement.querySelector('.comment-text');
         const originalText = textElement.dataset.original;
+        
+        // Store original comment state for rollback
+        const originalComment = { ...comment };
         
         // Create edit form
         const editForm = document.createElement('div');
@@ -793,14 +796,42 @@ class WebsiteTestingAssistant {
         });
         
         // Save edit
-        editForm.querySelector('.btn-edit-save').addEventListener('click', () => {
+        editForm.querySelector('.btn-edit-save').addEventListener('click', async () => {
             const newText = editInput.value.trim();
             if (newText && newText !== originalText) {
-                comment.text = newText;
-                comment.edited = true;
-                comment.editedAt = Date.now();
-                this.saveErrors();
-                this.refreshCommentThread(panel, error);
+                try {
+                    // Update comment locally
+                    comment.text = newText;
+                    comment.edited = true;
+                    comment.editedAt = Date.now();
+                    
+                    // Find and update in this.errors array
+                    const errorIndex = this.errors.findIndex(e => e.id === error.id);
+                    if (errorIndex !== -1) {
+                        this.errors[errorIndex] = error;
+                    }
+                    
+                    // Save to localStorage first
+                    await this.saveErrors();
+                    console.log("Saved to localStorage");
+                    
+                    // Get updated feedback data and sync with API
+                    let feedbackData = await this.getFeedbackData();
+                    await this.updateToAPI(feedbackData);
+                    console.log("Synced with API");
+                    
+                    // Update UI last
+                    await this.refreshCommentThread(panel, error);
+                    console.log("Comment edited successfully");
+                } catch (err) {
+                    console.error("Error in editComment save:", err);
+                    // Rollback changes if something fails
+                    Object.assign(comment, originalComment);
+                    if (errorIndex !== -1) {
+                        this.errors[errorIndex] = error;
+                    }
+                    await this.refreshCommentThread(panel, error);
+                }
             } else {
                 this.cancelEdit(textElement, editForm);
             }
