@@ -13,6 +13,7 @@ class WebsiteTestingAssistant {
         this.rangeBreakpoint = 20;
         this.documentLength = document.documentElement.innerHTML.length;
         this.browserAPI = window.chrome || window.browser;
+        this.desktopBreakpoint = 1140;
     }
     
     // Simple UUID generator function
@@ -52,6 +53,28 @@ class WebsiteTestingAssistant {
                     break;
                 case 'deactivate':
                     this.deactivate();
+                    if (request.reason === 'logout') {
+                        // Remove all borders
+                        this.errorBorders.forEach(border => border.remove());
+                        this.errorBorders = [];
+                        
+                        // Clear data
+                        this.errors = [];
+                        this.saveErrors();
+                        this.updateAllErrorBorders();
+                        this.hideAllErrors();
+                        // Reset state
+                        this.isActive = false;
+                        this.selectedElement = null;
+                        const backdrop = document.querySelector('.testing-modal-backdrop');
+                        if (backdrop) {
+                            backdrop.remove();
+                        }
+                        const thread = document.querySelector('.testing-comment-modal');
+                        if (thread) {
+                            thread.remove();
+                        }
+                    }
                     break;
                 case 'getState':
                     sendResponse({ isActive: this.isActive });
@@ -283,8 +306,6 @@ class WebsiteTestingAssistant {
         panel.innerHTML = `
             <div class="thread-header">
                 <div class="thread-title">
-                    <span class="thread-icon">💬</span>
-                    <span>Lỗi #${this.errors.indexOf(error) + 1}</span>
                     <div class="thread-status status-${error.status}">${window.getStatusText(error.status)}</div>
                 </div>
                 <button class="thread-close" aria-label="Đóng">×</button>
@@ -772,7 +793,7 @@ class WebsiteTestingAssistant {
 
     shouldShowErrorBorder(error) {
         const width = window.innerWidth;
-        return !error.breakpoint || Math.abs(error.breakpoint.width - width) <= this.rangeBreakpoint;
+        return !error.breakpoint || Math.abs(error.breakpoint.width - width) <= this.rangeBreakpoint || width >= this.desktopBreakpoint;
     }
 
     updateAllErrorBorders() {
@@ -957,6 +978,10 @@ class WebsiteTestingAssistant {
     }
     
     async fetchDataFromAPI() {
+        const isLoggedIn = await AuthManager.isAuthenticated();
+        if (!isLoggedIn) {
+            return;
+        }
         try {
             const response = await $.ajax({
                 url: this.apiEndpoint,
@@ -988,6 +1013,11 @@ class WebsiteTestingAssistant {
     }
 
     async updateToAPI(feedbackData) {
+        const isLoggedIn = await AuthManager.isAuthenticated();
+        if (!isLoggedIn) {
+            alert('Vui lòng đăng nhập để sử dụng chức năng này');
+            return;
+        }
         try {
             const response = await $.ajax({
                 url: this.apiEndpoint + '?action=set',

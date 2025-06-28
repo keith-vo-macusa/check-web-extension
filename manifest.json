@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Website Testing Assistant",
-  "version": "1.0",
+  "version": "1.1.1",
   "description": "Chrome Extension hỗ trợ tester kiểm tra website, cho phép chọn vùng lỗi và thêm comment",
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
@@ -18,7 +18,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["lib/jquery.min.js", "js/utils.js", "content.js"],
+      "js": ["lib/jquery.min.js", "js/utils.js", "content.js", "js/auth.js"],
       "css": ["css/content.css"],
       "run_at": "document_end"
     }

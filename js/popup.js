@@ -1,168 +1,210 @@
-$(document).ready(function() {
-    let isActive = false;
-    let errorsVisible = true; // Add state for errors visibility
-    let selectedBreakpoint = 'all'; // Default to show all breakpoints
-    
-    console.log('Popup loaded');
-    
-    // Check authentication first
-    checkAuthentication();
-    
-    // Chrome/Edge API (cả hai đều dùng chrome namespace)
-    const browserAPI = chrome;
-    
-    if (!browserAPI || !browserAPI.tabs) {
-        $('#errorsList').html('<div class="no-errors">❌ Extension chỉ hỗ trợ Chrome/Edge</div>');
-        return;
-    }
-    
-    console.log('Using Chrome/Edge API');
-    
-    // Load saved visibility state from localStorage
+// Constants
+const BREAKPOINTS = {
+    ALL: 'all',
+    DESKTOP: 'desktop',
+    TABLET: 'tablet',
+    MOBILE: 'mobile'
+};
 
-        $('#toggleErrors').prop('checked', errorsVisible);
+// Browser API compatibility
+const browserAPI = chrome;
+
+// State Management
+class PopupState {
+    constructor() {
+        this.isActive = false;
+        this.errorsVisible = true;
+        this.resolvedErrorsVisible = false;
+        this.selectedBreakpoint = BREAKPOINTS.ALL;
         
-        // Apply initial state to the page
-        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            if (tabs[0]) {
-                browserAPI.tabs.sendMessage(tabs[0].id, {
-                    action: errorsVisible ? 'showAllErrors' : 'hideAllErrors'
-                });
-            }
-        });
-   
-    
-    // Load initial state
-    loadExtensionState();
-    loadErrorsList();
-    
-    // Auto-refresh when popup is focused/shown
-    window.addEventListener('focus', function() {
-        loadErrorsList();
-    });
-    
-    // Also refresh when popup becomes visible
-    document.addEventListener('visibilitychange', function() {
-        if (!document.hidden) {
-            loadErrorsList();
-        }
-    });
-    
-    // Toggle selection mode
-    $('#toggleMode').click(function() {
-        isActive = !isActive;
-        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            browserAPI.tabs.sendMessage(tabs[0].id, {
-                action: isActive ? 'activate' : 'deactivate'
-            });
-        });
-        updateUI();
-    });
-    
-    // Toggle errors visibility with switch
-    $('#toggleErrors').change(function() {
-        errorsVisible = $(this).prop('checked');
-        console.log('Toggle switch changed:', errorsVisible);
+        // Set initial state
+        document.body.setAttribute('data-show-resolved', this.resolvedErrorsVisible);
+    }
+
+    setActive(value) {
+        this.isActive = value;
+    }
+
+    setErrorsVisible(value) {
+        this.errorsVisible = value;
+        localStorage.setItem('errorsVisible', value);
+    }
+
+    setSelectedBreakpoint(value) {
+        this.selectedBreakpoint = value;
+    }
+
+    setResolvedErrorsVisible(value) {
+        this.resolvedErrorsVisible = value;
+        document.body.setAttribute('data-show-resolved', value);
+        localStorage.setItem('resolvedErrorsVisible', value);
+    }
+}
+
+// Error Management
+class ErrorManager {
+    static async loadErrors() {
+        const tabs = await TabManager.getCurrentTab();
+        if (!tabs || !tabs[0]) return [];
+
+        const result = await browserAPI.storage.local.get(['feedback']);
+        let errors = [];
         
-        // Save to localStorage
-        localStorage.setItem('errorsVisible', errorsVisible);
-        
-        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            if (tabs[0]) {
-                browserAPI.tabs.sendMessage(tabs[0].id, {
-                    action: errorsVisible ? 'showAllErrors' : 'hideAllErrors'
-                });
-            }
-        });
-    });
-    
-    // Clear all errors
-    $('#clearAll').click(function() {
-        if (confirm('Bạn có chắc muốn xóa tất cả lỗi không?')) {
-            browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                const url = tabs[0].url;
-                browserAPI.storage.local.set({[url]: []}, function() {
-                    browserAPI.tabs.sendMessage(tabs[0].id, {
-                        action: 'clearAllErrors'
-                    });
-                });
+        if (result?.feedback?.path) {
+            result.feedback.path.forEach(path => {
+                errors.push(...path.data);
             });
         }
-        loadErrorsList();
-    });
-    
-    
-    
-    // Search functionality
-    $('#searchBox').on('input', function() {
-        const searchTerm = $(this).val().toLowerCase();
-        filterErrors(searchTerm);
-    });
-    
-    // Listen for messages from content script
-    browserAPI.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-        if (request.action === 'errorAdded') {
-            loadErrorsList();
+        
+        return errors;
+    }
+
+    static async deleteError(errorId) {
+        const tabs = await TabManager.getCurrentTab();
+        if (!tabs || !tabs[0]) return;
+
+        const url = tabs[0].url;
+        const result = await browserAPI.storage.local.get(['feedback']);
+        let feedback = result.feedback || { path: [] };
+        
+        const pathIndex = feedback.path.findIndex(p => p.full_url === url);
+        if (pathIndex === -1) return;
+
+        const errorIndex = feedback.path[pathIndex].data.findIndex(e => e.id === errorId);
+        if (errorIndex === -1) return;
+
+        feedback.path[pathIndex].data.splice(errorIndex, 1);
+
+        if (feedback.path[pathIndex].data.length === 0) {
+            feedback.path.splice(pathIndex, 1);
         }
-    });
-    
-    // Authentication functions
-    async function checkAuthentication() {
-        try {
-            const isAuth = await AuthManager.isAuthenticated();
-            
-            if (!isAuth) {
-                // Not authenticated, redirect to login
-                window.location.href = 'login.html';
-                return;
-            }
-            
-            // User is authenticated, show user info
-            const userInfo = await AuthManager.getUserInfo();
-            if (userInfo) {
-                displayUserInfo(userInfo);
-            }
-        } catch (error) {
-            console.error('Error checking authentication:', error);
-            window.location.href = 'login.html';
+
+        await browserAPI.storage.local.set({ feedback });
+        await TabManager.sendMessage({ action: 'removeError', errorId });
+    }
+
+    static async clearAllErrors() {
+        const tabs = await TabManager.getCurrentTab();
+        if (!tabs || !tabs[0]) return;
+
+        const url = tabs[0].url;
+        await browserAPI.storage.local.set({[url]: []});
+        await TabManager.sendMessage({ action: 'clearAllErrors' });
+    }
+
+    static sortErrors(errors) {
+        const statusPriority = {
+            'open': 1,
+            'resolved': 2,
+            'closed': 3
+        };
+
+        return errors.sort((a, b) => {
+            // Sort by status priority first
+            const statusDiff = statusPriority[a.status || 'open'] - statusPriority[b.status || 'open'];
+            if (statusDiff !== 0) return statusDiff;
+
+            // If same status, sort by timestamp (newest first)
+            return new Date(b.timestamp) - new Date(a.timestamp);
+        });
+    }
+}
+
+// Tab Management
+class TabManager {
+    static async getCurrentTab() {
+        return await browserAPI.tabs.query({active: true, currentWindow: true});
+    }
+
+    static async sendMessage(message) {
+        const tabs = await this.getCurrentTab();
+        if (tabs && tabs[0]) {
+            return browserAPI.tabs.sendMessage(tabs[0].id, message);
         }
     }
-    
-    function displayUserInfo(userInfo) {
-        // Add user info to header
-        const header = $('.header');
-        header.append(`
-            <div class="user-info">
-                <span class="user-id">ID: ${userInfo.id}</span>
-                <span class="user-name">Tên: ${userInfo.name}</span>
-                <button id="logoutBtn" class="logout-btn">Đăng xuất</button>
+}
+
+// UI Management
+class UIManager {
+    constructor(state) {
+        this.state = state;
+        this.setupEventListeners();
+        this.setupBreakpointFilters();
+    }
+
+    setupEventListeners() {
+        // Toggle Mode
+        $('#toggleMode').click(() => this.handleToggleMode());
+        
+        // Toggle Errors
+        $('#toggleErrors').change((e) => this.handleToggleErrors(e));
+
+        // Toggle Resolved Errors
+        $('#toggleResolvedErrors').change((e) => this.handleToggleResolvedErrors(e));
+        
+        // Clear All
+        $('#clearAll').click(() => this.handleClearAll());
+        
+        // Auto-refresh handlers
+        window.addEventListener('focus', () => this.refreshErrorsList());
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) this.refreshErrorsList();
+        });
+    }
+
+    setupBreakpointFilters() {
+        $('#controls').append(`
+            <div class="breakpoint-filters">
+                <button class="filter-btn active" data-breakpoint="${BREAKPOINTS.ALL}">Tất cả</button>
+                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.DESKTOP}">Desktop</button>
+                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.TABLET}">Tablet</button>
+                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.MOBILE}">Mobile</button>
             </div>
         `);
 
-        // Logout functionality
-        $('#logoutBtn').click(function() {
-            if (confirm('Bạn có chắc muốn đăng xuất không?')) {
-                logout();
-            }
+        $('.filter-btn').click((e) => this.handleBreakpointFilter(e));
+    }
+
+    async handleToggleMode() {
+        this.state.setActive(!this.state.isActive);
+        await TabManager.sendMessage({
+            action: this.state.isActive ? 'activate' : 'deactivate'
+        });
+        this.updateUI();
+    }
+
+    async handleToggleErrors(event) {
+        const isVisible = $(event.target).prop('checked');
+        this.state.setErrorsVisible(isVisible);
+        await TabManager.sendMessage({
+            action: isVisible ? 'showAllErrors' : 'hideAllErrors'
         });
     }
-    
-    async function logout() {
-        try {
-            const success = await AuthManager.logout();
-            if (success) {
-                window.location.href = 'login.html';
-            }
-        } catch (error) {
-            console.error('Error during logout:', error);
+
+    async handleToggleResolvedErrors(event) {
+        const isVisible = $(event.target).prop('checked');
+        this.state.setResolvedErrorsVisible(isVisible);
+    }
+
+    async handleClearAll() {
+        if (confirm('Bạn có chắc muốn xóa tất cả lỗi không?')) {
+            await ErrorManager.clearAllErrors();
+            setTimeout(() => this.refreshErrorsList(), 250);
         }
     }
-    
-    function updateUI() {
+
+    handleBreakpointFilter(event) {
+        $('.filter-btn').removeClass('active');
+        $(event.target).addClass('active');
+        this.state.setSelectedBreakpoint($(event.target).data('breakpoint'));
+        this.refreshErrorsList();
+    }
+
+    updateUI() {
         const btn = $('#toggleMode');
         const status = $('#status');
         
-        if (isActive) {
+        if (this.state.isActive) {
             btn.text('🛑 Dừng chọn lỗi').removeClass('btn-primary').addClass('active');
             status.text('Chế độ: Đang hoạt động - Click vào vùng lỗi').removeClass('inactive').addClass('active');
         } else {
@@ -170,325 +212,201 @@ $(document).ready(function() {
             status.text('Chế độ: Không hoạt động').removeClass('active').addClass('inactive');
         }
     }
-    
-    function loadExtensionState() {
-        console.log('Loading extension state...');
-        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            console.log('Active tab:', tabs[0]);
-            browserAPI.tabs.sendMessage(tabs[0].id, {
-                action: 'getState'
-            }, function(response) {
-                console.log('getState response:', response);
-                if (browserAPI.runtime.lastError) {
-                    console.error('Error getting state:', browserAPI.runtime.lastError);
-                }
-                if (response) {
-                    isActive = response.isActive;
-                    updateUI();
-                }
-            });
-        });
-    }
-    
-    function loadErrorsList() {
-        console.log('=== loadErrorsList (NEW STRUCTURE) START ===');
-        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            if (browserAPI.runtime.lastError) {
-                console.error('Error querying tabs:', browserAPI.runtime.lastError);
-                return;
-            }
-            if (!tabs || !tabs[0]) {
-                console.error('No active tab found');
-                return;
-            }
-            const url = tabs[0].url;
-            console.log('Loading errors for URL:', url);
 
-            // Load from new structure: feedback.path[].data
-            browserAPI.storage.local.get(['feedback'], function(result) {
-                if (browserAPI.runtime.lastError) {
-                    console.error('Error accessing storage:', browserAPI.runtime.lastError);
-                    return;
-                }
-                let errors = [];
-                if (result && result.feedback && Array.isArray(result.feedback.path)) {
-                    const pathItem = result.feedback.path.find(p => p.full_url === url);
-                    if (pathItem && Array.isArray(pathItem.data)) {
-                        errors = pathItem.data;
-                    }
-                }
-                // Fallback to old format if needed
-                if ((!errors || errors.length === 0) && result && result[url]) {
-                    errors = result[url];
-                }
-                console.log('Found errors (new structure):', errors);
-                displayErrors(errors);
-                updateErrorCount(errors.length);
-            });
-        });
+    async refreshErrorsList() {
+        const errors = await ErrorManager.loadErrors();
+        this.displayErrors(errors);
     }
-    
-    // Add breakpoint filter buttons to HTML
-    $('#controls').append(`
-        <div class="breakpoint-filters">
-            <button class="filter-btn active" data-breakpoint="all">Tất cả</button>
-            <button class="filter-btn" data-breakpoint="desktop">Desktop</button>
-            <button class="filter-btn" data-breakpoint="tablet">Tablet</button>
-            <button class="filter-btn" data-breakpoint="mobile">Mobile</button>
-        </div>
-    `);
 
-    // Handle breakpoint filter clicks
-    $('.filter-btn').click(function() {
-        $('.filter-btn').removeClass('active');
-        $(this).addClass('active');
-        selectedBreakpoint = $(this).data('breakpoint');
-        loadErrorsList();
-    });
-    
-    function displayErrors(errors) {
-        console.log('=== displayErrors START ===');
-        console.log('Total errors:', errors.length);
-        
+    displayErrors(errors) {
         const container = $('#errorsList');
         container.empty();
-        
+
         if (!errors || errors.length === 0) {
             container.html('<div class="no-errors">Chưa có lỗi nào được ghi nhận</div>');
             return;
         }
 
-        // Filter errors based on selected breakpoint
-        const filteredErrors = errors.filter(error => {
-            if (selectedBreakpoint === 'all') return true;
-            if (!error.breakpoint) return selectedBreakpoint === 'all';
-            return error.breakpoint.type === selectedBreakpoint;
-        });
-
+        const filteredErrors = this.filterErrorsByBreakpoint(errors);
+        
         if (filteredErrors.length === 0) {
-            container.html(`<div class="no-errors">Không có lỗi nào ${selectedBreakpoint !== 'all' ? `trong breakpoint ${selectedBreakpoint}` : ''}</div>`);
+            container.html(`<div class="no-errors">Không có lỗi nào ${this.state.selectedBreakpoint !== BREAKPOINTS.ALL ? `trong breakpoint ${this.state.selectedBreakpoint}` : ''}</div>`);
             return;
         }
 
-        // Add error count
-        container.append(`
-            <div class="error-count">
-                <span>Tổng số lỗi: ${filteredErrors.length}</span>
-                <span class="breakpoint-label">${selectedBreakpoint === 'all' ? 'Tất cả breakpoint' : `Breakpoint ${selectedBreakpoint}`}</span>
-            </div>
-        `);
+        // Sort errors before rendering
+        const sortedErrors = ErrorManager.sortErrors(filteredErrors);
+        this.renderErrorsList(container, sortedErrors);
+    }
 
-        filteredErrors.forEach((error, index) => {
-            const errorItem = $('<div>').addClass('error-item');
-            
-            // Format timestamp
-            const date = new Date(error.timestamp);
-            const timeString = date.toLocaleString('vi-VN');
-            
-            // Get latest comment
-            const latestComment = error.comments[error.comments.length - 1];
-            
-            // Create status badge
-            const statusBadge = $('<span>').addClass('status-badge');
-            if (error.status === 'resolved') {
-                statusBadge.addClass('resolved').text('Đã giải quyết');
-            } else if (error.status === 'closed') {
-                statusBadge.addClass('closed').text('Đã đóng');
-            } else {
-                statusBadge.addClass('open').text('Đang mở');
-            }
-            
-            errorItem.html(`
-                <div class="error-header">
-                    <span class="error-number">#${index + 1}</span>
-                    ${statusBadge.prop('outerHTML')}
-                    <span class="error-time">${timeString}</span>
-                    <button class="delete-error-btn" title="Xóa lỗi này">🗑️</button>
+    filterErrorsByBreakpoint(errors) {
+        return errors.filter(error => {
+            if (this.state.selectedBreakpoint === BREAKPOINTS.ALL) return true;
+            if (!error.breakpoint) return false;
+            return error.breakpoint.type === this.state.selectedBreakpoint;
+        });
+    }
+
+    renderErrorsList(container, errors) {
+        // Group errors by status
+        const errorGroups = {
+            open: errors.filter(e => !e.status || e.status === 'open'),
+            resolved: errors.filter(e => e.status === 'resolved'),
+            closed: errors.filter(e => e.status === 'closed')
+        };
+
+        // Render each group with a header
+        if (errorGroups.open.length > 0) {
+            const errorsOpen = errorGroups.open.length;
+            const errorsResolved = errorGroups.resolved?.length || 0;
+            container.append(`
+                <div class="error-count">
+                    <span>Tổng số lỗi: ${errors.length}</span>
+                    <span class="breakpoint-label">
+                        ${this.state.selectedBreakpoint === BREAKPOINTS.ALL ? 'Tất cả breakpoint' : `Breakpoint ${this.state.selectedBreakpoint}`}
+                    </span>
                 </div>
-                <div class="error-comment">${latestComment.text}</div>
-                <div class="error-breakpoint">
-                    <span class="breakpoint-type">${error.breakpoint ? error.breakpoint.type : 'all'}</span>
-                    <span class="breakpoint-width">${error.breakpoint ? error.breakpoint.width + 'px' : ''}</span>
+                <div class="error-group">
+                    <div class="error-group-header">
+                        <span>Errors: ${errorsOpen} - Resolved: ${errorsResolved}/${errors.length}</span>
+                    </div>
                 </div>
             `);
-            
-            // Add click handler for delete button
-            errorItem.find('.delete-error-btn').click(function(e) {
-                e.stopPropagation(); // Prevent triggering the error highlight
-                if (confirm('Bạn có chắc muốn xóa lỗi này không?')) {
-                    deleteError(error.id);
-                }
-            });
-            
-            errorItem.click(function() {
-                highlightError(error.id);
-            });
-            
-            container.append(errorItem);
-        });
-        
-        console.log('=== displayErrors END ===');
+        }
+
+        errors.forEach((error, index) => this.renderErrorItem(container, error, index));
+
     }
-    
-    function highlightError(errorId) {
-        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            browserAPI.tabs.sendMessage(tabs[0].id, {
+
+    renderErrorItem(container, error, index) {
+        const errorItem = $('<div>').addClass('error-item');
+        if (error.status === 'resolved') {
+            errorItem.addClass('resolved');
+        }
+        const date = new Date(error.timestamp);
+        const timeString = date.toLocaleString('vi-VN');
+        const latestComment = error.comments[error.comments.length - 1];
+        const statusBadge = this.createStatusBadge(error.status);
+
+        errorItem.html(`
+            <div class="error-header">
+                <span class="error-number">#${index + 1}</span>
+                ${statusBadge}
+                <span class="error-time">${timeString}</span>
+                <button class="delete-error-btn" title="Xóa lỗi này">🗑️</button>
+            </div>
+            <div class="error-comment">${latestComment.text}</div>
+            <div class="error-breakpoint">
+                <span class="breakpoint-type">${error.breakpoint ? error.breakpoint.type : 'all'}</span>
+                <span class="breakpoint-width">${error.breakpoint ? error.breakpoint.width + 'px' : ''}</span>
+            </div>
+            <div class="error-url">${error.url}</div>
+        `);
+
+        this.setupErrorItemEventHandlers(errorItem, error);
+        container.append(errorItem);
+    }
+
+    createStatusBadge(status) {
+        const badge = $('<span>').addClass('status-badge');
+        switch (status) {
+            case 'resolved':
+                return badge.addClass('resolved').text('Đã giải quyết').prop('outerHTML');
+            case 'closed':
+                return badge.addClass('closed').text('Đã đóng').prop('outerHTML');
+            default:
+                return badge.addClass('open').text('Đang mở').prop('outerHTML');
+        }
+    }
+
+    setupErrorItemEventHandlers(errorItem, error) {
+        errorItem.find('.delete-error-btn').click(async (e) => {
+            e.stopPropagation();
+            if (confirm('Bạn có chắc muốn xóa lỗi này không?')) {
+                await ErrorManager.deleteError(error.id);
+                this.refreshErrorsList();
+            }
+        });
+
+        errorItem.click(() => {
+            TabManager.sendMessage({
                 action: 'highlightError',
-                errorId: errorId
+                errorId: error.id
             });
         });
     }
-    
-    function filterErrors(searchTerm) {
-        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            const url = tabs[0].url;
-            browserAPI.storage.local.get([url], function(result) {
-                const errors = result[url] || [];
-                const filtered = errors.filter(error => {
-                    // Search in comments
-                    const hasCommentMatch = error.comments ? 
-                        error.comments.some(comment => comment.text.toLowerCase().includes(searchTerm)) :
-                        (error.comment && error.comment.toLowerCase().includes(searchTerm));
-                    
-                    // Search in selector/identifiers
-                    let hasSelectorMatch = false;
-                    if (error.elementIdentifiers) {
-                        const identifiers = error.elementIdentifiers;
-                        hasSelectorMatch = 
-                            (identifiers.tagName && identifiers.tagName.includes(searchTerm)) ||
-                            (identifiers.textContent && identifiers.textContent.toLowerCase().includes(searchTerm)) ||
-                            (identifiers.cssSelector && identifiers.cssSelector.toLowerCase().includes(searchTerm)) ||
-                            (identifiers.attributes && Object.values(identifiers.attributes).some(attr => 
-                                attr && attr.toLowerCase().includes(searchTerm)
-                            ));
-                    } else {
-                        hasSelectorMatch = error.selector && error.selector.toLowerCase().includes(searchTerm);
+}
+
+// Initialize Application
+$(document).ready(async function() {
+    if (!browserAPI || !browserAPI.tabs) {
+        $('#errorsList').html('<div class="no-errors">❌ Extension chỉ hỗ trợ Chrome/Edge</div>');
+        return;
+    }
+
+    try {
+        const isAuth = await AuthManager.isAuthenticated();
+        if (!isAuth) {
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const userInfo = await AuthManager.getUserInfo();
+        if (userInfo) {
+            const header = $('.header');
+            header.append(`
+                <div class="user-info">
+                    <span class="user-id">ID: ${userInfo.id}</span>
+                    <span class="user-name">Tên: ${userInfo.name}</span>
+                    <button id="logoutBtn" class="logout-btn">Đăng xuất</button>
+                </div>
+            `);
+
+            $('#logoutBtn').click(async () => {
+                if (confirm('Bạn có chắc muốn đăng xuất không?')) {
+                    try {
+                        await browserAPI.storage.local.remove(['feedback']);
+                        const success = await AuthManager.logout();
+                        
+                        await TabManager.sendMessage({
+                            action: 'deactivate',
+                            reason: 'logout'
+                        });
+                        
+                        await TabManager.sendMessage({
+                            action: 'hideAllErrors'
+                        });
+
+                        if (success) {
+                            window.location.href = 'login.html';
+                        }
+                    } catch (error) {
+                        console.error('Error during logout:', error);
                     }
-                    
-                    // Search in status
-                    const statusText = error.status === 'resolved' ? 'đã giải quyết' : 
-                                     error.status === 'closed' ? 'đã đóng' : 'đang mở';
-                    const hasStatusMatch = statusText.includes(searchTerm);
-                    
-                    return hasCommentMatch || hasSelectorMatch || hasStatusMatch;
-                });
-                displayErrors(filtered);
+                }
             });
-        });
-    }
-    
-    function updateErrorCount(count) {
-        $('#errorCount').text(count);
-    }
-    
-    function getDisplaySelector(error) {
-        if (error.elementIdentifiers) {
-            const identifiers = error.elementIdentifiers;
-            
-            // Prefer ID
-            if (identifiers.attributes && identifiers.attributes.id) {
-                return `#${identifiers.attributes.id}`;
-            }
-            
-            // Show tag name with class or other attributes
-            let display = identifiers.tagName || 'element';
-            
-            if (identifiers.attributes) {
-                if (identifiers.attributes.class) {
-                    const classes = identifiers.attributes.class.split(' ').filter(c => c.trim()).slice(0, 2);
-                    if (classes.length > 0) {
-                        display += '.' + classes.join('.');
-                    }
-                }
-                
-                // Show data attributes
-                const dataAttrs = Object.keys(identifiers.attributes).filter(attr => attr.startsWith('data-'));
-                if (dataAttrs.length > 0) {
-                    display += `[${dataAttrs[0]}]`;
-                }
-            }
-            
-            // Show text content preview if available
-            if (identifiers.textContent) {
-                const text = identifiers.textContent.length > 20 ? 
-                    identifiers.textContent.substring(0, 20) + '...' : 
-                    identifiers.textContent;
-                display += ` "${text}"`;
-            }
-            
-            return display;
+        }
+
+        const state = new PopupState();
+        const ui = new UIManager(state);
+        
+        // Load initial state
+        const response = await TabManager.sendMessage({ action: 'getState' });
+        if (response) {
+            state.setActive(response.isActive);
+            ui.updateUI();
         }
         
-        // Fallback to legacy selector
-        return error.selector || 'Không xác định';
-    }
+        ui.refreshErrorsList();
 
-    function formatTime(timestamp) {
-        const now = Date.now();
-        const diff = now - timestamp;
-        
-        if (diff < 60000) return 'Vừa xong';
-        if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
-        if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
-        return `${Math.floor(diff / 86400000)} ngày trước`;
-    }
-
-    function formatDate(timestamp) {
-        const date = new Date(timestamp);
-        return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    function deleteError(errorId) {
-        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            if (!tabs || !tabs[0]) {
-                console.error('No active tab found');
-                return;
+        // Listen for messages from content script
+        browserAPI.runtime.onMessage.addListener((request) => {
+            if (request.action === 'errorAdded') {
+                ui.refreshErrorsList();
             }
-            const url = tabs[0].url;
-
-            // Get current feedback data
-            browserAPI.storage.local.get(['feedback'], function(result) {
-                if (browserAPI.runtime.lastError) {
-                    console.error('Error accessing storage:', browserAPI.runtime.lastError);
-                    return;
-                }
-
-                let feedback = result.feedback || { path: [] };
-                const pathIndex = feedback.path.findIndex(p => p.full_url === url);
-
-                if (pathIndex !== -1) {
-                    // Find and remove the error with matching ID
-                    const errorIndex = feedback.path[pathIndex].data.findIndex(e => e.id === errorId);
-                    if (errorIndex !== -1) {
-                        feedback.path[pathIndex].data.splice(errorIndex, 1);
-
-                        // If no errors left for this URL, remove the path entry
-                        if (feedback.path[pathIndex].data.length === 0) {
-                            feedback.path.splice(pathIndex, 1);
-                        }
-
-                        // Save updated feedback data
-                        browserAPI.storage.local.set({ feedback }, function() {
-                            if (browserAPI.runtime.lastError) {
-                                console.error('Error saving to storage:', browserAPI.runtime.lastError);
-                                return;
-                            }
-
-                            // Notify content script to remove the error highlight
-                            browserAPI.tabs.sendMessage(tabs[0].id, {
-                                action: 'removeError',
-                                errorId: errorId
-                            });
-
-                            // Refresh the errors list
-                            loadErrorsList();
-                        });
-                    }
-                }
-            });
         });
+    } catch (error) {
+        console.error('Error during initialization:', error);
+        window.location.href = 'login.html';
     }
-}); 
+});
