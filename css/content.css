@@ -158,9 +158,6 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     animation: testing-modal-appear 0.3s ease-out !important;
 }
 
-.testing-modal-backdrop {
-    animation: testing-backdrop-appear 0.3s ease-out !important;
-}
 
 @keyframes testing-modal-appear {
     from {
@@ -308,7 +305,6 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
                 inset 0 0 0 1px rgba(255, 71, 87, 0.2) !important;
     pointer-events: auto !important;
-    z-index: 999995 !important;
     cursor: pointer !important;
     background: rgba(255, 71, 87, 0.05) !important;
     border-radius: 2px !important;
@@ -328,7 +324,7 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     background: rgba(46, 125, 50, 0.05) !important;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
                 inset 0 0 0 1px rgba(46, 125, 50, 0.2) !important;
-    z-index: 999994 !important;
+    /* z-index: 999994 !important; */
 }
 
 .testing-error-border.resolved:hover {
@@ -901,42 +897,7 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
 .testing-highlight {
     outline: 3px solid #007bff !important;
     outline-offset: 2px !important;
-    position: relative !important;
-    z-index: 2147483646 !important;
-    transition: all 0.2s ease !important;
-    pointer-events: auto !important;
-    transform: translateZ(0) !important;
-    isolation: isolate !important;
-    /* Remove background property completely */
 }
-
-.testing-highlight::before {
-    content: '' !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    background: rgba(0, 123, 255, 0.1) !important;
-    pointer-events: none !important;
-    z-index: 2147483646 !important;
-    mix-blend-mode: multiply !important; /* This helps preserve background images */
-}
-
-.testing-highlight:after {
-    content: '' !important;
-    position: absolute !important;
-    top: -3px !important;
-    left: -3px !important;
-    right: -3px !important;
-    bottom: -3px !important;
-    border: 2px dashed rgba(0, 123, 255, 0.5) !important;
-    border-radius: 4px !important;
-    pointer-events: none !important;
-    z-index: 2147483646 !important;
-    background: transparent !important;
-}
-
 
 
 .testing-comment-modal {
@@ -954,15 +915,7 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
 }
 
-.testing-modal-backdrop {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background: rgba(0, 0, 0, 0.5) !important;
-    z-index: 10000 !important;
-}
+
 
 .testing-comment-modal h3 {
     margin: 0 0 16px 0 !important;

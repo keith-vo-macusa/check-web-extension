@@ -11,6 +11,8 @@ class WebsiteTestingAssistant {
         this.apiEndpoint = 'https://checkwise.macusaone.com/api_domain_data.php';
         this.init();
         this.rangeBreakpoint = 20;
+        this.documentLength = document.documentElement.innerHTML.length;
+        this.browserAPI = window.chrome || window.browser;
     }
     
     // Simple UUID generator function
@@ -41,10 +43,9 @@ class WebsiteTestingAssistant {
 
     bindEvents() {
         // Cross-browser API wrapper
-        const browserAPI = window.chrome || window.browser;
         
         // Listen for messages from popup
-        browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        this.browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             switch (request.action) {
                 case 'activate':
                     this.activate();
@@ -296,7 +297,6 @@ class WebsiteTestingAssistant {
                     <div class="reply-form">
                         <textarea placeholder="Thêm comment..." class="reply-input" maxlength="500"></textarea>
                         <div class="reply-buttons">
-                            <button class="btn-reply-cancel">Hủy</button>
                             <button class="btn-reply-send">Gửi</button>
                         </div>
                     </div>
@@ -324,7 +324,6 @@ class WebsiteTestingAssistant {
             if (this.commentThread.panel.parentElement) {
                 this.commentThread.panel.remove();
             }
-            
             this.commentThread = null;
         }
     }
@@ -355,6 +354,7 @@ class WebsiteTestingAssistant {
         `).join('');
     }
 
+    // Event trong comment thread
     async bindThreadEvents(panel, error, border) {
         // Close button
         panel.querySelector('.thread-close').addEventListener('click', () => {
@@ -363,7 +363,6 @@ class WebsiteTestingAssistant {
         
         // Reply functionality
         const replyInput = panel.querySelector('.reply-input');
-        const replyCancel = panel.querySelector('.btn-reply-cancel');
         const replySend = panel.querySelector('.btn-reply-send');
         
         replySend.addEventListener('click', async () => {
@@ -374,11 +373,7 @@ class WebsiteTestingAssistant {
                 replyInput.value = '';
             }
         });
-        
-        replyCancel.addEventListener('click', () => {
-            replyInput.value = '';
-        });
-                
+                        
         // Resolve button
         panel.querySelector('.btn-resolve').addEventListener('click', async () => {
             await this.toggleResolveError(error, border);
@@ -434,16 +429,12 @@ class WebsiteTestingAssistant {
                 feedbackData.path[pathIndex].data[errorIndex] = error;
                 
                 // Update API with full feedback data
-                const updatedInAPI = await this.updateToAPI(feedbackData);
+                this.updateToAPI(feedbackData);
                 
-                if (updatedInAPI) {
-                    this.saveErrors();
-                    this.updateErrorBorder(error);
-                } else {
-                    // Rollback if API update fails
-                    error.comments.pop();
-                    alert('Failed to save comment to server. Please try again.');
-                }
+                // Update UI
+                this.saveErrors();
+                this.updateErrorBorder(error);
+                
             }
         }
     }
@@ -506,11 +497,10 @@ class WebsiteTestingAssistant {
                     
                     // Get updated feedback data and sync with API
                     let feedbackData = await this.getFeedbackData();
-                    await this.updateToAPI(feedbackData);
-                    console.log("Synced with API");
+                    this.updateToAPI(feedbackData);
                     
                     // Update UI last
-                    await this.refreshCommentThread(panel, error);
+                    this.refreshCommentThread(panel, error);
                     console.log("Comment edited successfully");
                 } catch (err) {
                     console.error("Error in editComment save:", err);
@@ -519,19 +509,9 @@ class WebsiteTestingAssistant {
                     if (errorIndex !== -1) {
                         this.errors[errorIndex] = error;
                     }
-                    await this.refreshCommentThread(panel, error);
+                    this.refreshCommentThread(panel, error);
                 }
             } else {
-                this.cancelEdit(textElement, editForm);
-            }
-        });
-        
-        // Ctrl+Enter to save
-        editInput.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                editForm.querySelector('.btn-edit-save').click();
-            }
-            if (e.key === 'Escape') {
                 this.cancelEdit(textElement, editForm);
             }
         });
@@ -563,8 +543,7 @@ class WebsiteTestingAssistant {
             
             // Get updated feedback data and sync with API
             let feedbackData = await this.getFeedbackData();
-            await this.updateToAPI(feedbackData);
-            console.log("Synced with API");
+            this.updateToAPI(feedbackData);
             
             // Update UI last
             this.updateAllErrorBorders();
@@ -582,10 +561,8 @@ class WebsiteTestingAssistant {
 
     async toggleResolveError(error, border) {
         try {
-            console.log("Before toggle - status:", error.status);
             error.status = error.status == 'open' ? 'resolved' : 'open';
-            console.log("After toggle - status:", error.status);
-            
+
             // Find and update in this.errors array
             const errorIndex = this.errors.findIndex(e => e.id === error.id);
             if (errorIndex !== -1) {
@@ -594,13 +571,9 @@ class WebsiteTestingAssistant {
             
             // Save to localStorage first
             await this.saveErrors();
-            console.log("Saved to localStorage");
-            
             // Get updated feedback data and sync with API
             let feedbackData = await this.getFeedbackData();
-            await this.updateToAPI(feedbackData);
-            console.log("Synced with API");
-            
+            this.updateToAPI(feedbackData);
             // Update UI last
             this.updateAllErrorBorders();
             console.log("Final error state:", error);
@@ -653,9 +626,8 @@ class WebsiteTestingAssistant {
                 }
 
                 // Update API with modified feedback data
-                const updatedInAPI = await this.updateToAPI(feedbackData);
+                this.updateToAPI(feedbackData);
                 
-                if (updatedInAPI) {
                     // Update local state
                     this.errors = this.errors.filter(e => e.id !== errorId);
                     this.saveErrors();
@@ -669,9 +641,7 @@ class WebsiteTestingAssistant {
                     
                     // Notify popup
                     chrome.runtime.sendMessage({ action: 'errorDeleted' });
-                } else {
-                    alert('Failed to delete error from server. Please try again.');
-                }
+                
             }
         }
     }
@@ -696,15 +666,8 @@ class WebsiteTestingAssistant {
                 type: currentBreakpoint,
                 width: width,
             },
-            position: {
-                viewport: {
-                    width: window.innerWidth,
-                    height: window.innerHeight
-                }
-            },
             url: this.currentUrl,
             status: 'open',
-            assignee: null,
             comments: [{
                 id: this.generateUUID(),
                 text: comment,
@@ -714,40 +677,37 @@ class WebsiteTestingAssistant {
                 editedAt: null
             }]
         };
+
+        const element = window.findElementByIdentifiers(error.elementIdentifiers);
         
-        if (window.findElementByIdentifiers(error.elementIdentifiers) === this.selectedElement) {
-            // Get current feedback data
-            let feedbackData = await this.getFeedbackData();
+        if( !element) {
+            console.error('Failed to save error: Cannot reliably identify the selected element');
+            return;
+        }
+
+        
+        // Get current feedback data
+        let feedbackData = await this.getFeedbackData();
             
             // Add new error to the appropriate path
-            let pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
-            if (pathIndex === -1) {
-                feedbackData.path.push({
-                    full_url: this.currentUrl,
+        let pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
+        if (pathIndex === -1) {
+            feedbackData.path.push({
+                full_url: this.currentUrl,
                     data: [error]
                 });
-            } else {
-                feedbackData.path[pathIndex].data.push(error);
             }
-
-            // Update API with full feedback data
-            const savedToAPI = await this.updateToAPI(feedbackData);
-            
-            if (savedToAPI) {
-                this.errors.push(error);
-                this.saveErrors();
-                this.createErrorBorder(error);
-                
-                const browserAPI = window.chrome || window.browser;
-                browserAPI.runtime.sendMessage({ action: 'errorAdded' }).catch(() => {
-                    console.error('Failed to send message to extension');
-                });
-            } else {
-                alert('Failed to save error to server. Please try again.');
-            }
-        } else {
-            console.error('Failed to save error: Cannot reliably identify the selected element');
+        else {
+            feedbackData.path[pathIndex].data.push(error);
         }
+
+        // Update API with full feedback data
+        this.updateToAPI(feedbackData);
+            
+        this.errors.push(error);
+        this.saveErrors();
+        this.createErrorBorder(error);
+       
     }
 
 
@@ -759,6 +719,9 @@ class WebsiteTestingAssistant {
         const border = document.createElement('div');
         border.className = 'testing-error-border';
         border.dataset.errorId = error.id;
+
+        const zIndex = Math.min(this.documentLength - element.innerHTML.length, 2147483647);
+        border.style.zIndex = zIndex;
         
         // Position border to match element
         this.positionErrorBorder(border, error, element);
@@ -776,9 +739,7 @@ class WebsiteTestingAssistant {
         document.body.appendChild(border);
         this.errorBorders.push(border);
 
-        // Determine if border should be visible based on current breakpoint
-        const width = window.innerWidth;
-        const shouldShow = !error.breakpoint || Math.abs(error.breakpoint.width - width) <= this.rangeBreakpoint;
+        const shouldShow = this.shouldShowErrorBorder(error);
         border.style.display = shouldShow ? 'block' : 'none';
     }
 
@@ -834,27 +795,19 @@ class WebsiteTestingAssistant {
     }
     
     loadErrors() {
-        const browserAPI = window.chrome || window.browser;
         
-        browserAPI.storage.local.get(['feedback'], (result) => {
+        this.browserAPI.storage.local.get(['feedback'], (result) => {
             if (result.feedback && result.feedback.path) {
                 const pathItem = result.feedback.path.find(p => p.full_url === this.currentUrl);
                 this.errors = pathItem ? pathItem.data : [];
-            } else {
-                // Fallback to old format if new structure doesn't exist
-                browserAPI.storage.local.get([this.currentUrl], (oldResult) => {
-                    this.errors = oldResult[this.currentUrl] || [];
-                });
             }
         });
     }
     
     async saveErrors() {
-        const browserAPI = window.chrome || window.browser;
-        
         return new Promise((resolve, reject) => {
             // Get all stored data first
-            browserAPI.storage.local.get(['feedback'], (result) => {
+            this.browserAPI.storage.local.get(['feedback'], (result) => {
                 let newStructure = result.feedback;
                 
                 // Initialize new structure if it doesn't exist
@@ -886,10 +839,10 @@ class WebsiteTestingAssistant {
                 }
                 
                 // Save the new structure
-                browserAPI.storage.local.set({ feedback: newStructure }, () => {
-                    if (browserAPI.runtime.lastError) {
-                        console.error('Error saving to storage:', browserAPI.runtime.lastError);
-                        reject(browserAPI.runtime.lastError);
+                this.browserAPI.storage.local.set({ feedback: newStructure }, () => {
+                    if (this.browserAPI.runtime.lastError) {
+                        console.error('Error saving to storage:', this.browserAPI.runtime.lastError);
+                        reject(this.browserAPI.runtime.lastError);
                     } else {
                         resolve();
                     }
@@ -899,9 +852,8 @@ class WebsiteTestingAssistant {
     }
 
     displayExistingErrors() {
-        const browserAPI = window.chrome || window.browser;
         
-        browserAPI.storage.local.get(['feedback'], (result) => {
+        this.browserAPI.storage.local.get(['feedback'], (result) => {
             let errors = [];
             
             if (result.feedback && result.feedback.path) {
@@ -909,7 +861,7 @@ class WebsiteTestingAssistant {
                 errors = pathItem ? pathItem.data : [];
             } else {
                 // Fallback to old format
-                browserAPI.storage.local.get([this.currentUrl], (oldResult) => {
+                this.browserAPI.storage.local.get([this.currentUrl], (oldResult) => {
                     errors = oldResult[this.currentUrl] || [];
                     this.processExistingErrors(errors);
                 });
@@ -934,8 +886,6 @@ class WebsiteTestingAssistant {
 
     updateErrorBordersVisibility() {
         this.errorBorders.forEach(border => {
-            console.log(border);
-            const width = window.innerWidth;
             const errorId = border.dataset.errorId;
             const error = this.errors.find(e => e.id === errorId);
             const shouldShow = this.shouldShowErrorBorder(error);
@@ -969,43 +919,14 @@ class WebsiteTestingAssistant {
                 errorElement.classList.remove('testing-error-highlight');
             }, 1000);
         }
-        
-        // // Try to find element using new identifier system
-        // const element = this.findErrorElement(error);
-        // if (element) {
-        //     element.classList.add('testing-error-highlight');
-        //     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-
-            
-        //     // Remove highlight after 3 seconds
-        //     setTimeout(() => {
-        //         element.classList.remove('testing-error-highlight');
-        //     }, 1);
-        // } else {
-        //     // Fallback scroll using relative position
-        //     if (error.position && error.position.relativePosition) {
-        //         const rel = error.position.relativePosition;
-        //         const top = (rel.topPercent / 100) * window.innerHeight;
-        //         const left = (rel.leftPercent / 100) * window.innerWidth;
-                
-        //         window.scrollTo({
-        //             top: top - window.innerHeight / 2,
-        //             left: left - window.innerWidth / 2,
-        //             behavior: 'smooth'
-        //         });
-        //     } else if (error.position && error.position.top !== undefined) {
-        //         // Legacy position fallback
-        //         window.scrollTo({
-        //             top: error.position.top - window.innerHeight / 2,
-        //             left: error.position.left - window.innerWidth / 2,
-        //             behavior: 'smooth'
-        //         });
-        //     }
-        // }
     }
     
     async clearAllErrors() {
+        const emptyFeedbackData = {
+            domain: new URL(this.currentUrl).hostname,
+            path: []
+        }
+        this.updateToAPI(emptyFeedbackData);
         // Remove all borders
         this.errorBorders.forEach(border => border.remove());
         this.errorBorders = [];
@@ -1013,11 +934,6 @@ class WebsiteTestingAssistant {
         // Clear data
         this.errors = [];
         this.saveErrors();
-        const feedbackData = {
-            domain: new URL(this.currentUrl).hostname,
-            path: []
-        }
-        await this.updateToAPI(feedbackData);
         this.updateAllErrorBorders();
     }
 
@@ -1037,7 +953,7 @@ class WebsiteTestingAssistant {
         // Persist changes to storage
         this.saveErrors();
         const feedbackData = await this.getFeedbackData();
-        await this.updateToAPI(feedbackData);
+        this.updateToAPI(feedbackData);
     }
     
     async fetchDataFromAPI() {
@@ -1055,8 +971,7 @@ class WebsiteTestingAssistant {
             // Update local storage with API data
             if (response) {
                 const data = response.data;
-                const browserAPI = window.chrome || window.browser;
-                await browserAPI.storage.local.set({
+                await this.browserAPI.storage.local.set({
                     feedback: {
                         domain: new URL(this.currentUrl).hostname,
                         path: data?.path || []
@@ -1093,9 +1008,8 @@ class WebsiteTestingAssistant {
 
     // Helper method to get full feedback data from storage
     async getFeedbackData() {
-        const browserAPI = window.chrome || window.browser;
         return new Promise((resolve) => {
-            browserAPI.storage.local.get(['feedback'], (result) => {
+            this.browserAPI.storage.local.get(['feedback'], (result) => {
                 resolve(result.feedback || {
                     domain: new URL(this.currentUrl).hostname,
                     path: []
