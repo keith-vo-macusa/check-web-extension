@@ -225,11 +225,11 @@ class UIManager {
         const status = $('#status');
         
         if (this.state.isActive) {
-            btn.text('🛑 Dừng chọn lỗi').removeClass('btn-primary').addClass('active');
-            status.text('Chế độ: Đang hoạt động - Click vào vùng lỗi').removeClass('inactive').addClass('active');
+            btn.html('<i class="fas fa-stop"></i> Dừng chọn lỗi').removeClass('btn-primary').addClass('active');
+            status.html('<i class="fas fa-play-circle"></i> Chế độ: Đang hoạt động - Click vào vùng lỗi').removeClass('inactive').addClass('active');
         } else {
-            btn.text('🎯 Bắt đầu chọn lỗi').removeClass('active').addClass('btn-primary');
-            status.text('Chế độ: Không hoạt động').removeClass('active').addClass('inactive');
+            btn.html('<i class="fas fa-crosshairs"></i> Bắt đầu chọn lỗi').removeClass('active').addClass('btn-primary');
+            status.html('<i class="fas fa-pause-circle"></i> Chế độ: Không hoạt động').removeClass('active').addClass('inactive');
         }
     }
 
@@ -313,7 +313,7 @@ class UIManager {
                 <span class="error-number">#${index + 1}</span>
                 ${statusBadge}
                 <span class="error-time">${timeString}</span>
-                <button class="delete-error-btn" title="Xóa lỗi này">🗑️</button>
+                <button class="delete-error-btn" title="Xóa lỗi này"><i class="fa-solid fa-trash"></i></button>
             </div>
             <div class="error-comment">${latestComment.text}</div>
             <div class="error-breakpoint">
