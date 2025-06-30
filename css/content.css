@@ -11,6 +11,18 @@ body.testing-selection-mode .elementor-element {
     cursor: crosshair !important;
 }
 
+body.show-error .jet-sticky-section {
+    z-index: 2147483647 !important;
+}
+body.show-error .testing-error-border:not(.show) {
+    display: none !important;
+}
+
+body.show-error .testing-error-border.show {
+    display: block !important; 
+}
+
+
 /* Override any specific cursor styles during selection */
 body.testing-selection-mode .elementor-element a,
 body.testing-selection-mode .elementor-element button,

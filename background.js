@@ -33,33 +33,3 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         });
     }
 });
-
-// Clean up old data periodically (optional)
-chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'cleanup') {
-        cleanupOldData();
-    }
-});
-
-// Create cleanup alarm (runs daily)
-chrome.alarms.create('cleanup', { delayInMinutes: 1440, periodInMinutes: 1440 });
-
-function cleanupOldData() {
-    chrome.storage.local.get(null, (data) => {
-        const now = Date.now();
-        const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000); // 1 week in milliseconds
-        
-        Object.keys(data).forEach(url => {
-            if (Array.isArray(data[url])) {
-                // Filter out errors older than 1 week
-                const filteredErrors = data[url].filter(error => 
-                    error.timestamp > oneWeekAgo
-                );
-                
-                if (filteredErrors.length !== data[url].length) {
-                    chrome.storage.local.set({ [url]: filteredErrors });
-                }
-            }
-        });
-    });
-} 

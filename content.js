@@ -37,6 +37,10 @@ class WebsiteTestingAssistant {
     
     async init() {
         this.userInfo = await this.getUserInfo();
+        if(!this.userInfo) {
+            window.location.href = 'login.html';
+            return;
+        }
         await this.fetchDataFromAPI();
         this.bindEvents();
         this.displayExistingErrors();
@@ -540,7 +544,7 @@ class WebsiteTestingAssistant {
 
     cancelEdit(textElement, editForm) {
         textElement.style.display = 'block';
-        textElement.parentNode.querySelector('.comment-actions').style.display = 'block';
+        // textElement.parentNode.querySelector('.comment-actions').style.display = 'block';
         editForm.remove();
     }
 
@@ -759,9 +763,10 @@ class WebsiteTestingAssistant {
         
         document.body.appendChild(border);
         this.errorBorders.push(border);
+        
 
-        const shouldShow = this.shouldShowErrorBorder(error);
-        border.style.display = shouldShow ? 'block' : 'none';
+        // const shouldShow = this.shouldShowErrorBorder(error);
+        // border.style.display = shouldShow ? 'block' : 'none';
     }
 
     positionErrorBorder(border, error, element) {
@@ -774,7 +779,6 @@ class WebsiteTestingAssistant {
         }
 
         const shouldShow = this.shouldShowErrorBorder(error);
-        border.style.display = shouldShow ? 'block' : 'none';
         if (shouldShow) {
             const rect = element.getBoundingClientRect();
         
@@ -784,10 +788,12 @@ class WebsiteTestingAssistant {
             border.style.left = `${rect.left + window.scrollX}px`;
             border.style.width = `${rect.width}px`;
             border.style.height = `${rect.height}px`;
-            border.style.display = 'block';
             
             // Add status class
             border.className = `testing-error-border ${error.status || 'open'}`;
+            border.classList.add('show');
+        }else {
+            border.classList.remove('show');
         }
     }
 
@@ -898,6 +904,7 @@ class WebsiteTestingAssistant {
         errors.forEach(error => {
             this.createErrorBorder(error);
         });
+        this.updateErrorBordersVisibility();
     }
     
     showAllErrors() {
@@ -906,18 +913,21 @@ class WebsiteTestingAssistant {
     }
 
     updateErrorBordersVisibility() {
-        this.errorBorders.forEach(border => {
-            const errorId = border.dataset.errorId;
-            const error = this.errors.find(e => e.id === errorId);
-            const shouldShow = this.shouldShowErrorBorder(error);
-            border.style.display = shouldShow ? 'block' : 'none';
-        });
+        // this.errorBorders.forEach(border => {
+        //     const errorId = border.dataset.errorId;
+        //     const error = this.errors.find(e => e.id === errorId);
+        //     const shouldShow = this.shouldShowErrorBorder(error);
+        //     border.style.display = shouldShow ? 'block' : 'none';
+        // });
+        document.body.classList.add('show-error');
+
     }
     
     hideAllErrors() {
         this.errorBorders.forEach(border => {
             border.style.display = 'none';
         });
+        document.body.classList.remove('show-error');
     }
     
     highlightError(errorId) {
@@ -978,10 +988,6 @@ class WebsiteTestingAssistant {
     }
     
     async fetchDataFromAPI() {
-        const isLoggedIn = await AuthManager.isAuthenticated();
-        if (!isLoggedIn) {
-            return;
-        }
         try {
             const response = await $.ajax({
                 url: this.apiEndpoint,
@@ -1013,11 +1019,6 @@ class WebsiteTestingAssistant {
     }
 
     async updateToAPI(feedbackData) {
-        const isLoggedIn = await AuthManager.isAuthenticated();
-        if (!isLoggedIn) {
-            alert('Vui lòng đăng nhập để sử dụng chức năng này');
-            return;
-        }
         try {
             const response = await $.ajax({
                 url: this.apiEndpoint + '?action=set',
