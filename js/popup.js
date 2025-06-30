@@ -117,9 +117,15 @@ class TabManager {
     }
 
     static async sendMessage(message) {
-        const tabs = await this.getCurrentTab();
-        if (tabs && tabs[0]) {
-            return browserAPI.tabs.sendMessage(tabs[0].id, message);
+        try {
+            const tabs = await this.getCurrentTab();
+            if (tabs && tabs[0]) {
+                return await browserAPI.tabs.sendMessage(tabs[0].id, message);
+            }
+        } catch (error) {
+            // Content script not available - this is normal for special pages
+            console.log('Cannot send message to content script:', error.message);
+            return null;
         }
     }
 }
@@ -167,18 +173,28 @@ class UIManager {
 
     async handleToggleMode() {
         this.state.setActive(!this.state.isActive);
-        await TabManager.sendMessage({
-            action: this.state.isActive ? 'activate' : 'deactivate'
-        });
+        try {
+            await TabManager.sendMessage({
+                action: this.state.isActive ? 'activate' : 'deactivate'
+            });
+        } catch (error) {
+            console.log('Cannot toggle mode - content script not available');
+            // Reset state if content script is not available
+            this.state.setActive(false);
+        }
         this.updateUI();
     }
 
     async handleToggleErrors(event) {
         const isVisible = $(event.target).prop('checked');
         this.state.setErrorsVisible(isVisible);
-        await TabManager.sendMessage({
-            action: isVisible ? 'showAllErrors' : 'hideAllErrors'
-        });
+        try {
+            await TabManager.sendMessage({
+                action: isVisible ? 'showAllErrors' : 'hideAllErrors'
+            });
+        } catch (error) {
+            console.log('Cannot toggle errors visibility - content script not available');
+        }
     }
 
     async handleToggleResolvedErrors(event) {
@@ -188,8 +204,12 @@ class UIManager {
 
     async handleClearAll() {
         if (confirm('Bạn có chắc muốn xóa tất cả lỗi không?')) {
-            await ErrorManager.clearAllErrors();
-            setTimeout(() => this.refreshErrorsList(), 250);
+            try {
+                await ErrorManager.clearAllErrors();
+                setTimeout(() => this.refreshErrorsList(), 250);
+            } catch (error) {
+                console.log('Cannot clear errors - content script not available');
+            }
         }
     }
 
@@ -328,11 +348,15 @@ class UIManager {
             }
         });
 
-        errorItem.click(() => {
-            TabManager.sendMessage({
-                action: 'highlightError',
-                errorId: error.id
-            });
+        errorItem.click(async () => {
+            try {
+                await TabManager.sendMessage({
+                    action: 'highlightError',
+                    errorId: error.id
+                });
+            } catch (error) {
+                console.log('Cannot highlight error - content script not available');
+            }
         });
     }
 }
@@ -368,14 +392,18 @@ $(document).ready(async function() {
                         await browserAPI.storage.local.remove(['feedback']);
                         const success = await AuthManager.logout();
                         
-                        await TabManager.sendMessage({
-                            action: 'deactivate',
-                            reason: 'logout'
-                        });
-                        
-                        await TabManager.sendMessage({
-                            action: 'hideAllErrors'
-                        });
+                        try {
+                            await TabManager.sendMessage({
+                                action: 'deactivate',
+                                reason: 'logout'
+                            });
+                            
+                            await TabManager.sendMessage({
+                                action: 'hideAllErrors'
+                            });
+                        } catch (error) {
+                            console.log('Cannot send logout messages to content script');
+                        }
 
                         if (success) {
                             window.location.href = 'login.html';
@@ -390,10 +418,17 @@ $(document).ready(async function() {
         const state = new PopupState();
         const ui = new UIManager(state);
         
-        // Load initial state
-        const response = await TabManager.sendMessage({ action: 'getState' });
-        if (response) {
-            state.setActive(response.isActive);
+        // Load initial state - handle case where content script is not available
+        try {
+            const response = await TabManager.sendMessage({ action: 'getState' });
+            if (response) {
+                state.setActive(response.isActive);
+                ui.updateUI();
+            }
+        } catch (error) {
+            console.log('Content script not available, using default state');
+            // Use default state when content script is not available
+            state.setActive(false);
             ui.updateUI();
         }
         
