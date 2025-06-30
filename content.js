@@ -798,7 +798,9 @@ class WebsiteTestingAssistant {
 
     shouldShowErrorBorder(error) {
         const width = window.innerWidth;
-        return !error.breakpoint || Math.abs(error.breakpoint.width - width) <= this.rangeBreakpoint || error.breakpoint.width >= this.desktopBreakpoint;
+        return error.breakpoint 
+             && (Math.abs(error.breakpoint.width - width) <= this.rangeBreakpoint 
+            || width >= this.desktopBreakpoint )
     }
 
     updateAllErrorBorders() {
