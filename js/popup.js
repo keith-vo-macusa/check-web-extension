@@ -203,14 +203,23 @@ class UIManager {
     }
 
     async handleClearAll() {
-        if (confirm('Bạn có chắc muốn xóa tất cả lỗi không?')) {
-            try {
-                await ErrorManager.clearAllErrors();
-                setTimeout(() => this.refreshErrorsList(), 250);
-            } catch (error) {
-                console.log('Cannot clear errors - content script not available');
+        Swal.fire({
+            title: 'Xóa tất cả lỗi',
+            text: 'Bạn có chắc muốn xóa tất cả lỗi không?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Xóa',
+            cancelButtonText: 'Hủy'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    await ErrorManager.clearAllErrors();
+                    setTimeout(() => this.refreshErrorsList(), 250);
+                } catch (error) {
+                    console.log('Cannot clear errors - content script not available');
+                }
             }
-        }
+        });
     }
 
     handleBreakpointFilter(event) {
@@ -342,10 +351,19 @@ class UIManager {
     setupErrorItemEventHandlers(errorItem, error) {
         errorItem.find('.delete-error-btn').click(async (e) => {
             e.stopPropagation();
-            if (confirm('Bạn có chắc muốn xóa lỗi này không?')) {
-                await ErrorManager.deleteError(error.id);
-                this.refreshErrorsList();
-            }
+            Swal.fire({
+                title: 'Xóa lỗi',
+                text: 'Bạn có chắc muốn xóa lỗi này không?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Xóa',
+                cancelButtonText: 'Hủy'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await ErrorManager.deleteError(error.id);
+                    this.refreshErrorsList();
+                }
+            });
         });
 
         errorItem.click(async () => {
@@ -387,7 +405,15 @@ $(document).ready(async function() {
             `);
 
             $('#logoutBtn').click(async () => {
-                if (confirm('Bạn có chắc muốn đăng xuất không?')) {
+                Swal.fire({
+                    title: 'Đăng xuất',
+                    text: 'Bạn có chắc muốn đăng xuất không?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Đăng xuất',
+                    cancelButtonText: 'Hủy'
+                }).then(async (result) => {
+                    if (result.isConfirmed) {
                     try {
                         await browserAPI.storage.local.remove(['feedback']);
                         const success = await AuthManager.logout();
@@ -413,6 +439,7 @@ $(document).ready(async function() {
                     }
                 }
             });
+        });
         }
 
         const state = new PopupState();
