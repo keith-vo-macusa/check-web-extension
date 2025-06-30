@@ -38,7 +38,6 @@ class WebsiteTestingAssistant {
     async init() {
         this.userInfo = await this.getUserInfo();
         if(!this.userInfo) {
-            window.location.href = 'login.html';
             return;
         }
         await this.fetchDataFromAPI();
