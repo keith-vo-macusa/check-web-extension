@@ -739,9 +739,14 @@ class WebsiteTestingAssistant {
         const element = this.findErrorElement(error);
         if (!element) return;
         
-        // Create border overlay
+        // Check if border already exists
+        if (document.querySelector(`.testing-error-border[data-error-id="${error.id}"]`)) {
+            return;
+        }
+        
+        // Create border element
         const border = document.createElement('div');
-        border.className = 'testing-error-border';
+        border.className = `testing-error-border ${error.status || 'open'}`;
         border.dataset.errorId = error.id;
 
         const zIndex = Math.min(this.documentLength - element.innerHTML.length, 2147483647);
@@ -760,7 +765,6 @@ class WebsiteTestingAssistant {
             border.classList.remove('testing-border-hover');
         });
         
-        document.body.appendChild(border);
         this.errorBorders.push(border);
         
 
