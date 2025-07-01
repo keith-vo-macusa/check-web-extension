@@ -800,7 +800,7 @@ class WebsiteTestingAssistant {
         const width = window.innerWidth;
         return error.breakpoint 
              && (Math.abs(error.breakpoint.width - width) <= this.rangeBreakpoint 
-            || width >= this.desktopBreakpoint )
+             || (error.breakpoint.type == 'desktop' && width >= this.desktopBreakpoint))
     }
 
     updateAllErrorBorders() {
@@ -935,8 +935,15 @@ class WebsiteTestingAssistant {
         const error = this.errors.find(e => e.id === errorId);
         if (!error) return;
 
-        console.log(error);
-        
+        const currentWidth = window.innerWidth;
+        const currentHeight = window.innerHeight;
+
+        const newWidth = error.breakpoint.width;
+
+        if( currentWidth !== newWidth ) {
+            window.open(error.url, "", `width=${newWidth}, height=${currentHeight}`);
+            return;
+        }
         // Remove existing highlights
         document.querySelectorAll('.testing-error-highlight').forEach(el => {
             el.classList.remove('testing-error-highlight');
