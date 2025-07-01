@@ -9,7 +9,12 @@
   "permissions": [
     "activeTab",
     "storage",
-    "scripting"
+    "scripting",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/*"
   ],
   "action": {
     "default_popup": "screens/login.html",

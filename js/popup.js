@@ -136,6 +136,33 @@ class UIManager {
         this.state = state;
         this.setupEventListeners();
         this.setupBreakpointFilters();
+        this.checkForUpdates();
+    }
+
+    checkForUpdates() {
+        // check local storage xem có thể có update không updateAvailable = true
+        browserAPI.storage.local.get(['latestVersion'], (data) => {
+            if (data.latestVersion) {
+                const currentVersion = browserAPI.runtime.getManifest().version;
+                if (data.latestVersion != currentVersion) {
+                    this.showUpdateNotification();
+                }
+            }
+        });
+    }
+
+    showUpdateNotification(){
+        Swal.fire({
+            title: 'Cập nhật',
+            text: 'Có phiên bản mới có sẵn. Nhấp để cập nhật.',
+            icon: 'info',
+            confirmButtonText: 'Cập nhật',
+            allowOutsideClick: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                browserAPI.tabs.create({ url: 'https://github.com/keith-vo-macusa/check-web-extension/releases' });
+            }
+        });
     }
 
     setupEventListeners() {
