@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Website Testing Assistant",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Chrome Extension hỗ trợ tester kiểm tra website, cho phép chọn vùng lỗi và thêm comment",
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
@@ -11,10 +11,13 @@
     "storage",
     "scripting",
     "alarms",
-    "notifications"
+    "notifications",
+    "windows",
+    "tabs"
   ],
   "host_permissions": [
-    "https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/*"
+    "https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/*",
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "screens/login.html",

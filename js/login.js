@@ -111,6 +111,12 @@ class LoginManager {
                         const userInfo = response.data;
                         self.saveAuthState(userInfo);
                         self.redirectToMain();
+                        chrome.tabs.query({}, function(tabs) {
+                            tabs.forEach(function(tab) {
+                                chrome.tabs.reload(tab.id);
+                            });
+                        });
+                        window.close();
                     } else {
                         self.showError(response.message);
                     }

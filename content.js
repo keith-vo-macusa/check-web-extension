@@ -43,6 +43,7 @@ class WebsiteTestingAssistant {
         await this.fetchDataFromAPI();
         this.bindEvents();
         this.displayExistingErrors();
+        this.updateAllErrorBorders();
     }
 
     bindEvents() {
@@ -116,17 +117,23 @@ class WebsiteTestingAssistant {
     }
 
     handleResize() {
-        const isVisible = localStorage.getItem('errorsVisible');
+        const isVisible = this.errorsVisible();
         if (isVisible) {
             this.updateAllErrorBorders();
         }
     }
 
-    handleScroll() {
-        const isVisible = localStorage.getItem('errorsVisible');
+    async handleScroll() {
+        const isVisible = this.errorsVisible();
         if (isVisible) {
             this.updateAllErrorBorders();
         }
+    }
+
+    async errorsVisible() {
+        const result = await this.browserAPI.storage.local.get('errorsVisible');
+        const isVisible = result.errorsVisible;
+        return isVisible;
     }
     
     activate() {
@@ -744,11 +751,24 @@ class WebsiteTestingAssistant {
         border.className = 'testing-error-border';
         border.dataset.errorId = error.id;
 
-        const zIndex = Math.min(this.documentLength - element.innerHTML.length, 2147483647);
-        border.style.zIndex = zIndex;
+        // Calculate z-index based on DOM depth
+        const getElementDepth = (el) => {
+            let depth = 0;
+            let parent = el.parentElement;
+            while (parent) {
+                depth++;
+                parent = parent.parentElement;
+            }
+            return depth;
+        };
         
-        // Position border to match element
-        this.positionErrorBorder(border, error, element);
+        // Base z-index for our overlay elements,
+        const baseZIndex = 251001;
+        // Add depth to make deeper elements have higher z-index
+        const depth = getElementDepth(element);
+        border.style.zIndex = baseZIndex + depth;
+        
+        this.updateAllErrorBorders();
         
         // Add click handler to show thread
         border.addEventListener('click', (e) => {
@@ -768,7 +788,7 @@ class WebsiteTestingAssistant {
         // border.style.display = shouldShow ? 'block' : 'none';
     }
 
-    positionErrorBorder(border, error, element) {
+    positionErrorBorder(border, error, element, errorsVisible = true) {
         if (!element) {
             element = this.findErrorElement(error);
             if (!element) {
@@ -790,9 +810,13 @@ class WebsiteTestingAssistant {
             
             // Add status class
             border.className = `testing-error-border ${error.status || 'open'}`;
-            border.classList.add('show');
+            if(errorsVisible) {
+                border.classList.add('show');
+            }
         }else {
-            border.classList.remove('show');
+            if(errorsVisible) {
+                border.classList.remove('show');
+            }
         }
     }
 
@@ -804,11 +828,12 @@ class WebsiteTestingAssistant {
     }
 
     updateAllErrorBorders() {
+        const errorsVisible = this.errorsVisible();
         this.errorBorders.forEach(border => {
             const errorId = border.dataset.errorId;
             const error = this.errors.find(e => e.id === errorId);
             if (error) {
-                this.positionErrorBorder(border, error);
+                this.positionErrorBorder(border, error, null, errorsVisible);
             }
         });
     }
@@ -940,8 +965,14 @@ class WebsiteTestingAssistant {
 
         const newWidth = error.breakpoint.width;
 
-        if( currentWidth !== newWidth ) {
-            window.open(error.url, "", `width=${newWidth}, height=${currentHeight}`);
+        if(currentWidth !== newWidth) {
+            this.browserAPI.runtime.sendMessage({
+                action: "openOrResizeErrorWindow",
+                url: error.url,
+                width: error.breakpoint.width,
+                height: window.innerHeight,
+                errorId: errorId
+            });
             return;
         }
         // Remove existing highlights
