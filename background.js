@@ -184,7 +184,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 target: { tabId },
                 func: (errorId) => {
                     const run = () => {
-                        const highlightDelay = 500;
+                        const highlightDelay = 1000;
                         const removeDelay = 1000;
                     
                         setTimeout(() => {

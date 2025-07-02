@@ -12,7 +12,7 @@ body.testing-selection-mode .elementor-element {
 }
 
 body.show-error .jet-sticky-section {
-    z-index: 99998 !important;
+    /* z-index: 99998 !important; */
 }
 body.show-error .testing-error-border:not(.show) {
     display: none !important;

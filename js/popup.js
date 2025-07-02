@@ -27,7 +27,7 @@ class PopupState {
 
     setErrorsVisible(value) {
         this.errorsVisible = value;
-        localStorage.setItem('errorsVisible', value);
+        browserAPI.storage.local.set({errorsVisible: value});
     }
 
     setSelectedBreakpoint(value) {
@@ -37,7 +37,7 @@ class PopupState {
     setResolvedErrorsVisible(value) {
         this.resolvedErrorsVisible = value;
         document.body.setAttribute('data-show-resolved', value);
-        localStorage.setItem('resolvedErrorsVisible', value);
+        browserAPI.storage.local.set({resolvedErrorsVisible: value});
     }
 }
 
@@ -134,9 +134,17 @@ class TabManager {
 class UIManager {
     constructor(state) {
         this.state = state;
+        this.setupUI();
         this.setupEventListeners();
         this.setupBreakpointFilters();
         this.checkForUpdates();
+    }
+
+    async setupUI() {
+        const {errorsVisible} = await browserAPI.storage.local.get('errorsVisible');
+        if(errorsVisible) {
+            $('#toggleErrors').prop('checked', true);
+        }
     }
 
     checkForUpdates() {
@@ -454,6 +462,14 @@ $(document).ready(async function() {
                             await TabManager.sendMessage({
                                 action: 'hideAllErrors'
                             });
+                            
+                            // refresh all page in browser
+                            chrome.tabs.query({}, function(tabs) {
+                                tabs.forEach(function(tab) {
+                                    chrome.tabs.reload(tab.id);
+                                });
+                            });
+                            window.close();
                         } catch (error) {
                             console.log('Cannot send logout messages to content script');
                         }
