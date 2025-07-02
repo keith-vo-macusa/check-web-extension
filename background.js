@@ -120,3 +120,104 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         });
     }
 });
+
+
+// Lưu ID của popup để reuse
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "openOrResizeErrorWindow") {
+        const { url, width, height, errorId } = message;
+
+        chrome.storage.local.get(['errorWindowId'], (result) => {
+            const errorWindowId = result.errorWindowId;
+
+            if (errorWindowId) {
+                chrome.windows.get(errorWindowId, { populate: true }, (win) => {
+                    if (chrome.runtime.lastError || !win) {
+                        openNewErrorWindow();
+                    } else {
+                        chrome.windows.update(errorWindowId, {
+                            width,
+                            height,
+                            focused: true,
+                            drawAttention: true
+                        });
+
+                        const tabId = win.tabs[0].id;
+                        injectHighlightScript(tabId, errorId);
+                    }
+                });
+            } else {
+                openNewErrorWindow();
+            }
+        });
+
+        function openNewErrorWindow() {
+            chrome.windows.create({
+                url,
+                type: "popup",
+                width,
+                height
+            }, (newWindow) => {
+                const windowId = newWindow?.id;
+                const tabId = newWindow?.tabs?.[0]?.id;
+        
+                if (!windowId) return;
+                chrome.storage.local.set({ errorWindowId: windowId });
+        
+                if (tabId) {
+                    injectHighlightScript(tabId, errorId);
+                } else {
+                    const listener = (updatedTabId, info, tab) => {
+                        if (tab.windowId === windowId && info.status === 'complete') {
+                            chrome.tabs.onUpdated.removeListener(listener);
+                            injectHighlightScript(updatedTabId, errorId);
+                        }
+                    };
+                    chrome.tabs.onUpdated.addListener(listener);
+                }
+            });
+        }
+        
+
+        function injectHighlightScript(tabId, errorId) {
+            chrome.scripting.executeScript({
+                target: { tabId },
+                func: (errorId) => {
+                    const run = () => {
+                        const highlightDelay = 500;
+                        const removeDelay = 1000;
+                    
+                        setTimeout(() => {
+                            const el = document.querySelector(`div[data-error-id="${errorId}"]`);
+                            if (!el) return;
+                    
+                            el.classList.add('testing-error-highlight');
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                            setTimeout(() => {
+                                el.classList.remove('testing-error-highlight');
+                            }, removeDelay);
+                        }, highlightDelay);
+                    };
+                    
+
+                    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                        run();
+                    } else {
+                        document.addEventListener('DOMContentLoaded', run, { once: true });
+                    }
+                },
+                args: [errorId]
+            });
+        }
+    }
+});
+
+// Xóa errorWindowId nếu user đóng popup
+chrome.windows.onRemoved.addListener((closedWindowId) => {
+    chrome.storage.local.get(['errorWindowId'], (result) => {
+        if (result.errorWindowId === closedWindowId) {
+            chrome.storage.local.remove('errorWindowId');
+        }
+    });
+});

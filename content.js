@@ -940,8 +940,14 @@ class WebsiteTestingAssistant {
 
         const newWidth = error.breakpoint.width;
 
-        if( currentWidth !== newWidth ) {
-            window.open(error.url, "", `width=${newWidth}, height=${currentHeight}`);
+        if(currentWidth !== newWidth) {
+            this.browserAPI.runtime.sendMessage({
+                action: "openOrResizeErrorWindow",
+                url: error.url,
+                width: error.breakpoint.width,
+                height: window.innerHeight,
+                errorId: errorId
+            });
             return;
         }
         // Remove existing highlights

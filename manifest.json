@@ -11,10 +11,13 @@
     "storage",
     "scripting",
     "alarms",
-    "notifications"
+    "notifications",
+    "windows",
+    "tabs"
   ],
   "host_permissions": [
-    "https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/*"
+    "https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/*",
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "screens/login.html",
