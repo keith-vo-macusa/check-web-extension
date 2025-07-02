@@ -1008,7 +1008,7 @@ class WebsiteTestingAssistant {
         
         // Clear data
         this.errors = [];
-        this.saveErrors();
+        await this.saveErrors();
         this.updateAllErrorBorders();
     }
 

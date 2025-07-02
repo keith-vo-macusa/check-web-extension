@@ -87,8 +87,8 @@ class ErrorManager {
         const tabs = await TabManager.getCurrentTab();
         if (!tabs || !tabs[0]) return;
 
-        const url = tabs[0].url;
-        await browserAPI.storage.local.set({[url]: []});
+        // const url = tabs[0].url;
+        // await browserAPI.storage.local.set({[url]: []});
         await TabManager.sendMessage({ action: 'clearAllErrors' });
     }
 
@@ -249,6 +249,7 @@ class UIManager {
             if (result.isConfirmed) {
                 try {
                     await ErrorManager.clearAllErrors();
+                    setTimeout(() => this.refreshErrorsList(), 250);
                     setTimeout(() => this.refreshErrorsList(), 250);
                 } catch (error) {
                     console.log('Cannot clear errors - content script not available');
@@ -463,11 +464,9 @@ $(document).ready(async function() {
                                 action: 'hideAllErrors'
                             });
                             
-                            // refresh all page in browser
-                            chrome.tabs.query({}, function(tabs) {
-                                tabs.forEach(function(tab) {
-                                    chrome.tabs.reload(tab.id);
-                                });
+                            // refresh current tab
+                            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                                chrome.tabs.reload(tabs[0].id);
                             });
                             window.close();
                         } catch (error) {
