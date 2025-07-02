@@ -133,7 +133,10 @@ class WebsiteTestingAssistant {
     async errorsVisible() {
         const result = await this.browserAPI.storage.local.get('errorsVisible');
         const isVisible = result.errorsVisible;
-        return isVisible;
+        if(isVisible) {
+            return result;
+        }
+        return null;
     }
     
     activate() {
@@ -768,7 +771,6 @@ class WebsiteTestingAssistant {
         const depth = getElementDepth(element);
         border.style.zIndex = baseZIndex + depth;
         
-        this.updateAllErrorBorders();
         
         // Add click handler to show thread
         border.addEventListener('click', (e) => {
@@ -783,12 +785,12 @@ class WebsiteTestingAssistant {
         document.body.appendChild(border);
         this.errorBorders.push(border);
         
-
+        this.updateAllErrorBorders();
         // const shouldShow = this.shouldShowErrorBorder(error);
         // border.style.display = shouldShow ? 'block' : 'none';
     }
 
-    positionErrorBorder(border, error, element, errorsVisible = true) {
+    positionErrorBorder(border, error, element, errorsVisible = false) {
         if (!element) {
             element = this.findErrorElement(error);
             if (!element) {
@@ -827,13 +829,14 @@ class WebsiteTestingAssistant {
              || (error.breakpoint.type == 'desktop' && width >= this.desktopBreakpoint))
     }
 
-    updateAllErrorBorders() {
-        const errorsVisible = this.errorsVisible();
+    async updateAllErrorBorders() {
+        const errorsVisible = await this.errorsVisible();
+        const visible = errorsVisible.errorsVisible;
         this.errorBorders.forEach(border => {
             const errorId = border.dataset.errorId;
             const error = this.errors.find(e => e.id === errorId);
             if (error) {
-                this.positionErrorBorder(border, error, null, errorsVisible);
+                this.positionErrorBorder(border, error, null, visible);
             }
         });
     }
@@ -946,6 +949,7 @@ class WebsiteTestingAssistant {
         //     border.style.display = shouldShow ? 'block' : 'none';
         // });
         document.body.classList.add('show-error');
+        this.updateAllErrorBorders();
 
     }
     
@@ -954,6 +958,7 @@ class WebsiteTestingAssistant {
             border.style.display = 'none';
         });
         document.body.classList.remove('show-error');
+        this.updateAllErrorBorders();
     }
     
     highlightError(errorId) {
