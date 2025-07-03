@@ -293,17 +293,7 @@ class UIManager {
         const container = $('#errorsList');
         container.empty();
 
-        if (!errors || errors.length === 0) {
-            container.html('<div class="no-errors">Chưa có lỗi nào được ghi nhận</div>');
-            return;
-        }
-
         const filteredErrors = this.filterErrorsByBreakpoint(errors);
-        
-        if (filteredErrors.length === 0) {
-            container.html(`<div class="no-errors">Không có lỗi nào ${this.state.selectedBreakpoint !== BREAKPOINTS.ALL ? `trong breakpoint ${this.state.selectedBreakpoint}` : ''}</div>`);
-            return;
-        }
 
         // Sort errors before rendering
         const sortedErrors = ErrorManager.sortErrors(filteredErrors);
@@ -327,8 +317,8 @@ class UIManager {
         };
 
         // Render each group with a header
-        if (errorGroups.open.length > 0) {
-            const errorsOpen = errorGroups.open.length;
+        if (errorGroups.open.length >= 0) {
+            const errorsOpen = errorGroups.open?.length || 0;
             const errorsResolved = errorGroups.resolved?.length || 0;
             container.append(`
                 <div class="error-count">
@@ -386,11 +376,11 @@ class UIManager {
         const badge = $('<span>').addClass('status-badge');
         switch (status) {
             case 'resolved':
-                return badge.addClass('resolved').text('Đã giải quyết').prop('outerHTML');
+                return badge.addClass('resolved').text('Resolved').prop('outerHTML');
             case 'closed':
-                return badge.addClass('closed').text('Đã đóng').prop('outerHTML');
+                return badge.addClass('closed').text('Closed').prop('outerHTML');
             default:
-                return badge.addClass('open').text('Đang mở').prop('outerHTML');
+                return badge.addClass('open').text('Open').prop('outerHTML');
         }
     }
 
@@ -415,8 +405,8 @@ class UIManager {
         errorItem.find('.btn-toogle-check-fixed').click(async (e) => {
             e.stopPropagation();
             Swal.fire({
-                title: 'Check đã sửa',
-                text: 'Bạn có chắc muốn check đã sửa lỗi này không?',
+                title: 'Thay đổi trạng thái',
+                text: 'Bạn có chắc muốn thay đổi trạng thái của lỗi này không?',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonText: 'Check',
@@ -436,7 +426,7 @@ class UIManager {
             try {
                 await TabManager.sendMessage({
                     action: 'highlightError',
-                    errorId: error.id
+                    error: error
                 });
             } catch (error) {
                 console.log('Cannot highlight error - content script not available');

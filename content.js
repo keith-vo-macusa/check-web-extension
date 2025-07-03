@@ -77,7 +77,7 @@ class WebsiteTestingAssistant {
                     this.hideAllErrors();
                     break;
                 case 'highlightError':
-                    this.highlightError(request.errorId);
+                    this.highlightError(request.error);
                     break;
                 case 'clearAllErrors':
                     this.clearAllErrors();
@@ -138,7 +138,7 @@ class WebsiteTestingAssistant {
 
     async errorsVisible() {
         const result = await this.browserAPI.storage.local.get('errorsVisible');
-        const isVisible = result.errorsVisible;
+        const isVisible = result?.errorsVisible;
         if(isVisible) {
             return result;
         }
@@ -1067,39 +1067,35 @@ class WebsiteTestingAssistant {
         this.updateAllErrorBorders();
     }
     
-    highlightError(errorId) {
-        const error = this.errors.find(e => e.id === errorId);
+    highlightError(error) {
         if (!error) return;
 
-        const currentWidth = window.innerWidth;
-        const currentHeight = window.innerHeight;
+        // const currentWidth = window.innerWidth;
+        // const currentHeight = window.innerHeight;
 
-        const newWidth = error.breakpoint.width;
+        // const newWidth = error.breakpoint.width;
 
-        if(currentWidth !== newWidth) {
-            this.browserAPI.runtime.sendMessage({
+        this.browserAPI.runtime.sendMessage({
                 action: "openOrResizeErrorWindow",
                 url: error.url,
                 width: error.breakpoint.width,
                 height: window.innerHeight,
-                errorId: errorId
-            });
-            return;
-        }
-        // Remove existing highlights
-        document.querySelectorAll('.testing-error-highlight').forEach(el => {
-            el.classList.remove('testing-error-highlight');
+                errorId: error.id
         });
+        // // Remove existing highlights
+        // document.querySelectorAll('.testing-error-highlight').forEach(el => {
+        //     el.classList.remove('testing-error-highlight');
+        // });
 
-        //find div with data-error-id = error.id
-        const errorElement = document.querySelector(`div[data-error-id="${error.id}"]`);
-        if (errorElement) {
-            errorElement.classList.add('testing-error-highlight');
-            errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => {
-                errorElement.classList.remove('testing-error-highlight');
-            }, 1000);
-        }
+        // //find div with data-error-id = error.id
+        // const errorElement = document.querySelector(`div[data-error-id="${error.id}"]`);
+        // if (errorElement) {
+        //     errorElement.classList.add('testing-error-highlight');
+        //     errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        //     setTimeout(() => {
+        //         errorElement.classList.remove('testing-error-highlight');
+        //     }, 1000);
+        // }
     }
     
     async clearAllErrors() {
