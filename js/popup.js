@@ -181,7 +181,6 @@ class UIManager {
     setupEventListeners() {
         // Toggle Mode
         $('#toggleMode').click(() => this.handleToggleMode());
-        $('#toggleRectMode').click(() => this.handleToggleRectMode());
         
         // Toggle Errors
         $('#toggleErrors').change((e) => this.handleToggleErrors(e));
@@ -223,18 +222,6 @@ class UIManager {
             console.log('Cannot toggle mode - content script not available');
             // Reset state if content script is not available
             this.state.setActive(false);
-        }
-        this.updateUI();
-    }
-
-    async handleToggleRectMode() {
-        this.state.setRectMode(!this.state.isRectMode);
-        try {
-            await TabManager.sendMessage({
-                action: this.state.isRectMode ? 'enableRectSelection' : 'disableRectSelection'
-            });
-        } catch (error) {
-           alert("Cannot toggle rect mode - content script not available");
         }
         this.updateUI();
     }
