@@ -154,7 +154,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         function openNewErrorWindow() {
             chrome.windows.create({
                 url,
-                type: "popup",
+                type: "normal",
                 width,
                 height
             }, (newWindow) => {
@@ -193,7 +193,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     
                             el.classList.add('testing-error-highlight');
                             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    
+                
                             setTimeout(() => {
                                 el.classList.remove('testing-error-highlight');
                             }, removeDelay);
