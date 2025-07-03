@@ -14,6 +14,12 @@ class WebsiteTestingAssistant {
         this.documentLength = document.documentElement.innerHTML.length;
         this.browserAPI = window.chrome || window.browser;
         this.desktopBreakpoint = 1140;
+
+        // Mouse tracking for drag detection
+        this.isDragging = false;
+        this.startX = 0;
+        this.startY = 0;
+        this.dragOverlay = null;
     }
     
     // Simple UUID generator function
@@ -58,26 +64,7 @@ class WebsiteTestingAssistant {
                 case 'deactivate':
                     this.deactivate();
                     if (request.reason === 'logout') {
-                        // Remove all borders
-                        this.errorBorders.forEach(border => border.remove());
-                        this.errorBorders = [];
-                        
-                        // Clear data
-                        this.errors = [];
-                        this.saveErrors();
-                        this.updateAllErrorBorders();
-                        this.hideAllErrors();
-                        // Reset state
-                        this.isActive = false;
-                        this.selectedElement = null;
-                        const backdrop = document.querySelector('.testing-modal-backdrop');
-                        if (backdrop) {
-                            backdrop.remove();
-                        }
-                        const thread = document.querySelector('.testing-comment-modal');
-                        if (thread) {
-                            thread.remove();
-                        }
+                        this.logout();
                     }
                     break;
                 case 'getState':
@@ -90,13 +77,16 @@ class WebsiteTestingAssistant {
                     this.hideAllErrors();
                     break;
                 case 'highlightError':
-                    this.highlightError(request.errorId);
+                    this.highlightError(request.error);
                     break;
                 case 'clearAllErrors':
                     this.clearAllErrors();
                     break;
                 case 'removeError':
                     this.removeError(request.errorId);
+                    break;
+                case 'checkFixed':
+                    this.checkFixed(request.errorId);
                     break;
             }
         });
@@ -114,25 +104,41 @@ class WebsiteTestingAssistant {
             });
             this.resizeObserver.observe(document.body);
         }
+
+        // phím tắt để bật chế độ chọn lỗi
+        window.addEventListener('keydown', async (e) => {
+            // shift + w để bật/tắt chế độ chọn lỗi
+            if (e.shiftKey && e.key.toLowerCase() === 'w') {
+                this.isActive ? this.deactivate() : this.activate();
+                e.preventDefault();
+            }
+
+            // shift + e để hiển thị lỗi
+            if (e.shiftKey && (e.key.toLowerCase() === 'e')) {
+                const result = await this.browserAPI.storage.local.get('errorsVisible');
+                const isVisible = result.errorsVisible;
+                await this.browserAPI.storage.local.set({ errorsVisible: !isVisible });
+                if (isVisible) {
+                    this.hideAllErrors();
+                } else {
+                    this.showAllErrors();
+                }
+                e.preventDefault();
+            }
+        });
     }
 
     handleResize() {
-        const isVisible = this.errorsVisible();
-        if (isVisible) {
-            this.updateAllErrorBorders();
-        }
+        this.updateAllErrorBorders();
     }
 
     async handleScroll() {
-        const isVisible = this.errorsVisible();
-        if (isVisible) {
-            this.updateAllErrorBorders();
-        }
+        this.updateAllErrorBorders();
     }
 
     async errorsVisible() {
         const result = await this.browserAPI.storage.local.get('errorsVisible');
-        const isVisible = result.errorsVisible;
+        const isVisible = result?.errorsVisible;
         if(isVisible) {
             return result;
         }
@@ -143,46 +149,42 @@ class WebsiteTestingAssistant {
         this.isActive = true;
         
         // Store bound functions for proper removal
-        this.boundHandleClick = this.handleClick.bind(this);
+        this.boundHandleMouseDown = this.handleMouseDown.bind(this);
+        this.boundHandleMouseMove = this.handleMouseMove.bind(this);
+        this.boundHandleMouseUp = this.handleMouseUp.bind(this);
         this.boundHandleMouseOver = this.handleMouseOver.bind(this);
         this.boundHandleMouseOut = this.handleMouseOut.bind(this);
+        this.boundPreventLinkClick = this.preventLinkClick.bind(this);
         
-        document.addEventListener('click', this.boundHandleClick, true);
+        document.addEventListener('mousedown', this.boundHandleMouseDown, true);
         document.addEventListener('mouseover', this.boundHandleMouseOver, true);
         document.addEventListener('mouseout', this.boundHandleMouseOut, true);
+        document.addEventListener('click', this.boundPreventLinkClick, true);
         
         // Add class to body
         document.body.classList.add('testing-selection-mode');
-
     }
     
     deactivate() {
         this.isActive = false;
         
-        document.removeEventListener('click', this.boundHandleClick, true);
+        document.removeEventListener('mousedown', this.boundHandleMouseDown, true);
         document.removeEventListener('mouseover', this.boundHandleMouseOver, true);
         document.removeEventListener('mouseout', this.boundHandleMouseOut, true);
+        document.removeEventListener('click', this.boundPreventLinkClick, true);
+        
+        // Remove dynamic listeners if they exist
+        if (this.boundHandleMouseMove) {
+            document.removeEventListener('mousemove', this.boundHandleMouseMove, true);
+        }
+        if (this.boundHandleMouseUp) {
+            document.removeEventListener('mouseup', this.boundHandleMouseUp, true);
+        }
         
         document.body.classList.remove('testing-selection-mode');
         
         this.removeHighlight();
-        
-    }
-    
-    restoreSelection() {
-        if (!this.wasActiveBeforeModal || !this.isActive) return;
-        
-        // Restore event listeners
-        document.addEventListener('click', this.boundHandleClick, true);
-        document.addEventListener('mouseover', this.boundHandleMouseOver, true);
-        document.addEventListener('mouseout', this.boundHandleMouseOut, true);
-        
-        // Restore crosshair cursor
-        document.body.classList.add('testing-selection-mode');
-        document.body.style.cursor = 'crosshair !important';
-        
-        // Reset state
-        this.wasActiveBeforeModal = false;
+        this.cleanupDrag();
     }
     
     handleMouseOver(event) {
@@ -210,20 +212,59 @@ class WebsiteTestingAssistant {
         targetElement.classList.remove('testing-highlight');
     }
     
-    handleClick(event) {
-        if (!this.isActive) return;
+    handleMouseDown(event) {
+        if (!this.isActive || event.button !== 0) return;
         
         // Only handle elementor elements
         if (!event.target.closest('.elementor-element')) return;
         
-        // Only prevent default for non-interactive elements
-        if (!this.isInteractiveElement(event.target)) {
-            event.preventDefault();
-        }
+        event.preventDefault();
         event.stopPropagation();
         
+        this.isDragging = false;
+        this.startX = event.pageX;
+        this.startY = event.pageY;
         this.selectedElement = this.getTargetElement(event.target);
-        this.showCommentModal();
+        
+        // Add temporary listeners for mouse move and up
+        document.addEventListener('mousemove', this.boundHandleMouseMove, true);
+        document.addEventListener('mouseup', this.boundHandleMouseUp, true);
+    }
+    
+    handleMouseMove(event) {
+        if (!this.isActive) return;
+        
+        const deltaX = Math.abs(event.pageX - this.startX);
+        const deltaY = Math.abs(event.pageY - this.startY);
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance > 5 && !this.isDragging) {
+            // Start dragging - create rectangle
+            this.isDragging = true;
+            this.createDragOverlay();
+        }
+        
+        if (this.isDragging) {
+            this.updateDragOverlay(event.pageX, event.pageY);
+        }
+    }
+    
+    handleMouseUp(event) {
+        if (!this.isActive) return;
+        
+        // Remove temporary listeners
+        document.removeEventListener('mousemove', this.boundHandleMouseMove, true);
+        document.removeEventListener('mouseup', this.boundHandleMouseUp, true);
+        
+        if (this.isDragging) {
+            // Rectangle selection
+            this.finalizeDragSelection();
+        } else {
+            // Simple click - element selection
+            this.showCommentModal(false);
+        }
+        
+        this.cleanupDrag();
     }
 
     getTargetElement(element) {
@@ -240,14 +281,57 @@ class WebsiteTestingAssistant {
         return false;
     }
     
+    createDragOverlay() {
+        this.dragOverlay = document.createElement('div');
+        this.dragOverlay.className = 'testing-drag-overlay';
+        document.body.appendChild(this.dragOverlay);
+    }
+    
+    updateDragOverlay(currentX, currentY) {
+        if (!this.dragOverlay) return;
+        
+        const left = Math.min(this.startX, currentX);
+        const top = Math.min(this.startY, currentY);
+        const width = Math.abs(currentX - this.startX);
+        const height = Math.abs(currentY - this.startY);
+        
+        this.dragOverlay.style.left = `${left}px`;
+        this.dragOverlay.style.top = `${top}px`;
+        this.dragOverlay.style.width = `${width}px`;
+        this.dragOverlay.style.height = `${height}px`;
+    }
+    
+    finalizeDragSelection() {
+        if (!this.dragOverlay) return;
+        
+        const rect = {
+            left: parseFloat(this.dragOverlay.style.left),
+            top: parseFloat(this.dragOverlay.style.top),
+            width: parseFloat(this.dragOverlay.style.width),
+            height: parseFloat(this.dragOverlay.style.height)
+        };
+        
+        // Only proceed if rectangle is large enough
+        if (rect.width >= 10 && rect.height >= 10) {
+            this.selectedRect = rect;
+            this.showCommentModal(true);
+        }
+    }
+    
+    cleanupDrag() {
+        this.isDragging = false;
+        if (this.dragOverlay) {
+            this.dragOverlay.remove();
+            this.dragOverlay = null;
+        }
+    }
+    
     removeHighlight() {
         const highlighted = document.querySelectorAll('.testing-highlight');
         highlighted.forEach(el => el.classList.remove('testing-highlight'));
     }
     
-    showCommentModal() {
-        if (!this.selectedElement) return;
-        
+    showCommentModal(isRect = false) {
         // Create backdrop
         const backdrop = document.createElement('div');
         backdrop.className = 'testing-modal-backdrop';
@@ -275,7 +359,11 @@ class WebsiteTestingAssistant {
         saveBtn.addEventListener('click', async () => {
             const comment = textarea.value.trim();
             if (comment) {
-                await this.saveError(comment);
+                if (isRect) {
+                    await this.saveErrorGeneral({ comment, type: "rect" });
+                } else {
+                    await this.saveErrorGeneral({ comment, type: "border" });
+                }
                 this.closeModal();
             } else {
                 textarea.focus();
@@ -641,6 +729,7 @@ class WebsiteTestingAssistant {
             resolveBtn.textContent = error.status === 'resolved' ? '✓ Đã giải quyết' : 'Đánh dấu đã giải quyết';
             resolveBtn.className = `btn-resolve ${error.status === 'resolved' ? 'resolved' : ''}`;
         }
+        this.updateAllErrorBorders();
     }
 
     async deleteError(errorId) {
@@ -682,142 +771,159 @@ class WebsiteTestingAssistant {
 
     
     
-    async saveError(comment) {
-        if (!this.selectedElement) return;
+    // async saveError(comment) {
+    //     if (!this.selectedElement) return;
         
-        const identifiers = {
-            xpath: window.getElementXPath(this.selectedElement),
-        };
+    //     const identifiers = {
+    //         xpath: window.getElementXPath(this.selectedElement),
+    //     };
 
-        const width = window.innerWidth;
-        const currentBreakpoint = window.getCurrentBreakpoint(width);
+    //     const width = window.innerWidth;
+    //     const currentBreakpoint = window.getCurrentBreakpoint(width);
 
-        const error = {
-            id: this.generateUUID(),
-            elementIdentifiers: identifiers,
-            timestamp: Date.now(),
-            breakpoint: {
-                type: currentBreakpoint,
-                width: width,
-            },
-            url: this.currentUrl,
-            status: 'open',
-            comments: [{
-                id: this.generateUUID(),
-                text: comment,
-                author: await this.getUserInfo(),
-                timestamp: Date.now(),
-                edited: false,
-                editedAt: null
-            }]
-        };
+    //     const error = {
+    //         id: this.generateUUID(),
+    //         elementIdentifiers: identifiers,
+    //         timestamp: Date.now(),
+    //         type: "border",
+    //         breakpoint: {
+    //             type: currentBreakpoint,
+    //             width: width,
+    //         },
+    //         url: this.currentUrl,
+    //         status: 'open',
+    //         comments: [{
+    //             id: this.generateUUID(),
+    //             text: comment,
+    //             author: await this.getUserInfo(),
+    //             timestamp: Date.now(),
+    //             edited: false,
+    //             editedAt: null
+    //         }]
+    //     };
 
-        const element = window.findElementByIdentifiers(error.elementIdentifiers);
+    //     const element = window.findElementByIdentifiers(error.elementIdentifiers);
         
-        if( !element) {
-            console.error('Failed to save error: Cannot reliably identify the selected element');
-            return;
-        }
+    //     if( !element) {
+    //         console.error('Failed to save error: Cannot reliably identify the selected element');
+    //         return;
+    //     }
 
         
-        // Get current feedback data
-        let feedbackData = await this.getFeedbackData();
+    //     // Get current feedback data
+    //     let feedbackData = await this.getFeedbackData();
             
-            // Add new error to the appropriate path
-        let pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
-        if (pathIndex === -1) {
-            feedbackData.path.push({
-                full_url: this.currentUrl,
-                    data: [error]
-                });
-            }
-        else {
-            feedbackData.path[pathIndex].data.push(error);
-        }
+    //         // Add new error to the appropriate path
+    //     let pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
+    //     if (pathIndex === -1) {
+    //         feedbackData.path.push({
+    //             full_url: this.currentUrl,
+    //                 data: [error]
+    //             });
+    //         }
+    //     else {
+    //         feedbackData.path[pathIndex].data.push(error);
+    //     }
 
-        // Update API with full feedback data
-        this.updateToAPI(feedbackData);
+    //     // Update API with full feedback data
+    //     this.updateToAPI(feedbackData);
             
-        this.errors.push(error);
-        this.saveErrors();
-        this.createErrorBorder(error);
+    //     this.errors.push(error);
+    //     this.saveErrors();
+    //     this.createErrorOverlay(error);
        
-    }
+    // }
 
 
-    createErrorBorder(error) {
-        const element = this.findErrorElement(error);
-        if (!element) return;
+    createErrorOverlay(error) {
+        const overlay = document.createElement('div');
+        overlay.className = 'testing-error-border';
+        overlay.dataset.errorId = error.id;
+        overlay.style.zIndex = '251001';
         
-        // Create border overlay
-        const border = document.createElement('div');
-        border.className = 'testing-error-border';
-        border.dataset.errorId = error.id;
-
-        // Calculate z-index based on DOM depth
-        const getElementDepth = (el) => {
-            let depth = 0;
-            let parent = el.parentElement;
-            while (parent) {
-                depth++;
-                parent = parent.parentElement;
-            }
-            return depth;
-        };
-        
-        // Base z-index for our overlay elements,
-        const baseZIndex = 251001;
-        // Add depth to make deeper elements have higher z-index
-        const depth = getElementDepth(element);
-        border.style.zIndex = baseZIndex + depth;
-        
+        if (error.type === 'rect') {
+            // Rectangle overlay
+            overlay.style.position = 'absolute';
+            overlay.style.border = '2px solid red';
+            overlay.style.background = 'rgba(255, 0, 0, 0.1)';
+            overlay.style.left = `${error.coordinates.left}px`;
+            overlay.style.top = `${error.coordinates.top}px`;
+            overlay.style.width = `${error.coordinates.width}px`;
+            overlay.style.height = `${error.coordinates.height}px`;
+        } else {
+            // Element border overlay
+            const element = this.findErrorElement(error);
+            if (!element) return;
+            
+            // Calculate z-index based on DOM depth for element overlays
+            const getElementDepth = (el) => {
+                let depth = 0;
+                let parent = el.parentElement;
+                while (parent) {
+                    depth++;
+                    parent = parent.parentElement;
+                }
+                return depth;
+            };
+            
+            const baseZIndex = 251001;
+            const depth = getElementDepth(element);
+            overlay.style.zIndex = baseZIndex + depth;
+        }
         
         // Add click handler to show thread
-        border.addEventListener('click', (e) => {
+        overlay.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.showCommentThread(error, border);
+            this.showCommentThread(error, overlay);
         });
         
-        border.addEventListener('mouseleave', () => {
-            border.classList.remove('testing-border-hover');
+        overlay.addEventListener('mouseleave', () => {
+            overlay.classList.remove('testing-border-hover');
         });
         
-        document.body.appendChild(border);
-        this.errorBorders.push(border);
+        document.body.appendChild(overlay);
+        this.errorBorders.push(overlay);
         
         this.updateAllErrorBorders();
-        // const shouldShow = this.shouldShowErrorBorder(error);
-        // border.style.display = shouldShow ? 'block' : 'none';
     }
 
-    positionErrorBorder(border, error, element, errorsVisible = false) {
-        if (!element) {
-            element = this.findErrorElement(error);
+    positionErrorOverlay(overlay, error, errorsVisible = false) {
+        const shouldShow = this.shouldShowErrorBorder(error);
+        
+        if (error.type === 'rect') {
+            // Rectangle overlay - coordinates are fixed
+            overlay.className = `testing-error-border ${error.status || 'open'}`;
+            if (errorsVisible) {
+                overlay.classList.toggle('show', shouldShow);
+                overlay.style.display = shouldShow ? 'block' : 'none';
+            }
+        } else {
+            // Element overlay - needs repositioning
+            const element = this.findErrorElement(error);
             if (!element) {
-                border.style.display = 'none';
+                overlay.style.display = 'none';
                 return;
             }
-        }
 
-        const shouldShow = this.shouldShowErrorBorder(error);
-        if (shouldShow) {
-            const rect = element.getBoundingClientRect();
-        
-            // Position border to overlay the element
-            border.style.position = 'absolute';
-            border.style.top = `${rect.top + window.scrollY}px`;
-            border.style.left = `${rect.left + window.scrollX}px`;
-            border.style.width = `${rect.width}px`;
-            border.style.height = `${rect.height}px`;
-            
-            // Add status class
-            border.className = `testing-error-border ${error.status || 'open'}`;
-            if(errorsVisible) {
-                border.classList.add('show');
-            }
-        }else {
-            if(errorsVisible) {
-                border.classList.remove('show');
+            if (shouldShow) {
+                const rect = element.getBoundingClientRect();
+                
+                // Position overlay to match the element
+                overlay.style.position = 'absolute';
+                overlay.style.top = `${rect.top + window.scrollY}px`;
+                overlay.style.left = `${rect.left + window.scrollX}px`;
+                overlay.style.width = `${rect.width}px`;
+                overlay.style.height = `${rect.height}px`;
+                
+                // Add status class
+                overlay.className = `testing-error-border ${error.status || 'open'}`;
+                if (errorsVisible) {
+                    overlay.classList.add('show');
+                }
+            } else {
+                if (errorsVisible) {
+                    overlay.classList.remove('show');
+                }
             }
         }
     }
@@ -831,12 +937,12 @@ class WebsiteTestingAssistant {
 
     async updateAllErrorBorders() {
         const errorsVisible = await this.errorsVisible();
-        const visible = errorsVisible.errorsVisible;
-        this.errorBorders.forEach(border => {
-            const errorId = border.dataset.errorId;
+        const visible = errorsVisible?.errorsVisible || false;
+        this.errorBorders.forEach(overlay => {
+            const errorId = overlay.dataset.errorId;
             const error = this.errors.find(e => e.id === errorId);
             if (error) {
-                this.positionErrorBorder(border, error, null, visible);
+                this.positionErrorOverlay(overlay, error, visible);
             }
         });
     }
@@ -931,7 +1037,7 @@ class WebsiteTestingAssistant {
     processExistingErrors(errors) {
         this.errors = errors; // Update local errors array
         errors.forEach(error => {
-            this.createErrorBorder(error);
+            this.createErrorOverlay(error);
         });
         this.updateErrorBordersVisibility();
     }
@@ -961,39 +1067,35 @@ class WebsiteTestingAssistant {
         this.updateAllErrorBorders();
     }
     
-    highlightError(errorId) {
-        const error = this.errors.find(e => e.id === errorId);
+    highlightError(error) {
         if (!error) return;
 
-        const currentWidth = window.innerWidth;
-        const currentHeight = window.innerHeight;
+        // const currentWidth = window.innerWidth;
+        // const currentHeight = window.innerHeight;
 
-        const newWidth = error.breakpoint.width;
+        // const newWidth = error.breakpoint.width;
 
-        if(currentWidth !== newWidth) {
-            this.browserAPI.runtime.sendMessage({
+        this.browserAPI.runtime.sendMessage({
                 action: "openOrResizeErrorWindow",
                 url: error.url,
                 width: error.breakpoint.width,
                 height: window.innerHeight,
-                errorId: errorId
-            });
-            return;
-        }
-        // Remove existing highlights
-        document.querySelectorAll('.testing-error-highlight').forEach(el => {
-            el.classList.remove('testing-error-highlight');
+                errorId: error.id
         });
+        // // Remove existing highlights
+        // document.querySelectorAll('.testing-error-highlight').forEach(el => {
+        //     el.classList.remove('testing-error-highlight');
+        // });
 
-        //find div with data-error-id = error.id
-        const errorElement = document.querySelector(`div[data-error-id="${error.id}"]`);
-        if (errorElement) {
-            errorElement.classList.add('testing-error-highlight');
-            errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => {
-                errorElement.classList.remove('testing-error-highlight');
-            }, 1000);
-        }
+        // //find div with data-error-id = error.id
+        // const errorElement = document.querySelector(`div[data-error-id="${error.id}"]`);
+        // if (errorElement) {
+        //     errorElement.classList.add('testing-error-highlight');
+        //     errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        //     setTimeout(() => {
+        //         errorElement.classList.remove('testing-error-highlight');
+        //     }, 1000);
+        // }
     }
     
     async clearAllErrors() {
@@ -1091,6 +1193,186 @@ class WebsiteTestingAssistant {
                 });
             });
         });
+    }
+
+
+
+    // async saveRectError(comment) {
+    //     if (!this.selectedRect) return;
+        
+    //     const innerWidth = window.innerWidth;
+    //     const breakpoint = {
+    //         type: window.getCurrentBreakpoint(innerWidth),
+    //         width: innerWidth
+    //     };
+        
+    //     const newError = {
+    //         id: this.generateUUID(),
+    //         type: "rect",
+    //         elementIdentifiers: null,
+    //         timestamp: Date.now(),
+    //         breakpoint: breakpoint,
+    //         url: this.currentUrl,
+    //         status: "open",
+    //         coordinates: this.selectedRect,
+    //         comments: [{
+    //             id: this.generateUUID(),
+    //             text: comment,
+    //             author: await this.getUserInfo(),
+    //             timestamp: Date.now(),
+    //             edited: false,
+    //             editedAt: null
+    //         }]
+    //     };
+        
+    //     // Get current feedback data
+    //     let feedbackData = await this.getFeedbackData();
+        
+    //     // Add new error to the appropriate path
+    //     let pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
+    //     if (pathIndex === -1) {
+    //         feedbackData.path.push({
+    //             full_url: this.currentUrl,
+    //             data: [newError]
+    //         });
+    //     } else {
+    //         feedbackData.path[pathIndex].data.push(newError);
+    //     }
+        
+    //     // Update API with full feedback data
+    //     this.updateToAPI(feedbackData);
+        
+    //     this.errors.push(newError);
+    //     this.saveErrors();
+    //     this.createErrorOverlay(newError);
+        
+    //     // Reset selection
+    //     this.selectedRect = null;
+    // }
+
+
+    async saveErrorGeneral({ comment, type }) {
+        if (type === "border" && !this.selectedElement) return;
+        if (type === "rect" && !this.selectedRect) return;
+    
+        const width = window.innerWidth;
+        const breakpoint = {
+            type: window.getCurrentBreakpoint(width),
+            width: width
+        };
+    
+        const error = {
+            id: this.generateUUID(),
+            type: type,
+            timestamp: Date.now(),
+            breakpoint: breakpoint,
+            url: this.currentUrl,
+            status: "open",
+            elementIdentifiers: null,
+            coordinates: null,
+            comments: [{
+                id: this.generateUUID(),
+                text: comment,
+                author: await this.getUserInfo(),
+                timestamp: Date.now(),
+                edited: false,
+                editedAt: null
+            }]
+        };
+    
+        // Xử lý dữ liệu khác biệt
+        if (type === "border") {
+            error.elementIdentifiers = {
+                xpath: window.getElementXPath(this.selectedElement)
+            };
+    
+            const element = window.findElementByIdentifiers(error.elementIdentifiers);
+            if (!element) {
+                console.error('Failed to save error: Cannot reliably identify the selected element');
+                return;
+            }
+        }
+    
+        if (type === "rect") {
+            error.coordinates = this.selectedRect;
+        }
+    
+        // Get current feedback data
+        let feedbackData = await this.getFeedbackData();
+    
+        // Add new error to the appropriate path
+        let pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
+        if (pathIndex === -1) {
+            feedbackData.path.push({
+                full_url: this.currentUrl,
+                data: [error]
+            });
+        } else {
+            feedbackData.path[pathIndex].data.push(error);
+        }
+    
+        // Update API with full feedback data
+        this.updateToAPI(feedbackData);
+    
+        this.errors.push(error);
+        this.saveErrors();
+        this.createErrorOverlay(error);
+    
+        if (type === "rect") {
+            this.selectedRect = null;
+        }
+    }
+    
+    
+    logout() {
+        try{
+            // Remove all borders
+            this.errorBorders.forEach(border => border.remove());
+            this.errorBorders = [];
+            
+            // Clear data
+            this.errors = [];
+            this.saveErrors();
+            this.updateAllErrorBorders();
+            this.hideAllErrors();
+            // Reset state
+            this.isActive = false;
+            this.selectedElement = null;
+            const backdrop = document.querySelector('.testing-modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            const thread = document.querySelector('.testing-comment-modal');
+            if (thread) {
+                thread.remove();
+            }
+        }
+        catch(error){
+            console.error('Error logging out:', error);
+            alert('Error logging out');
+        }
+    }
+
+
+    async checkFixed(errorId) {
+        const error = this.errors.find(e => e.id === errorId);
+        if (!error) return;
+        error.status = error.status === 'resolved' ? 'open' : 'resolved';
+        this.saveErrors();
+        let feedbackData = await this.getFeedbackData();
+        this.updateToAPI(feedbackData);
+        this.updateAllErrorBorders();
+    }
+    
+    preventLinkClick(event) {
+        if (!this.isActive) return;
+        
+        // Check if clicked element is a link or inside a link
+        const linkElement = event.target.closest('a');
+        if (linkElement) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
     }
 }
 

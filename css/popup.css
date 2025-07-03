@@ -621,7 +621,7 @@ input:checked + .toggle-slider:before {
     transform: translateX(26px);
 }
 
-.delete-error-btn {
+.delete-error-btn, .btn-toogle-check-fixed {
     background: none;
     border: none;
     cursor: pointer;
@@ -634,6 +634,14 @@ input:checked + .toggle-slider:before {
 
 .delete-error-btn:hover {
     color: var(--color-danger);
+}
+.btn-toogle-check-fixed:hover {
+    color: var(--color-success);
+}
+
+.delete-error-btn.bg-success {
+    background: var(--color-success);
+    color: var(--color-white);
 }
 
 /* Error Visibility States */

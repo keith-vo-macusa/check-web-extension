@@ -154,7 +154,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         function openNewErrorWindow() {
             chrome.windows.create({
                 url,
-                type: "popup",
+                type: "normal",
                 width,
                 height
             }, (newWindow) => {
@@ -184,27 +184,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 target: { tabId },
                 func: (errorId) => {
                     const run = () => {
-                        const highlightDelay = 1000;
-                        const removeDelay = 1000;
-                    
+                        const el = document.querySelector(`div[data-error-id="${errorId}"]`);
+                        if (!el) return;
+        
+                        // Scroll tới element
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+                        // Đợi một chút để scroll xong, hoặc có thể dùng 'scrollend' ở browser hỗ trợ mới (nhưng không phổ biến)
+                        const scrollDelay = 500;
+        
                         setTimeout(() => {
-                            const el = document.querySelector(`div[data-error-id="${errorId}"]`);
-                            if (!el) return;
-                    
-                            el.classList.add('testing-error-highlight');
-                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    
-                            setTimeout(() => {
-                                el.classList.remove('testing-error-highlight');
-                            }, removeDelay);
-                        }, highlightDelay);
+                            // Bắt sự kiện animation hoặc transition
+                            const onAnimationEnd = () => {
+                                el.removeEventListener('animationend', onAnimationEnd);
+                                el.removeEventListener('transitionend', onAnimationEnd);
+        
+                                // Sau khi animation có sẵn kết thúc, thêm highlight
+                                el.classList.add('testing-error-highlight');
+        
+                                // Tự động remove sau khoảng thời gian nhất định nếu cần
+                                setTimeout(() => {
+                                    el.classList.remove('testing-error-highlight');
+                                }, 1000);
+                            };
+        
+                            el.addEventListener('animationend', onAnimationEnd);
+                            el.addEventListener('transitionend', onAnimationEnd);
+        
+                            // Nếu không có animation thực sự, fallback tự kích hoạt sau khoảng delay
+                            setTimeout(onAnimationEnd, 500);
+                        }, scrollDelay);
                     };
-                    
-
-                    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        
+                    if (document.readyState === 'complete') {
                         run();
                     } else {
-                        document.addEventListener('DOMContentLoaded', run, { once: true });
+                        window.addEventListener('load', run, { once: true });
                     }
                 },
                 args: [errorId]
