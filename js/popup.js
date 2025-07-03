@@ -16,6 +16,7 @@ class PopupState {
         this.errorsVisible = true;
         this.resolvedErrorsVisible = false;
         this.selectedBreakpoint = BREAKPOINTS.ALL;
+        this.isRectMode = false;
         
         // Set initial state
         document.body.setAttribute('data-show-resolved', this.resolvedErrorsVisible);
@@ -38,6 +39,10 @@ class PopupState {
         this.resolvedErrorsVisible = value;
         document.body.setAttribute('data-show-resolved', value);
         browserAPI.storage.local.set({resolvedErrorsVisible: value});
+    }
+
+    setRectMode(value) {
+        this.isRectMode = value;
     }
 }
 
@@ -208,6 +213,7 @@ class UIManager {
 
     async handleToggleMode() {
         this.state.setActive(!this.state.isActive);
+        this.state.setErrorsVisible(this.state.isActive);
         try {
             await TabManager.sendMessage({
                 action: this.state.isActive ? 'activate' : 'deactivate'
@@ -287,17 +293,7 @@ class UIManager {
         const container = $('#errorsList');
         container.empty();
 
-        if (!errors || errors.length === 0) {
-            container.html('<div class="no-errors">Chưa có lỗi nào được ghi nhận</div>');
-            return;
-        }
-
         const filteredErrors = this.filterErrorsByBreakpoint(errors);
-        
-        if (filteredErrors.length === 0) {
-            container.html(`<div class="no-errors">Không có lỗi nào ${this.state.selectedBreakpoint !== BREAKPOINTS.ALL ? `trong breakpoint ${this.state.selectedBreakpoint}` : ''}</div>`);
-            return;
-        }
 
         // Sort errors before rendering
         const sortedErrors = ErrorManager.sortErrors(filteredErrors);
@@ -321,8 +317,8 @@ class UIManager {
         };
 
         // Render each group with a header
-        if (errorGroups.open.length > 0) {
-            const errorsOpen = errorGroups.open.length;
+        if (errorGroups.open.length >= 0) {
+            const errorsOpen = errorGroups.open?.length || 0;
             const errorsResolved = errorGroups.resolved?.length || 0;
             container.append(`
                 <div class="error-count">
@@ -352,12 +348,16 @@ class UIManager {
         const timeString = date.toLocaleString('vi-VN');
         const latestComment = error.comments[error.comments.length - 1];
         const statusBadge = this.createStatusBadge(error.status);
-
+        const fixed = error.status === 'resolved';
+        const bgBtnCheckFixed = fixed ? 'bg-success' : '';
         errorItem.html(`
             <div class="error-header">
                 <span class="error-number">#${index + 1}</span>
                 ${statusBadge}
                 <span class="error-time">${timeString}</span>
+                <button class="btn-toogle-check-fixed ${bgBtnCheckFixed}" data-fixed="${fixed}">
+                    <i class="fa-solid ${fixed ? 'fa-x' : 'fa-check'}"></i>
+                 </button>
                 <button class="delete-error-btn" title="Xóa lỗi này"><i class="fa-solid fa-trash"></i></button>
             </div>
             <div class="error-comment">${latestComment.text}</div>
@@ -376,11 +376,11 @@ class UIManager {
         const badge = $('<span>').addClass('status-badge');
         switch (status) {
             case 'resolved':
-                return badge.addClass('resolved').text('Đã giải quyết').prop('outerHTML');
+                return badge.addClass('resolved').text('Resolved').prop('outerHTML');
             case 'closed':
-                return badge.addClass('closed').text('Đã đóng').prop('outerHTML');
+                return badge.addClass('closed').text('Closed').prop('outerHTML');
             default:
-                return badge.addClass('open').text('Đang mở').prop('outerHTML');
+                return badge.addClass('open').text('Open').prop('outerHTML');
         }
     }
 
@@ -402,11 +402,31 @@ class UIManager {
             });
         });
 
+        errorItem.find('.btn-toogle-check-fixed').click(async (e) => {
+            e.stopPropagation();
+            Swal.fire({
+                title: 'Thay đổi trạng thái',
+                text: 'Bạn có chắc muốn thay đổi trạng thái của lỗi này không?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Check',
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await TabManager.sendMessage({
+                        action: 'checkFixed',
+                        errorId: error.id
+                    });
+                    setTimeout(() => this.refreshErrorsList(), 250);
+                    setTimeout(() => this.refreshErrorsList(), 250);
+                }
+            });
+        });
+
         errorItem.click(async () => {
             try {
                 await TabManager.sendMessage({
                     action: 'highlightError',
-                    errorId: error.id
+                    error: error
                 });
             } catch (error) {
                 console.log('Cannot highlight error - content script not available');

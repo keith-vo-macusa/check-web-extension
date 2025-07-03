@@ -1000,3 +1000,21 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     0%, 100% { outline-color: #ffc107; }
     50% { outline-color: #ff6b6b; }
 }
+
+/* Vùng kéo khi tạo rect */
+.testing-drag-overlay {
+    position: absolute;
+    border: 2px dashed #ff0000;
+    background: rgba(255, 0, 0, 0.1);
+    z-index: 251001;
+    pointer-events: none;
+}
+
+/* Border lỗi quanh element */
+.testing-error-border {
+    position: absolute;
+    border: 2px solid red;
+    background: rgba(255, 0, 0, 0.1);
+    z-index: 251001;
+    pointer-events: auto;
+}
