@@ -85,6 +85,9 @@ class WebsiteTestingAssistant {
                 case 'removeError':
                     this.removeError(request.errorId);
                     break;
+                case 'checkFixed':
+                    this.checkFixed(request.errorId);
+                    break;
             }
         });
         
@@ -101,6 +104,27 @@ class WebsiteTestingAssistant {
             });
             this.resizeObserver.observe(document.body);
         }
+
+        // phím tắt để bật chế độ chọn lỗi
+        window.addEventListener('keydown', async (e) => {
+            // shift + w để bật/tắt chế độ chọn lỗi
+            if (e.shiftKey && e.key.toLowerCase() === 'w') {
+                this.isActive ? this.deactivate() : this.activate();
+                e.preventDefault();
+            }
+
+            // shift + e để hiển thị lỗi
+            if (e.shiftKey && (e.key.toLowerCase() === 'e')) {
+                const isVisible = await this.errorsVisible();
+                if (isVisible) {
+                    this.hideAllErrors();
+                } else {
+                    this.showAllErrors();
+                }
+                await this.browserAPI.storage.local.set({ errorsVisible: !isVisible });
+                e.preventDefault();
+            }
+        });
     }
 
     handleResize() {
@@ -1329,6 +1353,16 @@ class WebsiteTestingAssistant {
         }
     }
 
+
+    async checkFixed(errorId) {
+        const error = this.errors.find(e => e.id === errorId);
+        if (!error) return;
+        error.status = error.status === 'resolved' ? 'open' : 'resolved';
+        this.saveErrors();
+        let feedbackData = await this.getFeedbackData();
+        this.updateToAPI(feedbackData);
+        this.updateAllErrorBorders();
+    }
     
 }
 
