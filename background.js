@@ -142,6 +142,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             drawAttention: true
                         });
 
+                        // kỉeem trả url xem giống với url hiện tại không ?
+                        // nếu không thì chuyển hướng sang url mới
+                        if (win.tabs[0].url !== url) {
+                            chrome.tabs.update(win.tabs[0].id, { 
+                                url,
+                                focused: true,
+                                drawAttention: true
+                            });
+                        }
+
                         const tabId = win.tabs[0].id;
                         injectHighlightScript(tabId, errorId);
                     }
@@ -188,7 +198,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         if (!el) return;
         
                         // Scroll tới element
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.scrollIntoView({ behavior: 'auto', block: 'center' });
         
                         // Đợi một chút để scroll xong, hoặc có thể dùng 'scrollend' ở browser hỗ trợ mới (nhưng không phổ biến)
                         const scrollDelay = 500;

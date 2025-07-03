@@ -884,28 +884,6 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     }
 }
 
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-    .testing-error-marker,
-    .testing-comment-tooltip,
-    .testing-comment-modal,
-    .testing-modal-backdrop,
-    .testing-comment-thread {
-        animation: none !important;
-    }
-    
-    .testing-error-highlight {
-        animation: none !important;
-    }
-    
-    .testing-error-border {
-        transition: none !important;
-        animation: none !important;
-        transform: none !important;
-    }
-}
-
-
 .testing-highlight {
     outline: 3px solid #007bff !important;
     outline-offset: 2px !important;
@@ -990,9 +968,9 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
 }
 
 .testing-error-highlight {
-    outline: 3px solid #ffc107 !important;
+    outline: 3px solid #ff0000 !important;
     outline-offset: 2px !important;
-    background: rgba(255, 193, 7, 0.1) !important;
+    background: rgba(255, 0, 0, 0.3) !important;
     animation: testing-pulse 2s ease-in-out !important;
 }
 
