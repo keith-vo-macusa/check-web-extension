@@ -115,13 +115,14 @@ class WebsiteTestingAssistant {
 
             // shift + e để hiển thị lỗi
             if (e.shiftKey && (e.key.toLowerCase() === 'e')) {
-                const isVisible = await this.errorsVisible();
+                const result = await this.browserAPI.storage.local.get('errorsVisible');
+                const isVisible = result.errorsVisible;
+                await this.browserAPI.storage.local.set({ errorsVisible: !isVisible });
                 if (isVisible) {
                     this.hideAllErrors();
                 } else {
                     this.showAllErrors();
                 }
-                await this.browserAPI.storage.local.set({ errorsVisible: !isVisible });
                 e.preventDefault();
             }
         });
