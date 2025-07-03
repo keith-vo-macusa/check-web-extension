@@ -153,10 +153,12 @@ class WebsiteTestingAssistant {
         this.boundHandleMouseUp = this.handleMouseUp.bind(this);
         this.boundHandleMouseOver = this.handleMouseOver.bind(this);
         this.boundHandleMouseOut = this.handleMouseOut.bind(this);
+        this.boundPreventLinkClick = this.preventLinkClick.bind(this);
         
         document.addEventListener('mousedown', this.boundHandleMouseDown, true);
         document.addEventListener('mouseover', this.boundHandleMouseOver, true);
         document.addEventListener('mouseout', this.boundHandleMouseOut, true);
+        document.addEventListener('click', this.boundPreventLinkClick, true);
         
         // Add class to body
         document.body.classList.add('testing-selection-mode');
@@ -168,6 +170,7 @@ class WebsiteTestingAssistant {
         document.removeEventListener('mousedown', this.boundHandleMouseDown, true);
         document.removeEventListener('mouseover', this.boundHandleMouseOver, true);
         document.removeEventListener('mouseout', this.boundHandleMouseOut, true);
+        document.removeEventListener('click', this.boundPreventLinkClick, true);
         
         // Remove dynamic listeners if they exist
         if (this.boundHandleMouseMove) {
@@ -1364,6 +1367,16 @@ class WebsiteTestingAssistant {
         this.updateAllErrorBorders();
     }
     
+    preventLinkClick(event) {
+        if (!this.isActive) return;
+        
+        // Check if clicked element is a link or inside a link
+        const linkElement = event.target.closest('a');
+        if (linkElement) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }
 }
 
 // Initialize when DOM is ready
