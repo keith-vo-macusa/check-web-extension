@@ -16,6 +16,7 @@ class PopupState {
         this.errorsVisible = true;
         this.resolvedErrorsVisible = false;
         this.selectedBreakpoint = BREAKPOINTS.ALL;
+        this.isRectMode = false;
         
         // Set initial state
         document.body.setAttribute('data-show-resolved', this.resolvedErrorsVisible);
@@ -38,6 +39,10 @@ class PopupState {
         this.resolvedErrorsVisible = value;
         document.body.setAttribute('data-show-resolved', value);
         browserAPI.storage.local.set({resolvedErrorsVisible: value});
+    }
+
+    setRectMode(value) {
+        this.isRectMode = value;
     }
 }
 
@@ -176,6 +181,7 @@ class UIManager {
     setupEventListeners() {
         // Toggle Mode
         $('#toggleMode').click(() => this.handleToggleMode());
+        $('#toggleRectMode').click(() => this.handleToggleRectMode());
         
         // Toggle Errors
         $('#toggleErrors').change((e) => this.handleToggleErrors(e));
@@ -208,6 +214,7 @@ class UIManager {
 
     async handleToggleMode() {
         this.state.setActive(!this.state.isActive);
+        this.state.setErrorsVisible(this.state.isActive);
         try {
             await TabManager.sendMessage({
                 action: this.state.isActive ? 'activate' : 'deactivate'
@@ -216,6 +223,18 @@ class UIManager {
             console.log('Cannot toggle mode - content script not available');
             // Reset state if content script is not available
             this.state.setActive(false);
+        }
+        this.updateUI();
+    }
+
+    async handleToggleRectMode() {
+        this.state.setRectMode(!this.state.isRectMode);
+        try {
+            await TabManager.sendMessage({
+                action: this.state.isRectMode ? 'enableRectSelection' : 'disableRectSelection'
+            });
+        } catch (error) {
+           alert("Cannot toggle rect mode - content script not available");
         }
         this.updateUI();
     }

@@ -14,6 +14,20 @@ class WebsiteTestingAssistant {
         this.documentLength = document.documentElement.innerHTML.length;
         this.browserAPI = window.chrome || window.browser;
         this.desktopBreakpoint = 1140;
+
+        // Rectangle selection mode
+        this.isRectSelectionMode = false;
+        this.isSelectingRect = false;
+        this.startX = 0;
+        this.startY = 0;
+        this.rectOverlay = null;
+        this.rect = {
+            left: 0,
+            top: 0,
+            width: 0,
+            height: 0
+        }
+
     }
     
     // Simple UUID generator function
@@ -97,6 +111,12 @@ class WebsiteTestingAssistant {
                     break;
                 case 'removeError':
                     this.removeError(request.errorId);
+                    break;
+                case "enableRectSelection":
+                    this.enableRectSelection();
+                    break;
+                case "disableRectSelection":
+                    this.disableRectSelection();
                     break;
             }
         });
@@ -245,9 +265,7 @@ class WebsiteTestingAssistant {
         highlighted.forEach(el => el.classList.remove('testing-highlight'));
     }
     
-    showCommentModal() {
-        if (!this.selectedElement) return;
-        
+    showCommentModal(isRect = false) {
         // Create backdrop
         const backdrop = document.createElement('div');
         backdrop.className = 'testing-modal-backdrop';
@@ -275,7 +293,12 @@ class WebsiteTestingAssistant {
         saveBtn.addEventListener('click', async () => {
             const comment = textarea.value.trim();
             if (comment) {
-                await this.saveError(comment);
+                if(!isRect) {
+                    await this.saveError(comment);
+                }
+                else{
+                    await this.saveRectError(comment);
+                }
                 this.closeModal();
             } else {
                 textarea.focus();
@@ -696,6 +719,7 @@ class WebsiteTestingAssistant {
             id: this.generateUUID(),
             elementIdentifiers: identifiers,
             timestamp: Date.now(),
+            type: "border",
             breakpoint: {
                 type: currentBreakpoint,
                 width: width,
@@ -822,6 +846,23 @@ class WebsiteTestingAssistant {
         }
     }
 
+
+    positionRectOverlay(border, error, element, errorsVisible = false) {
+        if (!element) {
+            element = this.findErrorElement(error);
+            if (!element) {
+                border.style.display = 'none';
+                return;
+            }
+        }
+
+        const shouldShow = this.shouldShowErrorBorder(error);
+
+        if (errorsVisible) {
+            border.classList.toggle('show', shouldShow);
+        }
+    }
+
     shouldShowErrorBorder(error) {
         const width = window.innerWidth;
         return error.breakpoint 
@@ -835,8 +876,11 @@ class WebsiteTestingAssistant {
         this.errorBorders.forEach(border => {
             const errorId = border.dataset.errorId;
             const error = this.errors.find(e => e.id === errorId);
-            if (error) {
+            if (error && error.type == "border") {
                 this.positionErrorBorder(border, error, null, visible);
+            }
+            else if (error && error.type == "rect") {
+                this.positionRectOverlay(border, error, null, visible);
             }
         });
     }
@@ -931,7 +975,11 @@ class WebsiteTestingAssistant {
     processExistingErrors(errors) {
         this.errors = errors; // Update local errors array
         errors.forEach(error => {
-            this.createErrorBorder(error);
+            if (error.type === "rect") {
+                this.createRectOverlay(error);
+            } else {
+                this.createErrorBorder(error);
+            }
         });
         this.updateErrorBordersVisibility();
     }
@@ -1092,6 +1140,158 @@ class WebsiteTestingAssistant {
             });
         });
     }
+
+    /* ========================================
+       RECTANGLE SELECTION MODE
+       ========================================
+       This mode allows users to select elements
+       by drawing a rectangle around them.
+       ======================================== */
+
+    enableRectSelection() {
+        if (this.isRectSelectionMode) return;
+        this.isRectSelectionMode = true;
+        this.boundHandleRectMouseDown = this.handleRectMouseDown.bind(this);
+        document.addEventListener("mousedown", this.boundHandleRectMouseDown, true);
+        document.body.style.cursor = "crosshair";
+    }
+    
+    disableRectSelection() {
+        if (!this.isRectSelectionMode) return;
+        this.isRectSelectionMode = false;
+        document.removeEventListener("mousedown", this.boundHandleRectMouseDown, true);
+        document.body.style.cursor = "";
+    }
+
+    handleRectMouseDown(e) {
+        if (e.button !== 0) return; // Chỉ xử lý click chuột trái
+        e.preventDefault();
+        e.stopPropagation();
+    
+        this.isSelectingRect = true;
+        this.startX = e.pageX;
+        this.startY = e.pageY;
+    
+        this.rectOverlay = document.createElement("div");
+        this.rectOverlay.className = "testing-rect-overlay";
+        this.rectOverlay.style.position = "absolute";
+        this.rectOverlay.style.border = "2px dashed red";
+        this.rectOverlay.style.background = "rgba(255,0,0,0.1)";
+        this.rectOverlay.style.zIndex = "251001";
+        this.rectOverlay.style.pointerEvents = "none";
+        document.body.appendChild(this.rectOverlay);
+    
+        this.boundHandleRectMouseMove = this.handleRectMouseMove.bind(this);
+        this.boundHandleRectMouseUp = this.handleRectMouseUp.bind(this);
+    
+        document.addEventListener("mousemove", this.boundHandleRectMouseMove, true);
+        document.addEventListener("mouseup", this.boundHandleRectMouseUp, true);
+    }
+    
+    handleRectMouseMove(e) {
+        if (!this.isSelectingRect) return;
+    
+        const currentX = e.pageX;
+        const currentY = e.pageY;
+    
+        const left = Math.min(this.startX, currentX);
+        const top = Math.min(this.startY, currentY);
+        const width = Math.abs(currentX - this.startX);
+        const height = Math.abs(currentY - this.startY);
+    
+        this.rectOverlay.style.left = `${left}px`;
+        this.rectOverlay.style.top = `${top}px`;
+        this.rectOverlay.style.width = `${width}px`;
+        this.rectOverlay.style.height = `${height}px`;
+    }
+    
+    async handleRectMouseUp(e) {
+        if (!this.isSelectingRect) return;
+    
+        this.isSelectingRect = false;
+        document.removeEventListener("mousemove", this.boundHandleRectMouseMove, true);
+        document.removeEventListener("mouseup", this.boundHandleRectMouseUp, true);
+    
+        this.rect = {
+            left: parseFloat(this.rectOverlay.style.left),
+            top: parseFloat(this.rectOverlay.style.top),
+            width: parseFloat(this.rectOverlay.style.width),
+            height: parseFloat(this.rectOverlay.style.height)
+        };
+
+        if(this.rect.width < 10 || this.rect.height < 10) {
+            this.rectOverlay.remove();
+            this.rectOverlay = null;
+            return;
+        }
+    
+        this.rectOverlay.remove();
+        this.rectOverlay = null;
+        
+        this.disableRectSelection();
+        this.showCommentModal(true);
+        
+    }
+
+    async saveRectError(comment) {
+        // Lưu dữ liệu vùng chọn như một lỗi đặc biệt
+        const innerWidth = window.innerWidth;
+        const breakpoint = {
+            type: window.getCurrentBreakpoint(innerWidth),
+            width: innerWidth
+         };
+        const newError = {
+            id: this.generateUUID(),
+            type: "rect",
+            elementIdentifiers: null,
+            timestamp: Date.now(),
+            breakpoint: breakpoint,
+            url: this.currentUrl,
+            status: "open",
+            coordinates: this.rect,
+            comments: [{
+               id: this.generateUUID(),
+               text: comment,
+               author: await this.getUserInfo(),
+               timestamp: Date.now(),
+               edited: false,
+               editedAt: null
+           }]
+        };
+     
+        this.errors.push(newError);
+        await this.saveErrors();
+        this.createRectOverlay(newError);
+ 
+        const feedbackData = await this.getFeedbackData();
+        this.updateToAPI(feedbackData); 
+    }
+    
+
+    createRectOverlay(error) {
+        if (error.type !== "rect") return;
+        const shouldShow = this.shouldShowErrorBorder(error);
+        const overlay = document.createElement("div");
+        overlay.className = `testing-error-border ${shouldShow ? " show" : ""}`;
+        overlay.style.position = "absolute";
+        overlay.style.border = "2px solid red";
+        overlay.style.background = "rgba(255, 0, 0, 0.1)";
+        overlay.style.left = `${error.coordinates.left}px`;
+        overlay.style.top = `${error.coordinates.top}px`;
+        overlay.style.width = `${error.coordinates.width}px`;
+        overlay.style.height = `${error.coordinates.height}px`;
+        overlay.style.zIndex = "251001";
+        overlay.dataset.errorId = error.id;
+    
+        overlay.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.showCommentThread(error, overlay);
+        });
+    
+        document.body.appendChild(overlay);
+        this.errorBorders.push(overlay);
+    }
+    
 }
 
 // Initialize when DOM is ready

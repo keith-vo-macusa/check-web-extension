@@ -1000,3 +1000,11 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     0%, 100% { outline-color: #ffc107; }
     50% { outline-color: #ff6b6b; }
 }
+
+.testing-rect-overlay {
+    position: absolute;
+    border: 2px dashed red;
+    background: rgba(255, 0, 0, 0.1);
+    pointer-events: none;
+    z-index: 251001;
+}
