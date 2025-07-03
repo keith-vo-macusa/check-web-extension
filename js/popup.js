@@ -358,12 +358,16 @@ class UIManager {
         const timeString = date.toLocaleString('vi-VN');
         const latestComment = error.comments[error.comments.length - 1];
         const statusBadge = this.createStatusBadge(error.status);
-
+        const fixed = error.status === 'resolved';
+        const bgBtnCheckFixed = fixed ? 'bg-success' : '';
         errorItem.html(`
             <div class="error-header">
                 <span class="error-number">#${index + 1}</span>
                 ${statusBadge}
                 <span class="error-time">${timeString}</span>
+                <button class="btn-toogle-check-fixed ${bgBtnCheckFixed}" data-fixed="${fixed}">
+                    <i class="fa-solid ${fixed ? 'fa-x' : 'fa-check'}"></i>
+                 </button>
                 <button class="delete-error-btn" title="Xóa lỗi này"><i class="fa-solid fa-trash"></i></button>
             </div>
             <div class="error-comment">${latestComment.text}</div>
@@ -404,6 +408,26 @@ class UIManager {
                 if (result.isConfirmed) {
                     await ErrorManager.deleteError(error.id);
                     this.refreshErrorsList();
+                }
+            });
+        });
+
+        errorItem.find('.btn-toogle-check-fixed').click(async (e) => {
+            e.stopPropagation();
+            Swal.fire({
+                title: 'Check đã sửa',
+                text: 'Bạn có chắc muốn check đã sửa lỗi này không?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Check',
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await TabManager.sendMessage({
+                        action: 'checkFixed',
+                        errorId: error.id
+                    });
+                    setTimeout(() => this.refreshErrorsList(), 250);
+                    setTimeout(() => this.refreshErrorsList(), 250);
                 }
             });
         });
