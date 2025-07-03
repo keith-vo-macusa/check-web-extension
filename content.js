@@ -831,7 +831,7 @@ class WebsiteTestingAssistant {
 
     async updateAllErrorBorders() {
         const errorsVisible = await this.errorsVisible();
-        const visible = errorsVisible.errorsVisible;
+        const visible = errorsVisible?.errorsVisible || false;
         this.errorBorders.forEach(border => {
             const errorId = border.dataset.errorId;
             const error = this.errors.find(e => e.id === errorId);
