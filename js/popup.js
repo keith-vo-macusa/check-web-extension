@@ -205,7 +205,8 @@ class UIManager {
             text: 'Có phiên bản mới có sẵn. Nhấp để cập nhật.',
             icon: 'info',
             confirmButtonText: 'Cập nhật',
-            allowOutsideClick: false
+            cancelButtonText: 'Hủy',
+            showCancelButton: true,
         }).then((result) => {
             if (result.isConfirmed) {
                 browserAPI.tabs.create({
