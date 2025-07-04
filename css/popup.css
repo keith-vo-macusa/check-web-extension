@@ -481,6 +481,9 @@ body {
 .breakpoint-filters {
     display: flex;
     gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+    justify-content: center;
+    align-items: center;
     margin-bottom: var(--spacing-lg);
     padding: var(--spacing-sm);
     background: var(--color-gray-100);
@@ -560,12 +563,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-sm) 0;
-    border-bottom: 1px solid var(--color-gray-200);
-}
-
-.toggle-container:last-child {
-    border-bottom: none;
 }
 
 .toggle-label {
@@ -695,4 +692,40 @@ body[data-show-resolved="false"] .error-item.resolved {
 .error-item.closed {
     border-left: 4px solid var(--color-status-closed-text);
     opacity: 0.7;
+}
+
+
+.filters-container {
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--color-gray-100);
+    border-radius: var(--border-radius-md);
+    align-items: center;
+    border-bottom: 1px solid var(--color-gray-200);
+}
+
+.filters-container .form-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.filters-container .form-group label {
+    font-size: var(--font-size-sm);
+    color: var(--color-gray-800);
+    margin-right: var(--spacing-sm);
+}
+
+.notification-btn {
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-status-resolved-text);
+    color: var(--color-white);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+.notification-btn:hover {
+    background: var(--color-success);
 }

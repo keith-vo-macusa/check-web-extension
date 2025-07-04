@@ -9,7 +9,6 @@ class WebsiteTestingAssistant {
         this.errorBorders = [];
         this.userInfo = null;
         this.apiEndpoint = 'https://checkwise.macusaone.com/api_domain_data.php';
-        this.init();
         this.rangeBreakpoint = 20;
         this.documentLength = document.documentElement.innerHTML.length;
         this.browserAPI = window.chrome || window.browser;
@@ -20,6 +19,11 @@ class WebsiteTestingAssistant {
         this.startX = 0;
         this.startY = 0;
         this.dragOverlay = null;
+        this.drawOpenErrors = false;
+        this.drawResolvedErrors = false;
+        this.allErrorsVisible = false; // Flag để theo dõi trạng thái show/hide tổng quát
+        this.init();
+
     }
     
     // Simple UUID generator function
@@ -46,10 +50,10 @@ class WebsiteTestingAssistant {
         if(!this.userInfo) {
             return;
         }
+        this.initDraw();
         await this.fetchDataFromAPI();
         this.bindEvents();
         this.displayExistingErrors();
-        this.updateAllErrorBorders();
     }
 
     bindEvents() {
@@ -72,21 +76,45 @@ class WebsiteTestingAssistant {
                     break;
                 case 'showAllErrors':
                     this.showAllErrors();
+                    // Update storage to persist state
+                    this.browserAPI.storage.local.set({ errorsVisible: true });
                     break;
                 case 'hideAllErrors':
                     this.hideAllErrors();
+                    // Update storage to persist state
+                    this.browserAPI.storage.local.set({ errorsVisible: false });
                     break;
                 case 'highlightError':
                     this.highlightError(request.error);
                     break;
                 case 'clearAllErrors':
-                    this.clearAllErrors();
-                    break;
+                    this.clearAllErrors().then(()=>{
+                        sendResponse({ success: true });
+                    }).catch((error)=>{
+                        sendResponse({ success: false, message: error.message });
+                    });
+                    return true;
                 case 'removeError':
-                    this.removeError(request.errorId);
-                    break;
+                    this.removeError(request.errorId).then(()=>{
+                        sendResponse({ success: true });
+                    }).catch((error)=>{
+                        sendResponse({ success: false, message: error.message });
+                    });
+                    return true;
                 case 'checkFixed':
-                    this.checkFixed(request.errorId);
+                    this.checkFixed(request.errorId).then(()=>{
+                        sendResponse({ success: true });
+                    }).catch((error)=>{
+                        sendResponse({ success: false, message: error.message });
+                    });
+                    return true;
+                case 'drawOpenErrors':
+                    this.drawOpenErrors = request.drawOpenErrors;
+                    this.updateAllErrorBorders();
+                    break;
+                case 'drawResolvedErrors':
+                    this.drawResolvedErrors = request.drawResolvedErrors;
+                    this.updateAllErrorBorders();
                     break;
             }
         });
@@ -115,14 +143,14 @@ class WebsiteTestingAssistant {
 
             // shift + e để hiển thị lỗi
             if (e.shiftKey && (e.key.toLowerCase() === 'e')) {
-                const result = await this.browserAPI.storage.local.get('errorsVisible');
-                const isVisible = result.errorsVisible;
-                await this.browserAPI.storage.local.set({ errorsVisible: !isVisible });
-                if (isVisible) {
+                if (this.allErrorsVisible) {
                     this.hideAllErrors();
+                    await this.browserAPI.storage.local.set({ errorsVisible: false });
                 } else {
                     this.showAllErrors();
+                    await this.browserAPI.storage.local.set({ errorsVisible: true });
                 }
+                this.updateAllErrorBorders();
                 e.preventDefault();
             }
         });
@@ -893,9 +921,14 @@ class WebsiteTestingAssistant {
         if (error.type === 'rect') {
             // Rectangle overlay - coordinates are fixed
             overlay.className = `testing-error-border ${error.status || 'open'}`;
-            if (errorsVisible) {
-                overlay.classList.toggle('show', shouldShow);
-                overlay.style.display = shouldShow ? 'block' : 'none';
+            if (shouldShow) {
+                overlay.style.display = 'block';
+                if (errorsVisible) {
+                    overlay.classList.add('show');
+                }
+            } else {
+                overlay.style.display = 'none';
+                overlay.classList.remove('show');
             }
         } else {
             // Element overlay - needs repositioning
@@ -917,13 +950,13 @@ class WebsiteTestingAssistant {
                 
                 // Add status class
                 overlay.className = `testing-error-border ${error.status || 'open'}`;
+                overlay.style.display = 'block';
                 if (errorsVisible) {
                     overlay.classList.add('show');
                 }
             } else {
-                if (errorsVisible) {
-                    overlay.classList.remove('show');
-                }
+                overlay.style.display = 'none';
+                overlay.classList.remove('show');
             }
         }
     }
@@ -942,7 +975,24 @@ class WebsiteTestingAssistant {
             const errorId = overlay.dataset.errorId;
             const error = this.errors.find(e => e.id === errorId);
             if (error) {
-                this.positionErrorOverlay(overlay, error, visible);
+                // Check if errors should be shown at all
+                if (!this.allErrorsVisible) {
+                    // Hide all errors when allErrorsVisible is false
+                    overlay.style.display = 'none';
+                    overlay.classList.remove('show');
+                } else {
+                    // Check if this error type should be drawn when allErrorsVisible is true
+                    const shouldDraw = (error.status == 'open' && this.drawOpenErrors) || 
+                                      (error.status == 'resolved' && this.drawResolvedErrors);
+                    
+                    if (shouldDraw) {
+                        this.positionErrorOverlay(overlay, error, visible);
+                    } else {
+                        // Hide overlay if it shouldn't be drawn
+                        overlay.style.display = 'none';
+                        overlay.classList.remove('show');
+                    }
+                }
             }
         });
     }
@@ -1043,28 +1093,20 @@ class WebsiteTestingAssistant {
     }
     
     showAllErrors() {
-        // Instead of showing all errors, only show errors for current breakpoint
+        // Show errors based on drawOpenErrors and drawResolvedErrors
+        this.allErrorsVisible = true;
         this.updateErrorBordersVisibility();
     }
 
     updateErrorBordersVisibility() {
-        // this.errorBorders.forEach(border => {
-        //     const errorId = border.dataset.errorId;
-        //     const error = this.errors.find(e => e.id === errorId);
-        //     const shouldShow = this.shouldShowErrorBorder(error);
-        //     border.style.display = shouldShow ? 'block' : 'none';
-        // });
-        document.body.classList.add('show-error');
+        document.body.classList.toggle('show-error', this.allErrorsVisible);
         this.updateAllErrorBorders();
-
     }
     
     hideAllErrors() {
-        this.errorBorders.forEach(border => {
-            border.style.display = 'none';
-        });
-        document.body.classList.remove('show-error');
-        this.updateAllErrorBorders();
+        // Hide all errors regardless of drawOpenErrors and drawResolvedErrors
+        this.allErrorsVisible = false;
+        this.updateErrorBordersVisibility();
     }
     
     highlightError(error) {
@@ -1103,34 +1145,60 @@ class WebsiteTestingAssistant {
             domain: new URL(this.currentUrl).hostname,
             path: []
         }
-        this.updateToAPI(emptyFeedbackData);
+        await this.updateToAPI(emptyFeedbackData);
+        
         // Remove all borders
         this.errorBorders.forEach(border => border.remove());
         this.errorBorders = [];
         
         // Clear data
         this.errors = [];
-        await this.saveErrors();
+        await this.browserAPI.storage.local.set({ feedback: emptyFeedbackData });
+        
+        // Reload errors for current URL from updated localStorage
+        await this.reloadCurrentErrors();
         this.updateAllErrorBorders();
+        this.removeModal();
     }
 
     async removeError(errorId) {
-        // Remove error from local array
-        this.errors = this.errors.filter(error => error.id !== errorId);
-        
-        // Remove corresponding border elements
-        this.errorBorders = this.errorBorders.filter(border => {
-            if (border.dataset.errorId === errorId) {
-                border.remove();
-                return false;
-            }
-            return true;
-        });
-        
-        // Persist changes to storage
-        this.saveErrors();
+        // Xoá lỗi trong localStorage
         const feedbackData = await this.getFeedbackData();
-        this.updateToAPI(feedbackData);
+
+        let found = false;
+
+        for (const pathItem of feedbackData.path) {
+            const initialLength = pathItem.data.length;
+            pathItem.data = pathItem.data.filter(error => error.id !== errorId);
+            
+            if (pathItem.data.length !== initialLength) {
+                found = true;
+            }
+        }
+
+        if (!found) {
+            alert(`Không tìm thấy lỗi với ID: ${errorId}`);
+            return;
+        }
+
+        // Cập nhật localStorage
+        await this.browserAPI.storage.local.set({ feedback: feedbackData });
+        
+        // Cập nhật lên API
+        await this.updateToAPI(feedbackData);
+        
+        // Reload errors for current URL from updated localStorage
+        await this.reloadCurrentErrors();
+        
+        // Remove border if exists on current page
+        const border = document.querySelector(`.testing-error-border[data-error-id="${errorId}"]`);
+        if (border) {
+            border.remove();
+            this.errorBorders = this.errorBorders.filter(b => b !== border);
+        }
+        
+        this.updateAllErrorBorders();
+        this.removeModal();
     }
     
     async fetchDataFromAPI() {
@@ -1193,6 +1261,13 @@ class WebsiteTestingAssistant {
                 });
             });
         });
+    }
+
+    // Helper method to reload current errors from localStorage
+    async reloadCurrentErrors() {
+        const feedbackData = await this.getFeedbackData();
+        const pathItem = feedbackData.path?.find(p => p.full_url === this.currentUrl);
+        this.errors = pathItem ? pathItem.data : [];
     }
 
 
@@ -1338,14 +1413,8 @@ class WebsiteTestingAssistant {
             // Reset state
             this.isActive = false;
             this.selectedElement = null;
-            const backdrop = document.querySelector('.testing-modal-backdrop');
-            if (backdrop) {
-                backdrop.remove();
-            }
-            const thread = document.querySelector('.testing-comment-modal');
-            if (thread) {
-                thread.remove();
-            }
+            this.allErrorsVisible = false;
+            this.removeModal();
         }
         catch(error){
             console.error('Error logging out:', error);
@@ -1355,14 +1424,47 @@ class WebsiteTestingAssistant {
 
 
     async checkFixed(errorId) {
-        const error = this.errors.find(e => e.id === errorId);
-        if (!error) return;
-        error.status = error.status === 'resolved' ? 'open' : 'resolved';
-        this.saveErrors();
-        let feedbackData = await this.getFeedbackData();
-        this.updateToAPI(feedbackData);
+        // Lấy dữ liệu feedback
+        const feedbackData = await this.getFeedbackData();
+    
+        // Tìm lỗi theo ID
+        let found = null;
+        for (const pathItem of feedbackData.path) {
+            const foundError = pathItem.data.find(e => e.id == errorId);
+            if (foundError) {
+                found = foundError;
+                break;
+            }
+        }
+    
+        // Nếu không tìm thấy, thông báo
+        if (!found) {
+            alert(`Không tìm thấy lỗi với ID: ${errorId}`);
+            return;
+        }
+    
+        // Toggle trạng thái
+        found.status = found.status === 'resolved' ? 'open' : 'resolved';
+    
+        // Lưu vào LocalStorage
+        const feedback = {
+            domain: feedbackData.domain,
+            path: feedbackData.path
+        };
+        await this.browserAPI.storage.local.set({ feedback });
+        
+        // Cập nhật lên API
+        await this.updateToAPI(feedback);
+        
+        // Reload errors for current URL from updated localStorage
+        await this.reloadCurrentErrors();
+
+        // Xoá modal
+        this.removeModal();
+        
         this.updateAllErrorBorders();
     }
+    
     
     preventLinkClick(event) {
         if (!this.isActive) return;
@@ -1374,6 +1476,28 @@ class WebsiteTestingAssistant {
             event.stopPropagation();
         }
     }
+
+
+    initDraw() {
+        this.browserAPI.storage.local.get(['drawOpenErrors', 'drawResolvedErrors', 'errorsVisible'], (result) => {
+            this.drawOpenErrors = result.drawOpenErrors || false;
+            this.drawResolvedErrors = result.drawResolvedErrors || false;
+            this.allErrorsVisible = result.errorsVisible || false;
+        });
+    }
+
+    removeModal() {
+        // Xoá modal
+        const backdrop = document.querySelector('.testing-modal-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        const thread = document.querySelector('.testing-comment-modal');
+        if (thread) {
+            thread.remove();
+        }
+    }
+
 }
 
 // Initialize when DOM is ready

@@ -6,6 +6,16 @@ const BREAKPOINTS = {
     MOBILE: 'mobile'
 };
 
+const typeNotification = {
+    BUG_FOUND: 'bug_found',
+    BUG_FIXED: 'bug_fixed'
+}
+
+const text = {
+    [typeNotification.BUG_FOUND]: 'Bạn có chắc muốn gửi thông báo lỗi không?',
+    [typeNotification.BUG_FIXED]: 'Bạn có chắc muốn gửi thông báo đã sửa tất cả lỗi không?',
+}
+
 // Browser API compatibility
 const browserAPI = chrome;
 
@@ -17,7 +27,11 @@ class PopupState {
         this.resolvedErrorsVisible = false;
         this.selectedBreakpoint = BREAKPOINTS.ALL;
         this.isRectMode = false;
-        
+
+
+        this.drawOpenErrors = false;
+        this.drawResolvedErrors = false;
+
         // Set initial state
         document.body.setAttribute('data-show-resolved', this.resolvedErrorsVisible);
     }
@@ -28,7 +42,9 @@ class PopupState {
 
     setErrorsVisible(value) {
         this.errorsVisible = value;
-        browserAPI.storage.local.set({errorsVisible: value});
+        browserAPI.storage.local.set({
+            errorsVisible: value
+        });
     }
 
     setSelectedBreakpoint(value) {
@@ -38,11 +54,21 @@ class PopupState {
     setResolvedErrorsVisible(value) {
         this.resolvedErrorsVisible = value;
         document.body.setAttribute('data-show-resolved', value);
-        browserAPI.storage.local.set({resolvedErrorsVisible: value});
+        browserAPI.storage.local.set({
+            resolvedErrorsVisible: value
+        });
     }
 
     setRectMode(value) {
         this.isRectMode = value;
+    }
+
+    setDrawOpenErrors(value) {
+        this.drawOpenErrors = value;
+    }
+
+    setDrawResolvedErrors(value) {
+        this.drawResolvedErrors = value;
     }
 }
 
@@ -54,13 +80,13 @@ class ErrorManager {
 
         const result = await browserAPI.storage.local.get(['feedback']);
         let errors = [];
-        
+
         if (result?.feedback?.path) {
             result.feedback.path.forEach(path => {
                 errors.push(...path.data);
             });
         }
-        
+
         return errors;
     }
 
@@ -68,24 +94,11 @@ class ErrorManager {
         const tabs = await TabManager.getCurrentTab();
         if (!tabs || !tabs[0]) return;
 
-        const url = tabs[0].url;
-        const result = await browserAPI.storage.local.get(['feedback']);
-        let feedback = result.feedback || { path: [] };
-        
-        const pathIndex = feedback.path.findIndex(p => p.full_url === url);
-        if (pathIndex === -1) return;
+        return await TabManager.sendMessage({
+            action: 'removeError',
+            errorId
+        });
 
-        const errorIndex = feedback.path[pathIndex].data.findIndex(e => e.id === errorId);
-        if (errorIndex === -1) return;
-
-        feedback.path[pathIndex].data.splice(errorIndex, 1);
-
-        if (feedback.path[pathIndex].data.length === 0) {
-            feedback.path.splice(pathIndex, 1);
-        }
-
-        await browserAPI.storage.local.set({ feedback });
-        await TabManager.sendMessage({ action: 'removeError', errorId });
     }
 
     static async clearAllErrors() {
@@ -94,7 +107,9 @@ class ErrorManager {
 
         // const url = tabs[0].url;
         // await browserAPI.storage.local.set({[url]: []});
-        await TabManager.sendMessage({ action: 'clearAllErrors' });
+        return await TabManager.sendMessage({
+            action: 'clearAllErrors'
+        });
     }
 
     static sortErrors(errors) {
@@ -118,7 +133,10 @@ class ErrorManager {
 // Tab Management
 class TabManager {
     static async getCurrentTab() {
-        return await browserAPI.tabs.query({active: true, currentWindow: true});
+        return await browserAPI.tabs.query({
+            active: true,
+            currentWindow: true
+        });
     }
 
     static async sendMessage(message) {
@@ -146,10 +164,27 @@ class UIManager {
     }
 
     async setupUI() {
+
+
         const {errorsVisible} = await browserAPI.storage.local.get('errorsVisible');
-        if(errorsVisible) {
+
+        if (errorsVisible) {
             $('#toggleErrors').prop('checked', true);
         }
+
+        $('#drawOpenErrors').prop('disabled', !errorsVisible);
+        $('#drawResolvedErrors').prop('disabled', !errorsVisible);
+
+        const {
+            drawOpenErrors
+        } = await browserAPI.storage.local.get('drawOpenErrors');
+        $('#drawOpenErrors').prop('checked', drawOpenErrors);
+
+
+        const {
+            drawResolvedErrors
+        } = await browserAPI.storage.local.get('drawResolvedErrors');
+        $('#drawResolvedErrors').prop('checked', drawResolvedErrors);
     }
 
     checkForUpdates() {
@@ -164,7 +199,7 @@ class UIManager {
         });
     }
 
-    showUpdateNotification(){
+    showUpdateNotification() {
         Swal.fire({
             title: 'Cập nhật',
             text: 'Có phiên bản mới có sẵn. Nhấp để cập nhật.',
@@ -173,7 +208,9 @@ class UIManager {
             allowOutsideClick: false
         }).then((result) => {
             if (result.isConfirmed) {
-                browserAPI.tabs.create({ url: 'https://github.com/keith-vo-macusa/check-web-extension/releases' });
+                browserAPI.tabs.create({
+                    url: 'https://github.com/keith-vo-macusa/check-web-extension/releases'
+                });
             }
         });
     }
@@ -181,16 +218,22 @@ class UIManager {
     setupEventListeners() {
         // Toggle Mode
         $('#toggleMode').click(() => this.handleToggleMode());
-        
+
         // Toggle Errors
         $('#toggleErrors').change((e) => this.handleToggleErrors(e));
 
         // Toggle Resolved Errors
         $('#toggleResolvedErrors').change((e) => this.handleToggleResolvedErrors(e));
-        
+
         // Clear All
         $('#clearAll').click(() => this.handleClearAll());
-        
+
+        // Draw Open Errors
+        $('#drawOpenErrors').change((e) => this.handleDrawOpenErrors(e));
+
+        // Draw Resolved Errors
+        $('#drawResolvedErrors').change((e) => this.handleDrawResolvedErrors(e));
+
         // Auto-refresh handlers
         window.addEventListener('focus', () => this.refreshErrorsList());
         document.addEventListener('visibilitychange', () => {
@@ -229,6 +272,8 @@ class UIManager {
     async handleToggleErrors(event) {
         const isVisible = $(event.target).prop('checked');
         this.state.setErrorsVisible(isVisible);
+        $('#drawOpenErrors').prop('disabled', !isVisible);
+        $('#drawResolvedErrors').prop('disabled', !isVisible);
         try {
             await TabManager.sendMessage({
                 action: isVisible ? 'showAllErrors' : 'hideAllErrors'
@@ -254,14 +299,52 @@ class UIManager {
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    await ErrorManager.clearAllErrors();
-                    setTimeout(() => this.refreshErrorsList(), 250);
-                    setTimeout(() => this.refreshErrorsList(), 250);
+                    const result = await ErrorManager.clearAllErrors();
+                    if(result?.success){
+                        this.refreshErrorsList();
+                    }
+                    else{
+                        console.error('Error clearing all errors:', result?.message);
+                    }
                 } catch (error) {
                     console.log('Cannot clear errors - content script not available');
                 }
             }
         });
+    }
+
+    async handleDrawOpenErrors(event) {
+        const isDraw = $(event.target).prop('checked');
+        await browserAPI.storage.local.set({
+            drawOpenErrors: isDraw
+        });
+        this.state.setDrawOpenErrors(isDraw);
+
+        try {
+            await TabManager.sendMessage({
+                action: 'drawOpenErrors',
+                drawOpenErrors: isDraw,
+            });
+        } catch (error) {
+            console.log('Cannot draw open errors - content script not available');
+        }
+    }
+
+    async handleDrawResolvedErrors(event) {
+        const isDraw = $(event.target).prop('checked');
+        await browserAPI.storage.local.set({
+            drawResolvedErrors: isDraw
+        });
+        this.state.setDrawResolvedErrors(isDraw);
+
+        try {
+            await TabManager.sendMessage({
+                action: 'drawResolvedErrors',
+                drawResolvedErrors: isDraw,
+            });
+        } catch (error) {
+            console.log('Cannot draw resolved errors - content script not available');
+        }
     }
 
     handleBreakpointFilter(event) {
@@ -274,7 +357,7 @@ class UIManager {
     updateUI() {
         const btn = $('#toggleMode');
         const status = $('#status');
-        
+
         if (this.state.isActive) {
             btn.html('<i class="fas fa-stop"></i> Dừng chọn lỗi').removeClass('btn-primary').addClass('active');
             status.html('<i class="fas fa-play-circle"></i> Chế độ: Đang hoạt động - Click vào vùng lỗi').removeClass('inactive').addClass('active');
@@ -396,8 +479,18 @@ class UIManager {
                 cancelButtonText: 'Hủy'
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    await ErrorManager.deleteError(error.id);
-                    this.refreshErrorsList();
+                    try{
+                        const result = await ErrorManager.deleteError(error.id);
+                        if(result?.success){
+                            this.refreshErrorsList();
+                        }
+                        else{
+                            console.error('Error deleting error:', result?.message);
+                        }
+                    }
+                    catch(error){
+                        console.error('Error deleting error:', error);
+                    }
                 }
             });
         });
@@ -412,22 +505,33 @@ class UIManager {
                 confirmButtonText: 'Check',
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    await TabManager.sendMessage({
-                        action: 'checkFixed',
-                        errorId: error.id
-                    });
-                    setTimeout(() => this.refreshErrorsList(), 250);
-                    setTimeout(() => this.refreshErrorsList(), 250);
+                   try{
+                        const result = await TabManager.sendMessage({ action: "checkFixed", errorId: error.id });
+                        if (result?.success) {
+                            this.refreshErrorsList();
+                        } else {
+                            console.log("Cập nhật lỗi thất bại:", result?.message);
+                        }
+                   }
+                   catch(error){
+                        console.error('Error checking fixed:', error);
+                   }
                 }
             });
         });
 
         errorItem.click(async () => {
             try {
-                await TabManager.sendMessage({
+                const result = await TabManager.sendMessage({
                     action: 'highlightError',
                     error: error
                 });
+                if(result?.success){
+                    this.refreshErrorsList();
+                }
+                else{
+                    console.error('Error highlighting error:', result?.message);
+                }
             } catch (error) {
                 console.log('Cannot highlight error - content script not available');
             }
@@ -440,6 +544,61 @@ $(document).ready(async function() {
     if (!browserAPI || !browserAPI.tabs) {
         $('#errorsList').html('<div class="no-errors">❌ Extension chỉ hỗ trợ Chrome/Edge</div>');
         return;
+    }
+    
+
+    const showConfirmSendNotification = async (userInfo, type) => {
+        
+        Swal.fire({
+            title: 'Gửi thông báo',
+            text: text[type] || 'Bạn có chắc muốn gửi thông báo không?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Gửi', 
+            cancelButtonText: 'Hủy'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                await handleSendNotification(userInfo, type);
+            }
+        });
+    }
+
+    const handleSendNotification = async(userInfo,type) => {
+        let feedback = await browserAPI.storage.local.get(['feedback']);
+        let domainUrl = feedback.feedback.domain;
+        const btnNotification = $('#sendNotification');
+        await $.ajax({
+            type: "POST",
+            url: "https://checkwise.macusaone.com/api_domain_data.php?action=send_telegram",
+            data: JSON.stringify({
+                email: userInfo.email,
+                type: type,
+                domain_url: domainUrl
+            }),
+            dataType: "json",
+            beforeSend: function() {
+                btnNotification.prop('disabled', true);
+            },
+            complete: function() {
+                btnNotification.prop('disabled', false);
+            },
+            success: function (response) {
+                if(response.success) {
+                    Swal.fire({
+                        title: 'Thông báo',
+                        text: response.message,
+                        icon: 'success',
+                    });
+                }
+            },
+            error: function (response) {
+                Swal.fire({
+                    title: 'Thông báo',
+                    text: response.responseJSON.message,
+                    icon: 'error',
+                });
+            }
+        });
     }
 
     try {
@@ -470,46 +629,63 @@ $(document).ready(async function() {
                     cancelButtonText: 'Hủy'
                 }).then(async (result) => {
                     if (result.isConfirmed) {
-                    try {
-                        await browserAPI.storage.local.remove(['feedback']);
-                        const success = await AuthManager.logout();
-                        
                         try {
-                            await TabManager.sendMessage({
-                                action: 'deactivate',
-                                reason: 'logout'
-                            });
-                            
-                            await TabManager.sendMessage({
-                                action: 'hideAllErrors'
-                            });
-                            
-                            // refresh current tab
-                            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                                chrome.tabs.reload(tabs[0].id);
-                            });
-                            window.close();
-                        } catch (error) {
-                            console.log('Cannot send logout messages to content script');
-                        }
+                            await browserAPI.storage.local.remove(['feedback']);
+                            const success = await AuthManager.logout();
 
-                        if (success) {
-                            window.location.href = 'login.html';
+                            try {
+                                await TabManager.sendMessage({
+                                    action: 'deactivate',
+                                    reason: 'logout'
+                                });
+
+                                await TabManager.sendMessage({
+                                    action: 'hideAllErrors'
+                                });
+
+                                // refresh current tab
+                                chrome.tabs.query({
+                                    active: true,
+                                    currentWindow: true
+                                }, function(tabs) {
+                                    chrome.tabs.reload(tabs[0].id);
+                                });
+                                window.close();
+                            } catch (error) {
+                                console.log('Cannot send logout messages to content script');
+                            }
+
+                            if (success) {
+                                window.location.href = 'login.html';
+                            }
+                        } catch (error) {
+                            console.error('Error during logout:', error);
                         }
-                    } catch (error) {
-                        console.error('Error during logout:', error);
                     }
-                }
+                });
             });
-        });
+            // sửa text của button và binding sự kiện theo type
+            if (userInfo.email == 'hana.web@macusaone.com') {
+                $('#sendNotification').text('Gửi thông báo lỗi');
+                $('#sendNotification').click(() => {
+                    showConfirmSendNotification(userInfo,typeNotification.BUG_FOUND);
+                });
+            } else {
+                $('#sendNotification').text('Gửi thông báo đã sửa tất cả lỗi');
+                $('#sendNotification').click(() => {
+                    showConfirmSendNotification(userInfo,typeNotification.BUG_FIXED);
+                });
+            }
         }
 
         const state = new PopupState();
         const ui = new UIManager(state);
-        
+
         // Load initial state - handle case where content script is not available
         try {
-            const response = await TabManager.sendMessage({ action: 'getState' });
+            const response = await TabManager.sendMessage({
+                action: 'getState'
+            });
             if (response) {
                 state.setActive(response.isActive);
                 ui.updateUI();
@@ -520,7 +696,7 @@ $(document).ready(async function() {
             state.setActive(false);
             ui.updateUI();
         }
-        
+
         ui.refreshErrorsList();
 
         // Listen for messages from content script
