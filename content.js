@@ -88,14 +88,26 @@ class WebsiteTestingAssistant {
                     this.highlightError(request.error);
                     break;
                 case 'clearAllErrors':
-                    this.clearAllErrors();
-                    break;
+                    this.clearAllErrors().then(()=>{
+                        sendResponse({ success: true });
+                    }).catch((error)=>{
+                        sendResponse({ success: false, message: error.message });
+                    });
+                    return true;
                 case 'removeError':
-                    this.removeError(request.errorId);
-                    break;
+                    this.removeError(request.errorId).then(()=>{
+                        sendResponse({ success: true });
+                    }).catch((error)=>{
+                        sendResponse({ success: false, message: error.message });
+                    });
+                    return true;
                 case 'checkFixed':
-                    this.checkFixed(request.errorId);
-                    break;
+                    this.checkFixed(request.errorId).then(()=>{
+                        sendResponse({ success: true });
+                    }).catch((error)=>{
+                        sendResponse({ success: false, message: error.message });
+                    });
+                    return true;
                 case 'drawOpenErrors':
                     this.drawOpenErrors = request.drawOpenErrors;
                     this.updateAllErrorBorders();
@@ -1133,34 +1145,60 @@ class WebsiteTestingAssistant {
             domain: new URL(this.currentUrl).hostname,
             path: []
         }
-        this.updateToAPI(emptyFeedbackData);
+        await this.updateToAPI(emptyFeedbackData);
+        
         // Remove all borders
         this.errorBorders.forEach(border => border.remove());
         this.errorBorders = [];
         
         // Clear data
         this.errors = [];
-        await this.saveErrors();
+        await this.browserAPI.storage.local.set({ feedback: emptyFeedbackData });
+        
+        // Reload errors for current URL from updated localStorage
+        await this.reloadCurrentErrors();
         this.updateAllErrorBorders();
+        this.removeModal();
     }
 
     async removeError(errorId) {
-        // Remove error from local array
-        this.errors = this.errors.filter(error => error.id !== errorId);
-        
-        // Remove corresponding border elements
-        this.errorBorders = this.errorBorders.filter(border => {
-            if (border.dataset.errorId === errorId) {
-                border.remove();
-                return false;
-            }
-            return true;
-        });
-        
-        // Persist changes to storage
-        this.saveErrors();
+        // Xoá lỗi trong localStorage
         const feedbackData = await this.getFeedbackData();
-        this.updateToAPI(feedbackData);
+
+        let found = false;
+
+        for (const pathItem of feedbackData.path) {
+            const initialLength = pathItem.data.length;
+            pathItem.data = pathItem.data.filter(error => error.id !== errorId);
+            
+            if (pathItem.data.length !== initialLength) {
+                found = true;
+            }
+        }
+
+        if (!found) {
+            alert(`Không tìm thấy lỗi với ID: ${errorId}`);
+            return;
+        }
+
+        // Cập nhật localStorage
+        await this.browserAPI.storage.local.set({ feedback: feedbackData });
+        
+        // Cập nhật lên API
+        await this.updateToAPI(feedbackData);
+        
+        // Reload errors for current URL from updated localStorage
+        await this.reloadCurrentErrors();
+        
+        // Remove border if exists on current page
+        const border = document.querySelector(`.testing-error-border[data-error-id="${errorId}"]`);
+        if (border) {
+            border.remove();
+            this.errorBorders = this.errorBorders.filter(b => b !== border);
+        }
+        
+        this.updateAllErrorBorders();
+        this.removeModal();
     }
     
     async fetchDataFromAPI() {
@@ -1223,6 +1261,13 @@ class WebsiteTestingAssistant {
                 });
             });
         });
+    }
+
+    // Helper method to reload current errors from localStorage
+    async reloadCurrentErrors() {
+        const feedbackData = await this.getFeedbackData();
+        const pathItem = feedbackData.path?.find(p => p.full_url === this.currentUrl);
+        this.errors = pathItem ? pathItem.data : [];
     }
 
 
@@ -1369,14 +1414,7 @@ class WebsiteTestingAssistant {
             this.isActive = false;
             this.selectedElement = null;
             this.allErrorsVisible = false;
-            const backdrop = document.querySelector('.testing-modal-backdrop');
-            if (backdrop) {
-                backdrop.remove();
-            }
-            const thread = document.querySelector('.testing-comment-modal');
-            if (thread) {
-                thread.remove();
-            }
+            this.removeModal();
         }
         catch(error){
             console.error('Error logging out:', error);
@@ -1386,14 +1424,47 @@ class WebsiteTestingAssistant {
 
 
     async checkFixed(errorId) {
-        const error = this.errors.find(e => e.id === errorId);
-        if (!error) return;
-        error.status = error.status === 'resolved' ? 'open' : 'resolved';
-        this.saveErrors();
-        let feedbackData = await this.getFeedbackData();
-        this.updateToAPI(feedbackData);
+        // Lấy dữ liệu feedback
+        const feedbackData = await this.getFeedbackData();
+    
+        // Tìm lỗi theo ID
+        let found = null;
+        for (const pathItem of feedbackData.path) {
+            const foundError = pathItem.data.find(e => e.id == errorId);
+            if (foundError) {
+                found = foundError;
+                break;
+            }
+        }
+    
+        // Nếu không tìm thấy, thông báo
+        if (!found) {
+            alert(`Không tìm thấy lỗi với ID: ${errorId}`);
+            return;
+        }
+    
+        // Toggle trạng thái
+        found.status = found.status === 'resolved' ? 'open' : 'resolved';
+    
+        // Lưu vào LocalStorage
+        const feedback = {
+            domain: feedbackData.domain,
+            path: feedbackData.path
+        };
+        await this.browserAPI.storage.local.set({ feedback });
+        
+        // Cập nhật lên API
+        await this.updateToAPI(feedback);
+        
+        // Reload errors for current URL from updated localStorage
+        await this.reloadCurrentErrors();
+
+        // Xoá modal
+        this.removeModal();
+        
         this.updateAllErrorBorders();
     }
+    
     
     preventLinkClick(event) {
         if (!this.isActive) return;
@@ -1413,6 +1484,18 @@ class WebsiteTestingAssistant {
             this.drawResolvedErrors = result.drawResolvedErrors || false;
             this.allErrorsVisible = result.errorsVisible || false;
         });
+    }
+
+    removeModal() {
+        // Xoá modal
+        const backdrop = document.querySelector('.testing-modal-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        const thread = document.querySelector('.testing-comment-modal');
+        if (thread) {
+            thread.remove();
+        }
     }
 
 }
