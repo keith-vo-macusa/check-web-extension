@@ -18,6 +18,10 @@ class PopupState {
         this.selectedBreakpoint = BREAKPOINTS.ALL;
         this.isRectMode = false;
         
+
+        this.drawOpenErrors = false;
+        this.drawResolvedErrors = false;
+
         // Set initial state
         document.body.setAttribute('data-show-resolved', this.resolvedErrorsVisible);
     }
@@ -43,6 +47,14 @@ class PopupState {
 
     setRectMode(value) {
         this.isRectMode = value;
+    }
+
+    setDrawOpenErrors(value) {
+        this.drawOpenErrors = value;
+    }
+
+    setDrawResolvedErrors(value) {
+        this.drawResolvedErrors = value;
     }
 }
 
@@ -146,10 +158,23 @@ class UIManager {
     }
 
     async setupUI() {
+
+        
         const {errorsVisible} = await browserAPI.storage.local.get('errorsVisible');
+
         if(errorsVisible) {
             $('#toggleErrors').prop('checked', true);
         }
+
+        $('#drawOpenErrors').prop('disabled', !errorsVisible);
+        $('#drawResolvedErrors').prop('disabled', !errorsVisible);
+
+        const {drawOpenErrors} = await browserAPI.storage.local.get('drawOpenErrors');
+        $('#drawOpenErrors').prop('checked', drawOpenErrors);
+
+        
+        const {drawResolvedErrors} = await browserAPI.storage.local.get('drawResolvedErrors');
+        $('#drawResolvedErrors').prop('checked', drawResolvedErrors);
     }
 
     checkForUpdates() {
@@ -190,6 +215,12 @@ class UIManager {
         
         // Clear All
         $('#clearAll').click(() => this.handleClearAll());
+
+        // Draw Open Errors
+        $('#drawOpenErrors').change((e) => this.handleDrawOpenErrors(e));
+
+        // Draw Resolved Errors
+        $('#drawResolvedErrors').change((e) => this.handleDrawResolvedErrors(e));
         
         // Auto-refresh handlers
         window.addEventListener('focus', () => this.refreshErrorsList());
@@ -229,6 +260,8 @@ class UIManager {
     async handleToggleErrors(event) {
         const isVisible = $(event.target).prop('checked');
         this.state.setErrorsVisible(isVisible);
+        $('#drawOpenErrors').prop('disabled', !isVisible);
+        $('#drawResolvedErrors').prop('disabled', !isVisible);
         try {
             await TabManager.sendMessage({
                 action: isVisible ? 'showAllErrors' : 'hideAllErrors'
@@ -262,6 +295,36 @@ class UIManager {
                 }
             }
         });
+    }
+
+    async handleDrawOpenErrors(event) {
+        const isDraw = $(event.target).prop('checked');
+        await browserAPI.storage.local.set({drawOpenErrors: isDraw});
+        this.state.setDrawOpenErrors(isDraw);
+
+        try{
+            await TabManager.sendMessage({
+                action: 'drawOpenErrors',
+                drawOpenErrors: isDraw,
+            });
+        } catch (error) {
+            console.log('Cannot draw open errors - content script not available');
+        }
+    }
+
+    async handleDrawResolvedErrors(event) {
+        const isDraw = $(event.target).prop('checked');
+        await browserAPI.storage.local.set({drawResolvedErrors: isDraw});
+        this.state.setDrawResolvedErrors(isDraw);
+
+        try{
+            await TabManager.sendMessage({
+                action: 'drawResolvedErrors',
+                drawResolvedErrors: isDraw,
+            });
+        } catch (error) {
+            console.log('Cannot draw resolved errors - content script not available');
+        }
     }
 
     handleBreakpointFilter(event) {

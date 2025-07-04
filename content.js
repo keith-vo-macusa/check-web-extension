@@ -9,7 +9,6 @@ class WebsiteTestingAssistant {
         this.errorBorders = [];
         this.userInfo = null;
         this.apiEndpoint = 'https://checkwise.macusaone.com/api_domain_data.php';
-        this.init();
         this.rangeBreakpoint = 20;
         this.documentLength = document.documentElement.innerHTML.length;
         this.browserAPI = window.chrome || window.browser;
@@ -20,6 +19,11 @@ class WebsiteTestingAssistant {
         this.startX = 0;
         this.startY = 0;
         this.dragOverlay = null;
+        this.drawOpenErrors = false;
+        this.drawResolvedErrors = false;
+        this.allErrorsVisible = false; // Flag để theo dõi trạng thái show/hide tổng quát
+        this.init();
+
     }
     
     // Simple UUID generator function
@@ -46,10 +50,10 @@ class WebsiteTestingAssistant {
         if(!this.userInfo) {
             return;
         }
+        this.initDraw();
         await this.fetchDataFromAPI();
         this.bindEvents();
         this.displayExistingErrors();
-        this.updateAllErrorBorders();
     }
 
     bindEvents() {
@@ -72,9 +76,13 @@ class WebsiteTestingAssistant {
                     break;
                 case 'showAllErrors':
                     this.showAllErrors();
+                    // Update storage to persist state
+                    this.browserAPI.storage.local.set({ errorsVisible: true });
                     break;
                 case 'hideAllErrors':
                     this.hideAllErrors();
+                    // Update storage to persist state
+                    this.browserAPI.storage.local.set({ errorsVisible: false });
                     break;
                 case 'highlightError':
                     this.highlightError(request.error);
@@ -87,6 +95,14 @@ class WebsiteTestingAssistant {
                     break;
                 case 'checkFixed':
                     this.checkFixed(request.errorId);
+                    break;
+                case 'drawOpenErrors':
+                    this.drawOpenErrors = request.drawOpenErrors;
+                    this.updateAllErrorBorders();
+                    break;
+                case 'drawResolvedErrors':
+                    this.drawResolvedErrors = request.drawResolvedErrors;
+                    this.updateAllErrorBorders();
                     break;
             }
         });
@@ -115,14 +131,14 @@ class WebsiteTestingAssistant {
 
             // shift + e để hiển thị lỗi
             if (e.shiftKey && (e.key.toLowerCase() === 'e')) {
-                const result = await this.browserAPI.storage.local.get('errorsVisible');
-                const isVisible = result.errorsVisible;
-                await this.browserAPI.storage.local.set({ errorsVisible: !isVisible });
-                if (isVisible) {
+                if (this.allErrorsVisible) {
                     this.hideAllErrors();
+                    await this.browserAPI.storage.local.set({ errorsVisible: false });
                 } else {
                     this.showAllErrors();
+                    await this.browserAPI.storage.local.set({ errorsVisible: true });
                 }
+                this.updateAllErrorBorders();
                 e.preventDefault();
             }
         });
@@ -893,9 +909,14 @@ class WebsiteTestingAssistant {
         if (error.type === 'rect') {
             // Rectangle overlay - coordinates are fixed
             overlay.className = `testing-error-border ${error.status || 'open'}`;
-            if (errorsVisible) {
-                overlay.classList.toggle('show', shouldShow);
-                overlay.style.display = shouldShow ? 'block' : 'none';
+            if (shouldShow) {
+                overlay.style.display = 'block';
+                if (errorsVisible) {
+                    overlay.classList.add('show');
+                }
+            } else {
+                overlay.style.display = 'none';
+                overlay.classList.remove('show');
             }
         } else {
             // Element overlay - needs repositioning
@@ -917,13 +938,13 @@ class WebsiteTestingAssistant {
                 
                 // Add status class
                 overlay.className = `testing-error-border ${error.status || 'open'}`;
+                overlay.style.display = 'block';
                 if (errorsVisible) {
                     overlay.classList.add('show');
                 }
             } else {
-                if (errorsVisible) {
-                    overlay.classList.remove('show');
-                }
+                overlay.style.display = 'none';
+                overlay.classList.remove('show');
             }
         }
     }
@@ -942,7 +963,24 @@ class WebsiteTestingAssistant {
             const errorId = overlay.dataset.errorId;
             const error = this.errors.find(e => e.id === errorId);
             if (error) {
-                this.positionErrorOverlay(overlay, error, visible);
+                // Check if errors should be shown at all
+                if (!this.allErrorsVisible) {
+                    // Hide all errors when allErrorsVisible is false
+                    overlay.style.display = 'none';
+                    overlay.classList.remove('show');
+                } else {
+                    // Check if this error type should be drawn when allErrorsVisible is true
+                    const shouldDraw = (error.status == 'open' && this.drawOpenErrors) || 
+                                      (error.status == 'resolved' && this.drawResolvedErrors);
+                    
+                    if (shouldDraw) {
+                        this.positionErrorOverlay(overlay, error, visible);
+                    } else {
+                        // Hide overlay if it shouldn't be drawn
+                        overlay.style.display = 'none';
+                        overlay.classList.remove('show');
+                    }
+                }
             }
         });
     }
@@ -1043,28 +1081,20 @@ class WebsiteTestingAssistant {
     }
     
     showAllErrors() {
-        // Instead of showing all errors, only show errors for current breakpoint
+        // Show errors based on drawOpenErrors and drawResolvedErrors
+        this.allErrorsVisible = true;
         this.updateErrorBordersVisibility();
     }
 
     updateErrorBordersVisibility() {
-        // this.errorBorders.forEach(border => {
-        //     const errorId = border.dataset.errorId;
-        //     const error = this.errors.find(e => e.id === errorId);
-        //     const shouldShow = this.shouldShowErrorBorder(error);
-        //     border.style.display = shouldShow ? 'block' : 'none';
-        // });
-        document.body.classList.add('show-error');
+        document.body.classList.toggle('show-error', this.allErrorsVisible);
         this.updateAllErrorBorders();
-
     }
     
     hideAllErrors() {
-        this.errorBorders.forEach(border => {
-            border.style.display = 'none';
-        });
-        document.body.classList.remove('show-error');
-        this.updateAllErrorBorders();
+        // Hide all errors regardless of drawOpenErrors and drawResolvedErrors
+        this.allErrorsVisible = false;
+        this.updateErrorBordersVisibility();
     }
     
     highlightError(error) {
@@ -1338,6 +1368,7 @@ class WebsiteTestingAssistant {
             // Reset state
             this.isActive = false;
             this.selectedElement = null;
+            this.allErrorsVisible = false;
             const backdrop = document.querySelector('.testing-modal-backdrop');
             if (backdrop) {
                 backdrop.remove();
@@ -1374,6 +1405,16 @@ class WebsiteTestingAssistant {
             event.stopPropagation();
         }
     }
+
+
+    initDraw() {
+        this.browserAPI.storage.local.get(['drawOpenErrors', 'drawResolvedErrors', 'errorsVisible'], (result) => {
+            this.drawOpenErrors = result.drawOpenErrors || false;
+            this.drawResolvedErrors = result.drawResolvedErrors || false;
+            this.allErrorsVisible = result.errorsVisible || false;
+        });
+    }
+
 }
 
 // Initialize when DOM is ready
