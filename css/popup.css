@@ -715,3 +715,17 @@ body[data-show-resolved="false"] .error-item.resolved {
     color: var(--color-gray-800);
     margin-right: var(--spacing-sm);
 }
+
+.notification-btn {
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-status-resolved-text);
+    color: var(--color-white);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+.notification-btn:hover {
+    background: var(--color-success);
+}

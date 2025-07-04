@@ -142,6 +142,7 @@ class LoginManager {
                 id: data.id,
                 name: data.name,
                 loginTime: new Date().toISOString(),
+                email: data.email || null,
             };
 
             await chrome.storage.local.set({
