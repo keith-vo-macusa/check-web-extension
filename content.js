@@ -1,3 +1,331 @@
+/**
+ * Website Testing Assistant - Content Script
+ * Handles error detection, annotation, and management on web pages
+ */
+
+/**
+ * Content Script Constants
+ */
+const ContentScriptConstants = {
+    API_ENDPOINT: 'https://checkwise.macusaone.com/api_domain_data.php',
+    DESKTOP_BREAKPOINT: 1140,
+    RANGE_BREAKPOINT: 20,
+    DOM_SELECTORS: {
+        TESTING_ELEMENTS: '.testing-error-marker, .testing-comment-thread, .testing-comment-modal, .testing-error-border',
+        ELEMENTOR_ELEMENTS: '.elementor-element'
+    },
+    CSS_CLASSES: {
+        SELECTION_MODE: 'testing-selection-mode',
+        HIGHLIGHT: 'testing-highlight',
+        ERROR_BORDER: 'testing-error-border',
+        ERROR_HIGHLIGHT: 'testing-error-highlight',
+        DRAG_OVERLAY: 'testing-drag-overlay',
+        MODAL_BACKDROP: 'testing-modal-backdrop',
+        COMMENT_MODAL: 'testing-comment-modal'
+    },
+    MOUSE_DRAG_THRESHOLD: 5,
+    HIGHLIGHT_DURATION: 1000
+};
+
+/**
+ * UUID Generation Utility
+ */
+class UUIDGenerator {
+    /**
+     * Generate a simple UUID
+     * @returns {string} Generated UUID
+     */
+    static generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            const randomValue = (Math.random() * 16) | 0;
+            const hexValue = c === 'x' ? randomValue : (randomValue & 0x3) | 0x8;
+            return hexValue.toString(16);
+        });
+    }
+}
+
+/**
+ * Browser Storage Manager
+ * Handles browser storage operations for the content script
+ */
+class BrowserStorageManager {
+    constructor() {
+        this.browserAPI = window.chrome || window.browser;
+    }
+
+    /**
+     * Get user information from storage
+     * @returns {Promise<Object|null>} User information or null
+     */
+    async getUserInfo() {
+        try {
+            const result = await this.browserAPI.storage.local.get(['userInfo']);
+            return result.userInfo || null;
+        } catch (error) {
+            console.error('Error getting user info:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get storage data by keys
+     * @param {string|Array} keys - Storage keys
+     * @returns {Promise<Object>} Storage data
+     */
+    async getStorageData(keys) {
+        try {
+            return await this.browserAPI.storage.local.get(keys);
+        } catch (error) {
+            console.error('Error getting storage data:', error);
+            return {};
+        }
+    }
+
+    /**
+     * Set storage data
+     * @param {Object} data - Data to store
+     * @returns {Promise<void>}
+     */
+    async setStorageData(data) {
+        try {
+            await this.browserAPI.storage.local.set(data);
+        } catch (error) {
+            console.error('Error setting storage data:', error);
+        }
+    }
+}
+
+/**
+ * Mouse Interaction Manager
+ * Handles mouse events for element selection and dragging
+ */
+class MouseInteractionManager {
+    constructor(onElementSelected, onRectangleSelected) {
+        this.onElementSelected = onElementSelected;
+        this.onRectangleSelected = onRectangleSelected;
+        
+        this.isDragging = false;
+        this.startX = 0;
+        this.startY = 0;
+        this.selectedElement = null;
+        this.dragOverlay = null;
+        
+        this.setupBoundMethods();
+    }
+
+    /**
+     * Setup bound methods for proper event listener removal
+     */
+    setupBoundMethods() {
+        this.boundHandleMouseDown = this.handleMouseDown.bind(this);
+        this.boundHandleMouseMove = this.handleMouseMove.bind(this);
+        this.boundHandleMouseUp = this.handleMouseUp.bind(this);
+        this.boundHandleMouseOver = this.handleMouseOver.bind(this);
+        this.boundHandleMouseOut = this.handleMouseOut.bind(this);
+        this.boundPreventLinkClick = this.preventLinkClick.bind(this);
+    }
+
+    /**
+     * Activate mouse interaction listeners
+     */
+    activateMouseListeners() {
+        document.addEventListener('mousedown', this.boundHandleMouseDown, true);
+        document.addEventListener('mouseover', this.boundHandleMouseOver, true);
+        document.addEventListener('mouseout', this.boundHandleMouseOut, true);
+        document.addEventListener('click', this.boundPreventLinkClick, true);
+    }
+
+    /**
+     * Deactivate mouse interaction listeners
+     */
+    deactivateMouseListeners() {
+        document.removeEventListener('mousedown', this.boundHandleMouseDown, true);
+        document.removeEventListener('mouseover', this.boundHandleMouseOver, true);
+        document.removeEventListener('mouseout', this.boundHandleMouseOut, true);
+        document.removeEventListener('click', this.boundPreventLinkClick, true);
+        
+        this.removeTemporaryListeners();
+    }
+
+    /**
+     * Remove temporary mouse listeners
+     */
+    removeTemporaryListeners() {
+        document.removeEventListener('mousemove', this.boundHandleMouseMove, true);
+        document.removeEventListener('mouseup', this.boundHandleMouseUp, true);
+    }
+
+    /**
+     * Handle mouse over events
+     * @param {Event} event - Mouse event
+     */
+    handleMouseOver(event) {
+        if (!event.target.closest(ContentScriptConstants.DOM_SELECTORS.ELEMENTOR_ELEMENTS)) return;
+
+        event.stopPropagation();
+        
+        const targetElement = this.getTargetElement(event.target);
+        this.removeElementHighlight();
+        targetElement.classList.add(ContentScriptConstants.CSS_CLASSES.HIGHLIGHT);
+        this.selectedElement = targetElement;
+    }
+
+    /**
+     * Handle mouse out events
+     * @param {Event} event - Mouse event
+     */
+    handleMouseOut(event) {
+        event.stopPropagation();
+        const targetElement = this.getTargetElement(event.target);
+        targetElement.classList.remove(ContentScriptConstants.CSS_CLASSES.HIGHLIGHT);
+    }
+
+    /**
+     * Handle mouse down events
+     * @param {Event} event - Mouse event
+     */
+    handleMouseDown(event) {
+        if (event.button !== 0) return;
+        if (!event.target.closest(ContentScriptConstants.DOM_SELECTORS.ELEMENTOR_ELEMENTS)) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        this.isDragging = false;
+        this.startX = event.pageX;
+        this.startY = event.pageY;
+        this.selectedElement = this.getTargetElement(event.target);
+
+        document.addEventListener('mousemove', this.boundHandleMouseMove, true);
+        document.addEventListener('mouseup', this.boundHandleMouseUp, true);
+    }
+
+    /**
+     * Handle mouse move events
+     * @param {Event} event - Mouse event
+     */
+    handleMouseMove(event) {
+        const deltaX = Math.abs(event.pageX - this.startX);
+        const deltaY = Math.abs(event.pageY - this.startY);
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+        if (distance > ContentScriptConstants.MOUSE_DRAG_THRESHOLD && !this.isDragging) {
+            this.isDragging = true;
+            this.createDragOverlay();
+        }
+
+        if (this.isDragging) {
+            this.updateDragOverlay(event.pageX, event.pageY);
+        }
+    }
+
+    /**
+     * Handle mouse up events
+     * @param {Event} event - Mouse event
+     */
+    handleMouseUp(event) {
+        this.removeTemporaryListeners();
+
+        if (this.isDragging) {
+            this.finalizeDragSelection();
+        } else {
+            this.onElementSelected(this.selectedElement);
+        }
+
+        this.cleanupDragOperation();
+    }
+
+    /**
+     * Get target element for interaction
+     * @param {Element} element - DOM element
+     * @returns {Element} Target element
+     */
+    getTargetElement(element) {
+        // Skip testing assistant elements
+        if (element.closest(ContentScriptConstants.DOM_SELECTORS.TESTING_ELEMENTS)) {
+            return document.body;
+        }
+        return element;
+    }
+
+    /**
+     * Create drag overlay for rectangle selection
+     */
+    createDragOverlay() {
+        this.dragOverlay = document.createElement('div');
+        this.dragOverlay.className = ContentScriptConstants.CSS_CLASSES.DRAG_OVERLAY;
+        document.body.appendChild(this.dragOverlay);
+    }
+
+    /**
+     * Update drag overlay position and size
+     * @param {number} currentX - Current X position
+     * @param {number} currentY - Current Y position
+     */
+    updateDragOverlay(currentX, currentY) {
+        if (!this.dragOverlay) return;
+
+        const left = Math.min(this.startX, currentX);
+        const top = Math.min(this.startY, currentY);
+        const width = Math.abs(currentX - this.startX);
+        const height = Math.abs(currentY - this.startY);
+
+        this.dragOverlay.style.left = `${left}px`;
+        this.dragOverlay.style.top = `${top}px`;
+        this.dragOverlay.style.width = `${width}px`;
+        this.dragOverlay.style.height = `${height}px`;
+    }
+
+    /**
+     * Finalize drag selection
+     */
+    finalizeDragSelection() {
+        if (!this.dragOverlay) return;
+
+        const rectangleCoordinates = {
+            left: parseFloat(this.dragOverlay.style.left),
+            top: parseFloat(this.dragOverlay.style.top),
+            width: parseFloat(this.dragOverlay.style.width),
+            height: parseFloat(this.dragOverlay.style.height)
+        };
+
+        if (rectangleCoordinates.width >= 10 && rectangleCoordinates.height >= 10) {
+            this.onRectangleSelected(rectangleCoordinates);
+        }
+    }
+
+    /**
+     * Cleanup drag operation
+     */
+    cleanupDragOperation() {
+        this.isDragging = false;
+        if (this.dragOverlay) {
+            this.dragOverlay.remove();
+            this.dragOverlay = null;
+        }
+    }
+
+    /**
+     * Remove element highlight
+     */
+    removeElementHighlight() {
+        const highlightedElements = document.querySelectorAll(`.${ContentScriptConstants.CSS_CLASSES.HIGHLIGHT}`);
+        highlightedElements.forEach(element => element.classList.remove(ContentScriptConstants.CSS_CLASSES.HIGHLIGHT));
+    }
+
+    /**
+     * Prevent link clicks during selection mode
+     * @param {Event} event - Click event
+     */
+    preventLinkClick(event) {
+        const linkElement = event.target.closest('a');
+        if (linkElement) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }
+}
+
 class WebsiteTestingAssistant {
     constructor() {
         this.isActive = false;
@@ -24,15 +352,6 @@ class WebsiteTestingAssistant {
         this.drawResolvedErrors = false;
         this.allErrorsVisible = false; // Flag để theo dõi trạng thái show/hide tổng quát
         this.init();
-    }
-
-    // Simple UUID generator function
-    generateUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
-        });
     }
 
     async getUserInfo() {
@@ -613,7 +932,7 @@ class WebsiteTestingAssistant {
 
     async addReply(error, text) {
         const comment = {
-            id: this.generateUUID(),
+            id: UUIDGenerator.generateUUID(),
             text: text,
             author: await this.getUserInfo(),
             timestamp: Date.now(),
@@ -1257,7 +1576,7 @@ class WebsiteTestingAssistant {
         };
 
         const error = {
-            id: this.generateUUID(),
+            id: UUIDGenerator.generateUUID(),
             type: type,
             timestamp: Date.now(),
             breakpoint: breakpoint,
@@ -1267,7 +1586,7 @@ class WebsiteTestingAssistant {
             coordinates: null,
             comments: [
                 {
-                    id: this.generateUUID(),
+                    id: UUIDGenerator.generateUUID(),
                     text: comment,
                     author: await this.getUserInfo(),
                     timestamp: Date.now(),
