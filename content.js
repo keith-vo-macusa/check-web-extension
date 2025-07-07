@@ -153,6 +153,15 @@ class WebsiteTestingAssistant {
 
         // phím tắt để bật chế độ chọn lỗi
         window.addEventListener('keydown', async (e) => {
+
+            const activeElement = document.activeElement;
+            const isTyping =
+                activeElement.tagName === 'INPUT' ||
+                activeElement.tagName === 'TEXTAREA' ||
+                activeElement.isContentEditable;
+
+            if (isTyping) return; // Bỏ qua nếu đang gõ trong input, textarea, contentEditable
+
             // shift + w để bật/tắt chế độ chọn lỗi
             if (e.shiftKey && e.key.toLowerCase() === 'w') {
                 this.isActive ? this.deactivate() : this.activate();
