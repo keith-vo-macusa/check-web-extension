@@ -2,25 +2,32 @@
 
 // Extension version from manifest
 const CURRENT_VERSION = chrome.runtime.getManifest().version;
-const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/main/manifest.json';
+const VERSION_CHECK_URL =
+    'https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/main/manifest.json';
 const CHECK_INTERVAL = 1; // 1 minutes
 
 // Set default values
-chrome.storage.local.set({updateAvailable: false, latestVersion: CURRENT_VERSION, updateUrl: 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest'});
+chrome.storage.local.set({
+    updateAvailable: false,
+    latestVersion: CURRENT_VERSION,
+    updateUrl: 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
+});
 // Check for updates
 async function checkForUpdates() {
     try {
         const response = await fetch(`${VERSION_CHECK_URL}?t=${Date.now()}`);
         if (!response.ok) throw new Error('Failed to fetch version');
-        
+
         const data = await response.json();
         const latestVersion = data.version;
-        
+
         const dataUpdated = {
             updateAvailable: isNewerVersion(latestVersion, CURRENT_VERSION),
             latestVersion: latestVersion,
-            updateUrl: data.updateUrl || 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest'
-        }
+            updateUrl:
+                data.updateUrl ||
+                'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
+        };
         chrome.storage.local.set(dataUpdated);
         console.log(`Update available: ${latestVersion}`);
     } catch (error) {
@@ -32,11 +39,11 @@ async function checkForUpdates() {
 function isNewerVersion(latest, current) {
     const latestParts = latest.split('.').map(Number);
     const currentParts = current.split('.').map(Number);
-    
+
     for (let i = 0; i < Math.max(latestParts.length, currentParts.length); i++) {
         const latestPart = latestParts[i] || 0;
         const currentPart = currentParts[i] || 0;
-        
+
         if (latestPart > currentPart) return true;
         if (latestPart < currentPart) return false;
     }
@@ -57,10 +64,10 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 // Check for updates on install/update
 chrome.runtime.onInstalled.addListener((details) => {
     console.log(`Website Testing Assistant ${CURRENT_VERSION} installed/updated`);
-    
+
     // Check for updates immediately after install/update
     checkForUpdates();
-    
+
     // Set up periodic checks
     chrome.alarms.create('versionCheck', { periodInMinutes: CHECK_INTERVAL }); // 1 hours
 });
@@ -85,26 +92,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     updateAvailable: data.updateAvailable || false,
                     currentVersion: CURRENT_VERSION,
                     latestVersion: data.latestVersion || CURRENT_VERSION,
-                    updateUrl: data.updateUrl
+                    updateUrl: data.updateUrl,
                 });
             });
             return true; // Keep message channel open for async response
         });
         return true;
     }
-    
+
     // Forward messages if needed
     if (request.action === 'errorAdded') {
         // Notify all tabs that an error was added
         chrome.tabs.query({}, (tabs) => {
-            tabs.forEach(tab => {
+            tabs.forEach((tab) => {
                 chrome.tabs.sendMessage(tab.id, request).catch(() => {
                     // Ignore errors for tabs without content script
                 });
             });
         });
     }
-    
+
     return true; // Keep message channel open
 });
 
@@ -112,19 +119,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url) {
         // Inject content script if needed
-        chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ['lib/jquery.min.js', 'content.js']
-        }).catch(() => {
-            // Ignore errors for special pages
-        });
+        chrome.scripting
+            .executeScript({
+                target: { tabId: tabId },
+                files: ['lib/jquery.min.js', 'content.js'],
+            })
+            .catch(() => {
+                // Ignore errors for special pages
+            });
     }
 });
 
-
 // Lưu ID của popup để reuse
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "openOrResizeErrorWindow") {
+    if (message.action === 'openOrResizeErrorWindow') {
         const { url, width, height, errorId } = message;
 
         chrome.storage.local.get(['errorWindowId'], (result) => {
@@ -139,16 +147,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             width,
                             height,
                             focused: true,
-                            drawAttention: true
+                            drawAttention: true,
                         });
 
                         // kỉeem trả url xem giống với url hiện tại không ?
                         // nếu không thì chuyển hướng sang url mới
                         if (win.tabs[0].url !== url) {
-                            chrome.tabs.update(win.tabs[0].id, { 
+                            chrome.tabs.update(win.tabs[0].id, {
                                 url,
                                 focused: true,
-                                drawAttention: true
+                                drawAttention: true,
                             });
                         }
 
@@ -162,32 +170,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         function openNewErrorWindow() {
-            chrome.windows.create({
-                url,
-                type: "normal",
-                width,
-                height
-            }, (newWindow) => {
-                const windowId = newWindow?.id;
-                const tabId = newWindow?.tabs?.[0]?.id;
-        
-                if (!windowId) return;
-                chrome.storage.local.set({ errorWindowId: windowId });
-        
-                if (tabId) {
-                    injectHighlightScript(tabId, errorId);
-                } else {
-                    const listener = (updatedTabId, info, tab) => {
-                        if (tab.windowId === windowId && info.status === 'complete') {
-                            chrome.tabs.onUpdated.removeListener(listener);
-                            injectHighlightScript(updatedTabId, errorId);
-                        }
-                    };
-                    chrome.tabs.onUpdated.addListener(listener);
-                }
-            });
+            chrome.windows.create(
+                {
+                    url,
+                    type: 'normal',
+                    width,
+                    height,
+                },
+                (newWindow) => {
+                    const windowId = newWindow?.id;
+                    const tabId = newWindow?.tabs?.[0]?.id;
+
+                    if (!windowId) return;
+                    chrome.storage.local.set({ errorWindowId: windowId });
+
+                    if (tabId) {
+                        injectHighlightScript(tabId, errorId);
+                    } else {
+                        const listener = (updatedTabId, info, tab) => {
+                            if (tab.windowId === windowId && info.status === 'complete') {
+                                chrome.tabs.onUpdated.removeListener(listener);
+                                injectHighlightScript(updatedTabId, errorId);
+                            }
+                        };
+                        chrome.tabs.onUpdated.addListener(listener);
+                    }
+                },
+            );
         }
-        
 
         function injectHighlightScript(tabId, errorId) {
             chrome.scripting.executeScript({
@@ -196,43 +206,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     const run = () => {
                         const el = document.querySelector(`div[data-error-id="${errorId}"]`);
                         if (!el) return;
-        
+
                         // Scroll tới element
                         el.scrollIntoView({ behavior: 'auto', block: 'center' });
-        
+
                         // Đợi một chút để scroll xong, hoặc có thể dùng 'scrollend' ở browser hỗ trợ mới (nhưng không phổ biến)
                         const scrollDelay = 500;
-        
+
                         setTimeout(() => {
                             // Bắt sự kiện animation hoặc transition
                             const onAnimationEnd = () => {
                                 el.removeEventListener('animationend', onAnimationEnd);
                                 el.removeEventListener('transitionend', onAnimationEnd);
-        
+
                                 // Sau khi animation có sẵn kết thúc, thêm highlight
                                 el.classList.add('testing-error-highlight');
-        
+
                                 // Tự động remove sau khoảng thời gian nhất định nếu cần
                                 setTimeout(() => {
                                     el.classList.remove('testing-error-highlight');
                                 }, 1000);
                             };
-        
+
                             el.addEventListener('animationend', onAnimationEnd);
                             el.addEventListener('transitionend', onAnimationEnd);
-        
+
                             // Nếu không có animation thực sự, fallback tự kích hoạt sau khoảng delay
                             setTimeout(onAnimationEnd, 500);
                         }, scrollDelay);
                     };
-        
+
                     if (document.readyState === 'complete') {
                         run();
                     } else {
                         window.addEventListener('load', run, { once: true });
                     }
                 },
-                args: [errorId]
+                args: [errorId],
             });
         }
     }
