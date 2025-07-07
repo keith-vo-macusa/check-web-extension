@@ -256,3 +256,19 @@ chrome.windows.onRemoved.addListener((closedWindowId) => {
         }
     });
 });
+
+
+// Mảng lưu trữ các lỗi hiện tại
+let errors = [];
+
+// Lắng nghe các message gửi đến background
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // Đảm bảo message là object
+    if (message.action == 'setErrors') {
+        errors = message.errors;
+    }
+    
+    if (message.action == 'getErrors') {
+        sendResponse(errors);
+    }
+});

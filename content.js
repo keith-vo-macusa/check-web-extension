@@ -2,6 +2,7 @@ class WebsiteTestingAssistant {
     constructor() {
         this.isActive = false;
         this.errors = [];
+        this.currentTabErrors = [];
         this.selectedElement = null;
         this.highlightOverlay = null;
         this.commentModal = null;
@@ -423,9 +424,9 @@ class WebsiteTestingAssistant {
             const comment = textarea.value.trim();
             if (comment) {
                 if (isRect) {
-                    await this.saveErrorGeneral({ comment, type: 'rect' });
+                    await this.reportError({ comment, type: 'rect' });
                 } else {
-                    await this.saveErrorGeneral({ comment, type: 'border' });
+                    await this.reportError({ comment, type: 'border' });
                 }
                 this.closeModal();
             } else {
@@ -623,20 +624,20 @@ class WebsiteTestingAssistant {
         // Add comment locally first
         error.comments.push(comment);
 
-        // Get current feedback data
-        let feedbackData = await this.getFeedbackData();
+        // Get current errors data
+        let errorsData = await this.getErrorsData();
 
         // Find and update the error
-        const pathIndex = feedbackData.path.findIndex((p) => p.full_url === this.currentUrl);
+        const pathIndex = errorsData.path.findIndex((p) => p.full_url === this.currentUrl);
         if (pathIndex !== -1) {
-            const errorIndex = feedbackData.path[pathIndex].data.findIndex(
+            const errorIndex = errorsData.path[pathIndex].data.findIndex(
                 (e) => e.id === error.id,
             );
             if (errorIndex !== -1) {
-                feedbackData.path[pathIndex].data[errorIndex] = error;
+                errorsData.path[pathIndex].data[errorIndex] = error;
 
-                // Update API with full feedback data
-                this.updateToAPI(feedbackData);
+                // Update API with full errors data
+                this.updateToAPI(errorsData);
 
                 // Update UI
                 this.saveErrors();
@@ -692,18 +693,18 @@ class WebsiteTestingAssistant {
                     comment.editedAt = Date.now();
 
                     // Find and update in this.errors array
-                    const errorIndex = this.errors.findIndex((e) => e.id === error.id);
+                    const errorIndex = this.currentTabErrors.findIndex((e) => e.id === error.id);
                     if (errorIndex !== -1) {
-                        this.errors[errorIndex] = error;
+                        this.currentTabErrors[errorIndex] = error;
                     }
 
                     // Save to localStorage first
                     await this.saveErrors();
                     console.log('Saved to localStorage');
 
-                    // Get updated feedback data and sync with API
-                    let feedbackData = await this.getFeedbackData();
-                    this.updateToAPI(feedbackData);
+                    // Get updated errors data and sync with API
+                    let errorsData = await this.getErrorsData();
+                    this.updateToAPI(errorsData);
 
                     // Update UI last
                     this.refreshCommentThread(panel, error);
@@ -713,7 +714,7 @@ class WebsiteTestingAssistant {
                     // Rollback changes if something fails
                     Object.assign(comment, originalComment);
                     if (errorIndex !== -1) {
-                        this.errors[errorIndex] = error;
+                        this.currentTabErrors[errorIndex] = error;
                     }
                     this.refreshCommentThread(panel, error);
                 }
@@ -738,18 +739,18 @@ class WebsiteTestingAssistant {
             error.comments = error.comments.filter((c) => c.id !== commentId);
 
             // Find and update in this.errors array
-            const errorIndex = this.errors.findIndex((e) => e.id === error.id);
+            const errorIndex = this.currentTabErrors.findIndex((e) => e.id === error.id);
             if (errorIndex !== -1) {
-                this.errors[errorIndex] = error;
+                this.currentTabErrors[errorIndex] = error;
             }
 
             // Save to localStorage first
             await this.saveErrors();
             console.log('Saved to localStorage');
 
-            // Get updated feedback data and sync with API
-            let feedbackData = await this.getFeedbackData();
-            this.updateToAPI(feedbackData);
+            // Get updated errors data and sync with API
+            let errorsData = await this.getErrorsData();
+            this.updateToAPI(errorsData);
 
             // Update UI last
             this.updateAllErrorBorders();
@@ -759,7 +760,7 @@ class WebsiteTestingAssistant {
             // Rollback changes if something fails
             if (errorIndex !== -1) {
                 error.comments = originalComments;
-                this.errors[errorIndex] = error;
+                this.currentTabErrors[errorIndex] = error;
                 this.updateAllErrorBorders();
             }
         }
@@ -770,16 +771,16 @@ class WebsiteTestingAssistant {
             error.status = error.status == 'open' ? 'resolved' : 'open';
 
             // Find and update in this.errors array
-            const errorIndex = this.errors.findIndex((e) => e.id === error.id);
+            const errorIndex = this.currentTabErrors.findIndex((e) => e.id === error.id);
             if (errorIndex !== -1) {
-                this.errors[errorIndex] = error;
+                this.currentTabErrors[errorIndex] = error;
             }
 
             // Save to localStorage first
             await this.saveErrors();
-            // Get updated feedback data and sync with API
-            let feedbackData = await this.getFeedbackData();
-            this.updateToAPI(feedbackData);
+            // Get updated errors data and sync with API
+            let errorsData = await this.getErrorsData();
+            this.updateToAPI(errorsData);
             // Update UI last
             this.updateAllErrorBorders();
             console.log('Final error state:', error);
@@ -788,7 +789,7 @@ class WebsiteTestingAssistant {
             // Rollback changes if something fails
             if (errorIndex !== -1) {
                 error.status = error.status == 'open' ? 'resolved' : 'open';
-                this.errors[errorIndex] = error;
+                this.currentTabErrors[errorIndex] = error;
                 this.updateErrorBorder(error);
             }
         }
@@ -818,26 +819,26 @@ class WebsiteTestingAssistant {
     }
 
     async deleteError(errorId) {
-        // Get current feedback data
-        let feedbackData = await this.getFeedbackData();
+        // Get current errors data
+        let errorsData = await this.getErrorsData();
 
         // Find and remove the error
-        const pathIndex = feedbackData.path.findIndex((p) => p.full_url === this.currentUrl);
+        const pathIndex = errorsData.path.findIndex((p) => p.full_url === this.currentUrl);
         if (pathIndex !== -1) {
-            const errorIndex = feedbackData.path[pathIndex].data.findIndex((e) => e.id === errorId);
+            const errorIndex = errorsData.path[pathIndex].data.findIndex((e) => e.id === errorId);
             if (errorIndex !== -1) {
-                feedbackData.path[pathIndex].data.splice(errorIndex, 1);
+                errorsData.path[pathIndex].data.splice(errorIndex, 1);
 
                 // Remove empty path entries
-                if (feedbackData.path[pathIndex].data.length === 0) {
-                    feedbackData.path.splice(pathIndex, 1);
+                if (errorsData.path[pathIndex].data.length === 0) {
+                    errorsData.path.splice(pathIndex, 1);
                 }
 
-                // Update API with modified feedback data
-                this.updateToAPI(feedbackData);
+                // Update API with modified errors data
+                this.updateToAPI(errorsData);
 
                 // Update local state
-                this.errors = this.errors.filter((e) => e.id !== errorId);
+                this.currentTabErrors = this.currentTabErrors.filter((e) => e.id !== errorId);
                 this.saveErrors();
 
                 // Remove border
@@ -854,68 +855,6 @@ class WebsiteTestingAssistant {
             }
         }
     }
-
-    // async saveError(comment) {
-    //     if (!this.selectedElement) return;
-
-    //     const identifiers = {
-    //         xpath: window.getElementXPath(this.selectedElement),
-    //     };
-
-    //     const width = window.innerWidth;
-    //     const currentBreakpoint = window.getCurrentBreakpoint(width);
-
-    //     const error = {
-    //         id: this.generateUUID(),
-    //         elementIdentifiers: identifiers,
-    //         timestamp: Date.now(),
-    //         type: "border",
-    //         breakpoint: {
-    //             type: currentBreakpoint,
-    //             width: width,
-    //         },
-    //         url: this.currentUrl,
-    //         status: 'open',
-    //         comments: [{
-    //             id: this.generateUUID(),
-    //             text: comment,
-    //             author: await this.getUserInfo(),
-    //             timestamp: Date.now(),
-    //             edited: false,
-    //             editedAt: null
-    //         }]
-    //     };
-
-    //     const element = window.findElementByIdentifiers(error.elementIdentifiers);
-
-    //     if( !element) {
-    //         console.error('Failed to save error: Cannot reliably identify the selected element');
-    //         return;
-    //     }
-
-    //     // Get current feedback data
-    //     let feedbackData = await this.getFeedbackData();
-
-    //         // Add new error to the appropriate path
-    //     let pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
-    //     if (pathIndex === -1) {
-    //         feedbackData.path.push({
-    //             full_url: this.currentUrl,
-    //                 data: [error]
-    //             });
-    //         }
-    //     else {
-    //         feedbackData.path[pathIndex].data.push(error);
-    //     }
-
-    //     // Update API with full feedback data
-    //     this.updateToAPI(feedbackData);
-
-    //     this.errors.push(error);
-    //     this.saveErrors();
-    //     this.createErrorOverlay(error);
-
-    // }
 
     createErrorOverlay(error) {
         const overlay = document.createElement('div');
@@ -1029,7 +968,7 @@ class WebsiteTestingAssistant {
         const visible = errorsVisible?.errorsVisible || false;
         this.errorBorders.forEach((overlay) => {
             const errorId = overlay.dataset.errorId;
-            const error = this.errors.find((e) => e.id === errorId);
+            const error = this.currentTabErrors.find((e) => e.id === errorId);
             if (error) {
                 // Check if errors should be shown at all
                 if (!this.allErrorsVisible) {
@@ -1063,87 +1002,72 @@ class WebsiteTestingAssistant {
         return null;
     }
 
-    loadErrors() {
-        this.browserAPI.storage.local.get(['feedback'], (result) => {
-            if (result.feedback && result.feedback.path) {
-                const pathItem = result.feedback.path.find((p) => p.full_url === this.currentUrl);
-                this.errors = pathItem ? pathItem.data : [];
-            }
-        });
+    async loadErrors() {
+        const { path } = await this.getErrorsData();
+        if (path) {
+            const pathItem = path.find((p) => p.full_url === this.currentUrl);
+            this.currentTabErrors = pathItem ? pathItem.data : [];
+        }
     }
 
     async saveErrors() {
         return new Promise((resolve, reject) => {
-            // Get all stored data first
-            this.browserAPI.storage.local.get(['feedback'], (result) => {
-                let newStructure = result.feedback;
-
-                // Initialize new structure if it doesn't exist
-                if (!newStructure) {
+            try {
+                // Initialize errors array if it doesn't exist
+                if (!this.errors) {
                     try {
                         const domain = new URL(this.currentUrl).hostname;
-                        newStructure = {
+                        this.errors = {
                             domain: domain,
                             path: [],
                         };
                     } catch (e) {
-                        newStructure = {
+                        this.errors = {
                             domain: '',
                             path: [],
                         };
                     }
                 }
 
-                // Update the current URL's data in the new structure
-                let pathIndex = newStructure.path.findIndex((p) => p.full_url === this.currentUrl);
+                // Update the current URL's data in the errors array
+                let pathIndex = this.errors.path.findIndex((p) => p.full_url === this.currentUrl);
 
                 if (pathIndex >= 0) {
-                    newStructure.path[pathIndex].data = this.errors;
+                    this.errors.path[pathIndex].data = this.currentTabErrors;
                 } else {
-                    newStructure.path.push({
+                    this.errors.path.push({
                         full_url: this.currentUrl,
-                        data: this.errors,
+                        data: this.currentTabErrors,
                     });
                 }
 
-                // Save the new structure
-                this.browserAPI.storage.local.set({ feedback: newStructure }, () => {
-                    if (this.browserAPI.runtime.lastError) {
-                        console.error(
-                            'Error saving to storage:',
-                            this.browserAPI.runtime.lastError,
-                        );
-                        reject(this.browserAPI.runtime.lastError);
-                    } else {
-                        resolve();
-                    }
+                // Notify background script about error changes
+                this.browserAPI.runtime.sendMessage({
+                    action: 'setErrors',
+                    errors: this.errors,
                 });
-            });
+
+                resolve();
+            } catch (error) {
+                console.error('Error saving errors:', error);
+                reject(error);
+            }
         });
     }
 
-    displayExistingErrors() {
-        this.browserAPI.storage.local.get(['feedback'], (result) => {
-            let errors = [];
+    async displayExistingErrors() {
+        const { path } = await this.getErrorsData();
+        let errors = [];
 
-            if (result.feedback && result.feedback.path) {
-                const pathItem = result.feedback.path.find((p) => p.full_url === this.currentUrl);
-                errors = pathItem ? pathItem.data : [];
-            } else {
-                // Fallback to old format
-                this.browserAPI.storage.local.get([this.currentUrl], (oldResult) => {
-                    errors = oldResult[this.currentUrl] || [];
-                    this.processExistingErrors(errors);
-                });
-                return;
-            }
-
+        if (path) {
+            const pathItem = path.find((p) => p.full_url === this.currentUrl);
+            errors = pathItem ? pathItem.data : [];
             this.processExistingErrors(errors);
-        });
+        } 
     }
 
     processExistingErrors(errors) {
-        this.errors = errors; // Update local errors array
+        this.currentTabErrors = errors; // Update local errors array
         errors.forEach((error) => {
             this.createErrorOverlay(error);
         });
@@ -1199,22 +1123,18 @@ class WebsiteTestingAssistant {
     }
 
     async clearAllErrors() {
-        const emptyFeedbackData = {
+        const emptyerrorsData = {
             domain: new URL(this.currentUrl).hostname,
             path: [],
         };
-        await this.updateToAPI(emptyFeedbackData);
+        await this.updateToAPI(emptyerrorsData);
 
         // Remove all borders
         this.errorBorders.forEach((border) => border.remove());
         this.errorBorders = [];
 
         // Clear data
-        this.errors = [];
-        await this.browserAPI.storage.local.set({
-            feedback: emptyFeedbackData,
-        });
-
+        this.currentTabErrors = [];
         // Reload errors for current URL from updated localStorage
         await this.reloadCurrentErrors();
         this.updateAllErrorBorders();
@@ -1223,11 +1143,11 @@ class WebsiteTestingAssistant {
 
     async removeError(errorId) {
         // Xoá lỗi trong localStorage
-        const feedbackData = await this.getFeedbackData();
+        const errorsData = await this.getErrorsData();
 
         let found = false;
 
-        for (const pathItem of feedbackData.path) {
+        for (const pathItem of errorsData.path) {
             const initialLength = pathItem.data.length;
             pathItem.data = pathItem.data.filter((error) => error.id !== errorId);
 
@@ -1241,11 +1161,8 @@ class WebsiteTestingAssistant {
             return;
         }
 
-        // Cập nhật localStorage
-        await this.browserAPI.storage.local.set({ feedback: feedbackData });
-
         // Cập nhật lên API
-        await this.updateToAPI(feedbackData);
+        await this.updateToAPI(errorsData);
 
         // Reload errors for current URL from updated localStorage
         await this.reloadCurrentErrors();
@@ -1276,116 +1193,60 @@ class WebsiteTestingAssistant {
             // Update local storage with API data
             if (response) {
                 const data = response.data;
-                await this.browserAPI.storage.local.set({
-                    feedback: {
-                        domain: new URL(this.currentUrl).hostname,
-                        path: data?.path || [],
-                    },
-                });
-
+                this.errors = data;
                 // Update local errors for current URL
                 const pathItem = data?.path.find((p) => p.full_url === this.currentUrl);
-                this.errors = pathItem ? pathItem.data : [];
+                this.currentTabErrors = pathItem ? pathItem.data : [];
+
+                this.browserAPI.runtime.sendMessage({
+                    action: 'setErrors',
+                    errors: this.errors,
+                });
             }
         } catch (error) {
             console.error('Error fetching data from API:', error);
         }
     }
 
-    async updateToAPI(feedbackData) {
+    async updateToAPI(errorsData) {
         try {
             const response = await $.ajax({
                 url: this.apiEndpoint + '?action=set',
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify(feedbackData),
+                data: JSON.stringify(errorsData),
             });
 
-            if (response) {
-                return response.success;
-            }
-            return false;
+            this.browserAPI.runtime.sendMessage({
+                action: 'setErrors',
+                errors: errorsData,
+            });
+
+            return response.success
         } catch (error) {
             console.error('Error updating API:', error);
             return false;
         }
     }
 
-    // Helper method to get full feedback data from storage
-    async getFeedbackData() {
-        return new Promise((resolve) => {
-            this.browserAPI.storage.local.get(['feedback'], (result) => {
-                resolve(
-                    result.feedback || {
-                        domain: new URL(this.currentUrl).hostname,
-                        path: [],
-                    },
-                );
-            });
-        });
+    // Helper method to get full errors data from storage
+    async getErrorsData() {
+        const { path } = await this.browserAPI.runtime.sendMessage({ action: 'getErrors' });
+        return {
+            domain: new URL(this.currentUrl).hostname,
+            path,
+        };
     }
 
     // Helper method to reload current errors from localStorage
     async reloadCurrentErrors() {
-        const feedbackData = await this.getFeedbackData();
-        const pathItem = feedbackData.path?.find((p) => p.full_url === this.currentUrl);
-        this.errors = pathItem ? pathItem.data : [];
+        const errorsData = await this.getErrorsData();
+        const pathItem = errorsData.path?.find((p) => p.full_url === this.currentUrl);
+        this.currentTabErrors = pathItem ? pathItem.data : [];
     }
 
-    // async saveRectError(comment) {
-    //     if (!this.selectedRect) return;
 
-    //     const innerWidth = window.innerWidth;
-    //     const breakpoint = {
-    //         type: window.getCurrentBreakpoint(innerWidth),
-    //         width: innerWidth
-    //     };
-
-    //     const newError = {
-    //         id: this.generateUUID(),
-    //         type: "rect",
-    //         elementIdentifiers: null,
-    //         timestamp: Date.now(),
-    //         breakpoint: breakpoint,
-    //         url: this.currentUrl,
-    //         status: "open",
-    //         coordinates: this.selectedRect,
-    //         comments: [{
-    //             id: this.generateUUID(),
-    //             text: comment,
-    //             author: await this.getUserInfo(),
-    //             timestamp: Date.now(),
-    //             edited: false,
-    //             editedAt: null
-    //         }]
-    //     };
-
-    //     // Get current feedback data
-    //     let feedbackData = await this.getFeedbackData();
-
-    //     // Add new error to the appropriate path
-    //     let pathIndex = feedbackData.path.findIndex(p => p.full_url === this.currentUrl);
-    //     if (pathIndex === -1) {
-    //         feedbackData.path.push({
-    //             full_url: this.currentUrl,
-    //             data: [newError]
-    //         });
-    //     } else {
-    //         feedbackData.path[pathIndex].data.push(newError);
-    //     }
-
-    //     // Update API with full feedback data
-    //     this.updateToAPI(feedbackData);
-
-    //     this.errors.push(newError);
-    //     this.saveErrors();
-    //     this.createErrorOverlay(newError);
-
-    //     // Reset selection
-    //     this.selectedRect = null;
-    // }
-
-    async saveErrorGeneral({ comment, type }) {
+    async reportError({ comment, type }) {
         if (type === 'border' && !this.selectedElement) return;
         if (type === 'rect' && !this.selectedRect) return;
 
@@ -1435,24 +1296,24 @@ class WebsiteTestingAssistant {
             error.coordinates = this.selectedRect;
         }
 
-        // Get current feedback data
-        let feedbackData = await this.getFeedbackData();
+        // Get current errors data
+        let errorsData = await this.getErrorsData();
 
         // Add new error to the appropriate path
-        let pathIndex = feedbackData.path.findIndex((p) => p.full_url === this.currentUrl);
+        let pathIndex = errorsData.path.findIndex((p) => p.full_url === this.currentUrl);
         if (pathIndex === -1) {
-            feedbackData.path.push({
+            errorsData.path.push({
                 full_url: this.currentUrl,
                 data: [error],
             });
         } else {
-            feedbackData.path[pathIndex].data.push(error);
+            errorsData.path[pathIndex].data.push(error);
         }
 
-        // Update API with full feedback data
-        this.updateToAPI(feedbackData);
+        // Update API with full error data
+        this.updateToAPI(errorsData);
 
-        this.errors.push(error);
+        this.currentTabErrors.push(error);
         this.saveErrors();
         this.createErrorOverlay(error);
 
@@ -1468,7 +1329,7 @@ class WebsiteTestingAssistant {
             this.errorBorders = [];
 
             // Clear data
-            this.errors = [];
+            this.currentTabErrors = [];
             this.saveErrors();
             this.updateAllErrorBorders();
             this.hideAllErrors();
@@ -1484,12 +1345,12 @@ class WebsiteTestingAssistant {
     }
 
     async checkFixed(errorId) {
-        // Lấy dữ liệu feedback
-        const feedbackData = await this.getFeedbackData();
+        // Lấy dữ liệu errors
+        const errorsData = await this.getErrorsData();
 
         // Tìm lỗi theo ID
         let found = null;
-        for (const pathItem of feedbackData.path) {
+        for (const pathItem of errorsData.path) {
             const foundError = pathItem.data.find((e) => e.id == errorId);
             if (foundError) {
                 found = foundError;
@@ -1506,15 +1367,13 @@ class WebsiteTestingAssistant {
         // Toggle trạng thái
         found.status = found.status === 'resolved' ? 'open' : 'resolved';
 
-        // Lưu vào LocalStorage
-        const feedback = {
-            domain: feedbackData.domain,
-            path: feedbackData.path,
+        const errors = {
+            domain: errorsData.domain,
+            path: errorsData.path,
         };
-        await this.browserAPI.storage.local.set({ feedback });
 
         // Cập nhật lên API
-        await this.updateToAPI(feedback);
+        await this.updateToAPI(errors);
 
         // Reload errors for current URL from updated localStorage
         await this.reloadCurrentErrors();

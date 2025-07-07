@@ -78,15 +78,17 @@ class ErrorManager {
         const tabs = await TabManager.getCurrentTab();
         if (!tabs || !tabs[0]) return [];
 
-        const result = await browserAPI.storage.local.get(['feedback']);
+        const result = await TabManager.sendMessageToBackground({
+            action: 'getErrors',
+        });
+
         let errors = [];
 
-        if (result?.feedback?.path) {
-            result.feedback.path.forEach(path => {
+        if (result?.path) {
+            result.path?.forEach(path => {
                 errors.push(...path.data);
             });
         }
-
         return errors;
     }
 
@@ -150,6 +152,10 @@ class TabManager {
             console.log('Cannot send message to content script:', error.message);
             return null;
         }
+    }
+
+    static async sendMessageToBackground(message) {
+        return await browserAPI.runtime.sendMessage(message);
     }
 }
 
@@ -565,8 +571,9 @@ $(document).ready(async function() {
     }
 
     const handleSendNotification = async(userInfo,type) => {
-        let feedback = await browserAPI.storage.local.get(['feedback']);
-        let domainUrl = feedback.feedback.domain;
+        
+        const tab = await TabManager.getCurrentTab();
+        const domainUrl = new URL(tab[0].url).hostname;
         const btnNotification = $('#sendNotification');
         await $.ajax({
             type: "POST",
