@@ -26,24 +26,40 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["lib/jquery.min.js", "js/utils.js", "content.js", "js/auth.js"],
-      "css": ["css/content.css"],
-      "run_at": "document_end"
+      "js": [
+       "lib/jquery.min.js",
+       "lib/sweet-alert/sweetalert2.all.min.js",
+       "js/utils.js",
+       "content-loader.js",
+       "js/auth.js",
+       "js/services/AlertManager.js"
+      ],
+      "css": [
+        "css/content.css",
+        "lib/sweet-alert/sweetalert2.min.css"
+      ],
+      "run_at": "document_end",
+      "type": "module"
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "web_accessible_resources": [
     {
       "resources": [
         "assets/*",
         "lib/*", 
+        "lib/sweet-alert/*",
         "screens/login.html", 
         "screens/popup.html",
         "js/auth.js", 
         "js/login.js", 
-        "js/popup.js"
+        "js/popup.js",
+        "content.js",
+        "lib/**/*.js",
+        "js/**/*.js"
       ],
       "matches": ["<all_urls>"]
     }

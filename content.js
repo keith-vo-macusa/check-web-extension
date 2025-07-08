@@ -1,4 +1,7 @@
-class WebsiteTestingAssistant {
+import { API_ACTION, ACTION_MESSAGE } from './js/constants/index.js';
+import AlertManager from './js/services/AlertManager.js';
+
+export default class WebsiteTestingAssistant {
     constructor() {
         this.isActive = false;
         this.errors = [];
@@ -9,7 +12,6 @@ class WebsiteTestingAssistant {
         this.currentUrl = window.location.href;
         this.errorBorders = [];
         this.userInfo = null;
-        this.apiEndpoint = 'https://checkwise.macusaone.com/api_domain_data.php';
         this.rangeBreakpoint = 20;
         this.documentLength = document.documentElement.innerHTML.length;
         this.browserAPI = window.chrome || window.browser;
@@ -24,15 +26,6 @@ class WebsiteTestingAssistant {
         this.drawResolvedErrors = false;
         this.allErrorsVisible = false; // Flag để theo dõi trạng thái show/hide tổng quát
         this.init();
-    }
-
-    // Simple UUID generator function
-    generateUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
-        });
     }
 
     async getUserInfo() {
@@ -62,36 +55,36 @@ class WebsiteTestingAssistant {
         // Listen for messages from popup
         this.browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             switch (request.action) {
-                case 'activate':
+                case ACTION_MESSAGE.ACTIVATE:
                     this.activate();
                     break;
-                case 'deactivate':
+                case ACTION_MESSAGE.DEACTIVATE:
                     this.deactivate();
                     if (request.reason === 'logout') {
                         this.logout();
                     }
                     break;
-                case 'getState':
+                case ACTION_MESSAGE.GET_STATE:
                     sendResponse({ isActive: this.isActive });
                     break;
-                case 'showAllErrors':
+                case ACTION_MESSAGE.SHOW_ALL_ERRORS:
                     this.showAllErrors();
                     // Update storage to persist state
                     this.browserAPI.storage.local.set({
                         errorsVisible: true,
                     });
                     break;
-                case 'hideAllErrors':
+                case ACTION_MESSAGE.HIDE_ALL_ERRORS:
                     this.hideAllErrors();
                     // Update storage to persist state
                     this.browserAPI.storage.local.set({
                         errorsVisible: false,
                     });
                     break;
-                case 'highlightError':
+                case ACTION_MESSAGE.HIGHLIGHT_ERROR:
                     this.highlightError(request.error);
                     break;
-                case 'clearAllErrors':
+                case ACTION_MESSAGE.CLEAR_ALL_ERRORS:
                     this.clearAllErrors()
                         .then(() => {
                             sendResponse({ success: true });
@@ -103,7 +96,7 @@ class WebsiteTestingAssistant {
                             });
                         });
                     return true;
-                case 'removeError':
+                case ACTION_MESSAGE.REMOVE_ERROR:
                     this.removeError(request.errorId)
                         .then(() => {
                             sendResponse({ success: true });
@@ -115,7 +108,7 @@ class WebsiteTestingAssistant {
                             });
                         });
                     return true;
-                case 'checkFixed':
+                case ACTION_MESSAGE.CHECK_FIXED:
                     this.checkFixed(request.errorId)
                         .then(() => {
                             sendResponse({ success: true });
@@ -127,11 +120,11 @@ class WebsiteTestingAssistant {
                             });
                         });
                     return true;
-                case 'drawOpenErrors':
+                case ACTION_MESSAGE.DRAW_OPEN_ERRORS:
                     this.drawOpenErrors = request.drawOpenErrors;
                     this.updateAllErrorBorders();
                     break;
-                case 'drawResolvedErrors':
+                case ACTION_MESSAGE.DRAW_RESOLVED_ERRORS:
                     this.drawResolvedErrors = request.drawResolvedErrors;
                     this.updateAllErrorBorders();
                     break;
@@ -154,7 +147,6 @@ class WebsiteTestingAssistant {
 
         // phím tắt để bật chế độ chọn lỗi
         window.addEventListener('keydown', async (e) => {
-
             const activeElement = document.activeElement;
             const isTyping =
                 activeElement.tagName === 'INPUT' ||
@@ -588,10 +580,15 @@ class WebsiteTestingAssistant {
 
         // Delete button
         panel.querySelector('.btn-delete').addEventListener('click', () => {
-            if (confirm('Bạn có chắc muốn xóa lỗi này?')) {
-                this.deleteError(error.id);
-                this.closeCommentThread();
-            }
+            AlertManager.confirm(
+                'Bạn có chắc muốn xóa lỗi này?',
+                'Bạn có chắc muốn xóa lỗi này?',
+            ).then((result) => {
+                if (result.isConfirmed) {
+                    this.deleteError(error.id);
+                    this.closeCommentThread();
+                }
+            });
         });
 
         // Edit/Delete comment buttons
@@ -613,7 +610,7 @@ class WebsiteTestingAssistant {
 
     async addReply(error, text) {
         const comment = {
-            id: this.generateUUID(),
+            id: window.generateUUID(),
             text: text,
             author: await this.getUserInfo(),
             timestamp: Date.now(),
@@ -630,9 +627,7 @@ class WebsiteTestingAssistant {
         // Find and update the error
         const pathIndex = errorsData.path.findIndex((p) => p.full_url === this.currentUrl);
         if (pathIndex !== -1) {
-            const errorIndex = errorsData.path[pathIndex].data.findIndex(
-                (e) => e.id === error.id,
-            );
+            const errorIndex = errorsData.path[pathIndex].data.findIndex((e) => e.id === error.id);
             if (errorIndex !== -1) {
                 errorsData.path[pathIndex].data[errorIndex] = error;
 
@@ -1063,7 +1058,7 @@ class WebsiteTestingAssistant {
             const pathItem = path.find((p) => p.full_url === this.currentUrl);
             errors = pathItem ? pathItem.data : [];
             this.processExistingErrors(errors);
-        } 
+        }
     }
 
     processExistingErrors(errors) {
@@ -1181,7 +1176,7 @@ class WebsiteTestingAssistant {
     async fetchDataFromAPI() {
         try {
             const response = await $.ajax({
-                url: this.apiEndpoint,
+                url: API_ACTION.GET_DOMAIN_DATA,
                 method: 'GET',
                 dataType: 'json',
                 data: {
@@ -1211,7 +1206,7 @@ class WebsiteTestingAssistant {
     async updateToAPI(errorsData) {
         try {
             const response = await $.ajax({
-                url: this.apiEndpoint + '?action=set',
+                url: API_ACTION.SET_DOMAIN_DATA,
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(errorsData),
@@ -1222,7 +1217,7 @@ class WebsiteTestingAssistant {
                 errors: errorsData,
             });
 
-            return response.success
+            return response.success;
         } catch (error) {
             console.error('Error updating API:', error);
             return false;
@@ -1245,7 +1240,6 @@ class WebsiteTestingAssistant {
         this.currentTabErrors = pathItem ? pathItem.data : [];
     }
 
-
     async reportError({ comment, type }) {
         if (type === 'border' && !this.selectedElement) return;
         if (type === 'rect' && !this.selectedRect) return;
@@ -1257,7 +1251,7 @@ class WebsiteTestingAssistant {
         };
 
         const error = {
-            id: this.generateUUID(),
+            id: window.generateUUID(),
             type: type,
             timestamp: Date.now(),
             breakpoint: breakpoint,
@@ -1267,7 +1261,7 @@ class WebsiteTestingAssistant {
             coordinates: null,
             comments: [
                 {
-                    id: this.generateUUID(),
+                    id: window.generateUUID(),
                     text: comment,
                     author: await this.getUserInfo(),
                     timestamp: Date.now(),
@@ -1417,13 +1411,4 @@ class WebsiteTestingAssistant {
             thread.remove();
         }
     }
-}
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        new WebsiteTestingAssistant();
-    });
-} else {
-    new WebsiteTestingAssistant();
 }
