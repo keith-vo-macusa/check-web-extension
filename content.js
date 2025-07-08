@@ -57,23 +57,14 @@ export default class WebsiteTestingAssistant {
         this.browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             switch (request.action) {
                 case ACTION_MESSAGE.ACTIVATE:
-                    this.activate().then(() => {
-                        sendResponse({ success: true });
-                    })
-                    .catch((error) => {
-                        sendResponse({
-                            success: false,
-                            message: error.message,
-                        });
-                    }); ;         
-                    return true;
+                    this.activate();       
+                    break;
                 case ACTION_MESSAGE.DEACTIVATE:
                     this.deactivate();
                     if (request.reason === 'logout') {
                         this.logout();
                     }
-                    sendResponse({ success: true });
-                    return true;
+                    break;
                 case ACTION_MESSAGE.GET_STATE:
                     sendResponse({ isActive: this.isActive });
                     return true;
@@ -82,31 +73,15 @@ export default class WebsiteTestingAssistant {
                     // Update storage to persist state
                     this.browserAPI.storage.local.set({
                         errorsVisible: true,
-                    }).then(() => {
-                        sendResponse({ success: true });
-                    })
-                    .catch((error) => {
-                        sendResponse({
-                            success: false,
-                            message: error.message,
-                        });
-                    }); ;         
-                    return true;
+                    });
+                    break;
                 case ACTION_MESSAGE.HIDE_ALL_ERRORS:
                     this.hideAllErrors();
                     // Update storage to persist state
                     this.browserAPI.storage.local.set({
                         errorsVisible: false,
-                    }).then(() => {
-                        sendResponse({ success: true });
-                    })
-                    .catch((error) => {
-                        sendResponse({
-                            success: false,
-                            message: error.message,
-                        });
-                    }); ;         
-                    return true;
+                    });
+                    break;
                 case ACTION_MESSAGE.HIGHLIGHT_ERROR:
                     this.highlightError(request.error)
                         .then(() => {
@@ -1264,6 +1239,10 @@ export default class WebsiteTestingAssistant {
                         errors: this.errors,
                         domainName: this.domainName,
                     });
+                    this.browserAPI.runtime.sendMessage({
+                        action: 'removeUnauthorized',
+                        domainName: this.domainName,
+                    });
                 } catch (error) {
                     AlertManager.error(
                         'Lỗi',
@@ -1279,6 +1258,10 @@ export default class WebsiteTestingAssistant {
             // });
         } catch (error) {
             console.error('Error fetching data from API:', error);
+            await this.browserAPI.runtime.sendMessage({
+                action: 'setUnauthorized',
+                domainName: this.domainName,
+            });
         }
     }
 

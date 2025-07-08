@@ -313,6 +313,9 @@ chrome.windows.onRemoved.addListener((closedWindowId) => {
 
 // Mảng lưu trữ các lỗi hiện tại
 let errors = [];
+// Mảng lưu các domain không được phép sử dụng extension
+let unAuthorizedDomains = [] ;
+
 
 // Hàm tính số lỗi "open" từ dữ liệu domain
 function countOpenErrors(domainData) {
@@ -344,6 +347,7 @@ function updateBadgeIfActive(domainToUpdate) {
     });
 }
 
+
 // Lắng nghe message
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { action, domainName } = message;
@@ -360,6 +364,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse(result);
     }
 
+    if (action === 'setUnauthorized') {
+        unAuthorizedDomains = [...unAuthorizedDomains, domainName];
+    }
+
+    if (action === 'checkAuthorized') {
+        sendResponse(!unAuthorizedDomains.includes(domainName));
+    }
+
+    if (action === 'removeUnauthorized') {
+        unAuthorizedDomains = unAuthorizedDomains.filter((domain) => domain !== domainName);
+        sendResponse(true);
+    }
+
     return true; // giữ channel open nếu cần
 });
 
@@ -374,3 +391,5 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
         chrome.action.setBadgeText({ text: '', tabId });
     }
 });
+
+

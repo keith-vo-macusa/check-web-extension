@@ -552,6 +552,17 @@ $(document).ready(async function () {
         }
     });
 
+    const domainName = await TabManager.getCurrentTabDomain();
+    const isAuthorized = await TabManager.sendMessageToBackground({
+        action: 'checkAuthorized',
+        domainName: domainName,
+    });
+
+    if (!isAuthorized) {
+        AlertManager.errorWithOutClose('Lỗi', `${domainName} chưa được khởi tạo trên Checkwise`, false);
+        return;
+    }
+
     const showConfirmSendNotification = async (userInfo, type) => {
         AlertManager.confirm(
             'Gửi thông báo',
