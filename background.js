@@ -248,23 +248,63 @@ chrome.windows.onRemoved.addListener((closedWindowId) => {
 // Mảng lưu trữ các lỗi hiện tại
 let errors = [];
 
-// Lắng nghe các message gửi đến background
+// Hàm tính số lỗi "open" từ dữ liệu domain
+function countOpenErrors(domainData) {
+    if (!domainData?.path) return 0;
+
+    return domainData.path.reduce((total, path) => {
+        return total + (path.data?.filter((e) => e.status === 'open')?.length || 0);
+    }, 0);
+}
+
+// Chỉ update badge nếu domain của tab active khớp
+function updateBadgeIfActive(domainToUpdate) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs[0];
+        if (!activeTab || !activeTab.url) return;
+
+        try {
+            const activeDomain = new URL(activeTab.url).hostname;
+            if (activeDomain !== domainToUpdate) return;
+
+            const count = countOpenErrors(errors[domainToUpdate]);
+            chrome.action.setBadgeText({
+                tabId: activeTab.id,
+                text: count > 0 ? count.toString() : '',
+            });
+        } catch (e) {
+            console.error('❌ Không thể lấy domain từ URL:', e);
+        }
+    });
+}
+
+// Lắng nghe message
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    // Đảm bảo message là object
-    if (message.action == 'setErrors') {
-        const temp = message.errors;
-        const domain = message.domainName;
-        errors[domain] = temp;
+    const { action, domainName } = message;
+
+    if (!domainName) return;
+
+    if (action === 'setErrors') {
+        errors[domainName] = message.errors;
+        updateBadgeIfActive(domainName);
     }
 
-    if (message.action == 'getErrors') {
-        const domain = message.domainName;
-        if (errors[domain]) {
-            sendResponse(errors[domain]);
-        } else {
-            sendResponse({
-                path: [],
-            });
-        }
+    if (action === 'getErrors') {
+        const result = errors[domainName] || { path: [] };
+        sendResponse(result);
+    }
+
+    return true; // giữ channel open nếu cần
+});
+
+// Khi người dùng chuyển tab
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+    try {
+        const tab = await chrome.tabs.get(tabId);
+        const domain = new URL(tab.url).hostname;
+        updateBadgeIfActive(domain, tabId);
+    } catch (e) {
+        console.error('❌ Không thể lấy domain từ tab:', e);
+        chrome.action.setBadgeText({ text: '', tabId });
     }
 });

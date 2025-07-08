@@ -190,12 +190,18 @@ export default class WebsiteTestingAssistant {
     }
 
     async errorsVisible() {
-        const result = await this.browserAPI.storage.local.get('errorsVisible');
-        const isVisible = result?.errorsVisible;
-        if (isVisible) {
-            return result;
+        try {
+            const result = await this.browserAPI.storage.local.get('errorsVisible');
+            const isVisible = result?.errorsVisible;
+            if (isVisible) {
+                return result;
+            }
+            return null;
+        } catch (error) {
+            console.warn('Extension context invalidated or storage unavailable:', error);
+            // Return default state when extension context is invalid
+            return null;
         }
-        return null;
     }
 
     activate() {
@@ -1096,13 +1102,17 @@ export default class WebsiteTestingAssistant {
 
         // const newWidth = error.breakpoint.width;
 
-        this.browserAPI.runtime.sendMessage({
-            action: 'openOrResizeErrorWindow',
-            url: error.url,
-            width: error.breakpoint.width,
-            height: window.innerHeight,
-            errorId: error.id,
-        });
+        // try {
+        //     this.browserAPI.runtime.sendMessage({
+        //         action: 'openOrResizeErrorWindow',
+        //         url: error.url,
+        //         width: error.breakpoint.width,
+        //         height: window.innerHeight,
+        //         errorId: error.id,
+        //     });
+        // } catch (error) {
+        //     AlertManager.error("Lỗi", "Không thể mở cửa sổ lỗi");
+        // }
         // // Remove existing highlights
         // document.querySelectorAll('.testing-error-highlight').forEach(el => {
         //     el.classList.remove('testing-error-highlight');
@@ -1195,12 +1205,22 @@ export default class WebsiteTestingAssistant {
                 const pathItem = data?.path.find((p) => p.full_url === this.currentUrl);
                 this.currentTabErrors = pathItem ? pathItem.data : [];
 
-                this.browserAPI.runtime.sendMessage({
-                    action: 'setErrors',
-                    errors: this.errors,
-                    domainName: this.domainName,
-                });
+                try {
+                    this.browserAPI.runtime.sendMessage({
+                        action: 'setErrors',
+                        errors: this.errors,
+                        domainName: this.domainName,
+                    });
+                } catch (error) {
+                    AlertManager.error("Lỗi", 'Extension context invalidated when sending setErrors message in fetchDataFromAPI:', error);
+                }
             }
+
+            // this.browserAPI.runtime.sendMessage({
+            //     action: 'updateBadge',
+            //     domainName: this.domainName,
+            // });
+
         } catch (error) {
             console.error('Error fetching data from API:', error);
         }
@@ -1230,14 +1250,23 @@ export default class WebsiteTestingAssistant {
 
     // Helper method to get full errors data from storage
     async getErrorsData() {
-        const { path } = await this.browserAPI.runtime.sendMessage({
-            action: 'getErrors',
-            domainName: this.domainName,
-        });
-        return {
-            domain: new URL(this.currentUrl).hostname,
-            path,
-        };
+        try {
+            const { path } = await this.browserAPI.runtime.sendMessage({
+                action: 'getErrors',
+                domainName: this.domainName,
+            });
+            return {
+                domain: new URL(this.currentUrl).hostname,
+                path,
+            };
+        } catch (error) {
+            console.warn('Extension context invalidated in getErrorsData:', error);
+            // Return empty data structure when extension context is invalid
+            return {
+                domain: new URL(this.currentUrl).hostname,
+                path: [],
+            };
+        }
     }
 
     // Helper method to reload current errors from localStorage
