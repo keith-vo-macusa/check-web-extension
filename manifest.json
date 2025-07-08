@@ -31,8 +31,7 @@
        "lib/sweet-alert/sweetalert2.all.min.js",
        "js/utils.js",
        "content-loader.js",
-       "js/auth.js",
-       "js/services/AlertManager.js"
+       "js/auth.js"
       ],
       "css": [
         "css/content.css",

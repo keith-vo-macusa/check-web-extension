@@ -117,7 +117,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 
 
-// Lưu ID của popup để reuse
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'openOrResizeErrorWindow') {
         const { url, width, height, errorId } = message;
@@ -128,108 +128,174 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (errorWindowId) {
                 chrome.windows.get(errorWindowId, { populate: true }, (win) => {
                     if (chrome.runtime.lastError || !win) {
+                        console.log('Cửa sổ không tồn tại, tạo mới:', chrome.runtime.lastError?.message);
                         openNewErrorWindow();
                     } else {
+                        // Resize cửa sổ
                         chrome.windows.update(errorWindowId, {
                             width,
                             height,
-                            focused: true,
                             drawAttention: true,
+                        }, () => {
+                            if (chrome.runtime.lastError) {
+                                console.error('Lỗi khi resize cửa sổ:', chrome.runtime.lastError);
+                                return;
+                            }
+                            console.log(`Đã resize cửa sổ ${errorWindowId} thành ${width}x${height}`);
+                            
+                            // Chờ reflow/re-render sau resize
+                            setTimeout(() => {
+                                if (win.tabs[0].url !== url) {
+                                    console.log(`Chuyển hướng tab ${win.tabs[0].id} sang URL mới: ${url}`);
+                                    chrome.tabs.update(win.tabs[0].id, { url }, () => {
+                                        if (chrome.runtime.lastError) {
+                                            console.error('Lỗi khi update tab:', chrome.runtime.lastError);
+                                            return;
+                                        }
+                                        chrome.tabs.onUpdated.addListener(function listener(updatedTabId, info) {
+                                            if (updatedTabId === win.tabs[0].id && info.status === 'complete') {
+                                                chrome.tabs.onUpdated.removeListener(listener);
+                                                console.log(`Tab ${updatedTabId} đã tải xong, inject script`);
+                                                injectHighlightScript(updatedTabId, errorId);
+                                            }
+                                        });
+                                    });
+                                } else {
+                                    console.log(`Tab ${win.tabs[0].id} đã ở đúng URL, inject script`);
+                                    injectHighlightScript(win.tabs[0].id, errorId);
+                                }
+                            }, 600); // Delay 600ms để chờ trang ổn định
                         });
-
-                        // kỉeem trả url xem giống với url hiện tại không ?
-                        // nếu không thì chuyển hướng sang url mới
-                        if (win.tabs[0].url !== url) {
-                            chrome.tabs.update(win.tabs[0].id, {
-                                url,
-                                focused: true,
-                                drawAttention: true,
-                            });
-                        }
-
-                        const tabId = win.tabs[0].id;
-                        injectHighlightScript(tabId, errorId);
                     }
                 });
             } else {
+                console.log('Không tìm thấy errorWindowId, tạo cửa sổ mới');
                 openNewErrorWindow();
             }
         });
 
         function openNewErrorWindow() {
-            chrome.windows.create(
-                {
-                    url,
-                    type: 'normal',
-                    width,
-                    height,
-                },
-                (newWindow) => {
-                    const windowId = newWindow?.id;
-                    const tabId = newWindow?.tabs?.[0]?.id;
+            chrome.windows.create({
+                url,
+                type: 'normal',
+                width,
+                height,
+            }, (newWindow) => {
+                if (chrome.runtime.lastError || !newWindow) {
+                    console.error('Lỗi khi tạo cửa sổ mới:', chrome.runtime.lastError);
+                    return;
+                }
+                const windowId = newWindow.id;
+                const tabId = newWindow.tabs?.[0]?.id;
 
-                    if (!windowId) return;
-                    chrome.storage.local.set({ errorWindowId: windowId });
+                console.log(`Tạo cửa sổ mới ${windowId}, tab ${tabId}`);
+                chrome.storage.local.set({ errorWindowId: windowId });
 
-                    if (tabId) {
-                        injectHighlightScript(tabId, errorId);
-                    } else {
-                        const listener = (updatedTabId, info, tab) => {
-                            if (tab.windowId === windowId && info.status === 'complete') {
-                                chrome.tabs.onUpdated.removeListener(listener);
-                                injectHighlightScript(updatedTabId, errorId);
-                            }
-                        };
-                        chrome.tabs.onUpdated.addListener(listener);
-                    }
-                },
-            );
+                if (tabId) {
+                    chrome.tabs.onUpdated.addListener(function listener(updatedTabId, info) {
+                        if (updatedTabId === tabId && info.status === 'complete') {
+                            chrome.tabs.onUpdated.removeListener(listener);
+                            console.log(`Tab ${tabId} đã tải xong, inject script`);
+                            injectHighlightScript(tabId, errorId);
+                        }
+                    });
+                }
+            });
         }
 
         function injectHighlightScript(tabId, errorId) {
             chrome.scripting.executeScript({
                 target: { tabId },
                 func: (errorId) => {
+                    console.log(`Inject script cho errorId: ${errorId}`);
+
                     const run = () => {
                         const el = document.querySelector(`div[data-error-id="${errorId}"]`);
-                        if (!el) return;
+                        if (el) {
+                            console.log(`Tìm thấy element với errorId: ${errorId}`);
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-                        // Scroll tới element
-                        el.scrollIntoView({ behavior: 'auto', block: 'center' });
+                            const scrollDelay = 600;
+                            setTimeout(() => {
+                                const onAnimationEnd = () => {
+                                    el.removeEventListener('animationend', onAnimationEnd);
+                                    el.removeEventListener('transitionend', onAnimationEnd);
+                                    console.log(`Thêm highlight cho errorId: ${errorId}`);
+                                    el.classList.add('testing-error-highlight');
+                                    setTimeout(() => {
+                                        el.classList.remove('testing-error-highlight');
+                                        console.log(`Xóa highlight cho errorId: ${errorId}`);
+                                    }, 4000); // Tăng thời gian highlight
+                                };
 
-                        // Đợi một chút để scroll xong, hoặc có thể dùng 'scrollend' ở browser hỗ trợ mới (nhưng không phổ biến)
-                        const scrollDelay = 500;
-
-                        setTimeout(() => {
-                            // Bắt sự kiện animation hoặc transition
-                            const onAnimationEnd = () => {
-                                el.removeEventListener('animationend', onAnimationEnd);
-                                el.removeEventListener('transitionend', onAnimationEnd);
-
-                                // Sau khi animation có sẵn kết thúc, thêm highlight
-                                el.classList.add('testing-error-highlight');
-
-                                // Tự động remove sau khoảng thời gian nhất định nếu cần
-                                setTimeout(() => {
-                                    el.classList.remove('testing-error-highlight');
-                                }, 1000);
-                            };
-
-                            el.addEventListener('animationend', onAnimationEnd);
-                            el.addEventListener('transitionend', onAnimationEnd);
-
-                            // Nếu không có animation thực sự, fallback tự kích hoạt sau khoảng delay
-                            setTimeout(onAnimationEnd, 500);
-                        }, scrollDelay);
+                                el.addEventListener('animationend', onAnimationEnd);
+                                el.addEventListener('transitionend', onAnimationEnd);
+                                setTimeout(onAnimationEnd, 500);
+                            }, scrollDelay);
+                            return true;
+                        }
+                        console.log(`Không tìm thấy element với errorId: ${errorId}`);
+                        return false;
                     };
 
+                    // Chạy ngay nếu DOM sẵn sàng
                     if (document.readyState === 'complete') {
-                        run();
+                        if (run()) return;
                     } else {
-                        window.addEventListener('load', run, { once: true });
+                        console.log('DOM chưa sẵn sàng, chờ load');
+                        window.addEventListener('load', () => {
+                            console.log('DOM loaded, chạy highlight');
+                            run();
+                        }, { once: true });
                     }
+
+                    // MutationObserver để theo dõi DOM
+                    console.log('Khởi tạo MutationObserver cho errorId:', errorId);
+                    const observer = new MutationObserver(() => {
+                        if (run()) {
+                            console.log('Element xuất hiện, ngắt MutationObserver');
+                            observer.disconnect();
+                        }
+                    });
+                    observer.observe(document.body || document.documentElement, {
+                        childList: true,
+                        subtree: true,
+                    });
+
+                    // Retry logic
+                    let retryCount = 0;
+                    const maxRetries = 6;
+                    const retryInterval = 600;
+
+                    const retry = () => {
+                        if (retryCount >= maxRetries) {
+                            console.log(`Hết ${maxRetries} lần thử cho errorId: ${errorId}`);
+                            observer.disconnect();
+                            return;
+                        }
+                        retryCount++;
+                        console.log(`Thử lại lần ${retryCount} cho errorId: ${errorId}`);
+                        if (!run()) {
+                            setTimeout(retry, retryInterval);
+                        } else {
+                            observer.disconnect();
+                        }
+                    };
+                    setTimeout(retry, retryInterval);
+
+                    // Lắng nghe resize để thử lại
+                    window.addEventListener('resize', () => {
+                        console.log('Sự kiện resize, thử chạy lại highlight');
+                        run();
+                    }, { once: true });
                 },
                 args: [errorId],
+            }, (results) => {
+                if (chrome.runtime.lastError) {
+                    console.error('Lỗi khi inject script:', chrome.runtime.lastError);
+                } else {
+                    console.log(`Inject script thành công cho tab ${tabId}`);
+                }
             });
         }
     }

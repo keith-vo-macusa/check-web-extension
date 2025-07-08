@@ -176,7 +176,7 @@ function findElementByIdentifiers(identifiers) {
             console.warn('CSS selector matches multiple elements:', identifiers.cssSelector);
         }
     } catch (e) {
-        console.warn('CSS selector failed:', e);
+        // console.warn('CSS selector failed:', e);
     }
 
     // Thử XPath

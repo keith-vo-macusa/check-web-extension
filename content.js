@@ -57,34 +57,68 @@ export default class WebsiteTestingAssistant {
         this.browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             switch (request.action) {
                 case ACTION_MESSAGE.ACTIVATE:
-                    this.activate();
-                    break;
+                    this.activate().then(() => {
+                        sendResponse({ success: true });
+                    })
+                    .catch((error) => {
+                        sendResponse({
+                            success: false,
+                            message: error.message,
+                        });
+                    }); ;         
+                    return true;
                 case ACTION_MESSAGE.DEACTIVATE:
                     this.deactivate();
                     if (request.reason === 'logout') {
                         this.logout();
                     }
-                    break;
+                    sendResponse({ success: true });
+                    return true;
                 case ACTION_MESSAGE.GET_STATE:
                     sendResponse({ isActive: this.isActive });
-                    break;
+                    return true;
                 case ACTION_MESSAGE.SHOW_ALL_ERRORS:
                     this.showAllErrors();
                     // Update storage to persist state
                     this.browserAPI.storage.local.set({
                         errorsVisible: true,
-                    });
-                    break;
+                    }).then(() => {
+                        sendResponse({ success: true });
+                    })
+                    .catch((error) => {
+                        sendResponse({
+                            success: false,
+                            message: error.message,
+                        });
+                    }); ;         
+                    return true;
                 case ACTION_MESSAGE.HIDE_ALL_ERRORS:
                     this.hideAllErrors();
                     // Update storage to persist state
                     this.browserAPI.storage.local.set({
                         errorsVisible: false,
-                    });
-                    break;
+                    }).then(() => {
+                        sendResponse({ success: true });
+                    })
+                    .catch((error) => {
+                        sendResponse({
+                            success: false,
+                            message: error.message,
+                        });
+                    }); ;         
+                    return true;
                 case ACTION_MESSAGE.HIGHLIGHT_ERROR:
-                    this.highlightError(request.error);
-                    break;
+                    this.highlightError(request.error)
+                        .then(() => {
+                            sendResponse({ success: true });
+                        })
+                        .catch((error) => {
+                            sendResponse({
+                                success: false,
+                                message: error.message,
+                            });
+                        });
+                    return true;
                 case ACTION_MESSAGE.CLEAR_ALL_ERRORS:
                     this.clearAllErrors()
                         .then(() => {
@@ -123,12 +157,31 @@ export default class WebsiteTestingAssistant {
                     return true;
                 case ACTION_MESSAGE.DRAW_OPEN_ERRORS:
                     this.drawOpenErrors = request.drawOpenErrors;
-                    this.updateAllErrorBorders();
+                    this.updateAllErrorBorders()
+                        .then(() => {
+                            sendResponse({ success: true });
+                        })
+                        .catch((error) => {
+                            sendResponse({
+                                success: false,
+                                message: error.message,
+                            });
+                        });
+                    return true;
                     break;
                 case ACTION_MESSAGE.DRAW_RESOLVED_ERRORS:
                     this.drawResolvedErrors = request.drawResolvedErrors;
-                    this.updateAllErrorBorders();
-                    break;
+                    this.updateAllErrorBorders()
+                        .then(() => {
+                            sendResponse({ success: true });
+                        })
+                        .catch((error) => {
+                            sendResponse({
+                                success: false,
+                                message: error.message,
+                            });
+                        });
+                    return true;
             }
         });
 
@@ -1212,7 +1265,11 @@ export default class WebsiteTestingAssistant {
                         domainName: this.domainName,
                     });
                 } catch (error) {
-                    AlertManager.error("Lỗi", 'Extension context invalidated when sending setErrors message in fetchDataFromAPI:', error);
+                    AlertManager.error(
+                        'Lỗi',
+                        'Extension context invalidated when sending setErrors message in fetchDataFromAPI:',
+                        error,
+                    );
                 }
             }
 
@@ -1220,7 +1277,6 @@ export default class WebsiteTestingAssistant {
             //     action: 'updateBadge',
             //     domainName: this.domainName,
             // });
-
         } catch (error) {
             console.error('Error fetching data from API:', error);
         }

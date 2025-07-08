@@ -512,10 +512,15 @@ class UIManager {
 
         errorItem.click(async () => {
             try {
-                AlertManager.loading(messages['loading']);
-                const result = await TabManager.sendMessage({
-                    action: ACTION_MESSAGE.HIGHLIGHT_ERROR,
-                    error: error,
+                // const result = await TabManager.sendMessage({
+                //     action: ACTION_MESSAGE.HIGHLIGHT_ERROR,
+                //     error: error,
+                // });
+                TabManager.sendMessageToBackground({
+                    action: 'openOrResizeErrorWindow',
+                    url: error.url,
+                    width: error.breakpoint?.width,
+                    errorId: error.id,
                 });
                 AlertManager.close();
             } catch (error) {
@@ -532,6 +537,13 @@ $(document).ready(async function () {
         $('#errorsList').html('<div class="no-errors">❌ Extension chỉ hỗ trợ Chrome/Edge</div>');
         return;
     }
+
+    // const domainName = await TabManager.getCurrentTabDomain();
+
+    // TabManager.sendMessageToBackground({
+    //     action: 'updateBadge',
+    //     domainName: domainName,
+    // });
 
     // Listen for messages from content script
     chrome.runtime.onMessage.addListener((request) => {
