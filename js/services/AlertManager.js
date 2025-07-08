@@ -86,6 +86,23 @@ export default class AlertManager {
         });
     }
 
+    static errorWithOutClose(title = 'Lỗi', text = '') {
+        return window.Swal.fire({
+            icon: 'error',
+            title,
+            text,
+            showConfirmButton: false,
+            showCancelButton: false,
+            allowOutsideClick: false,
+            showClass: {
+                popup: '', 
+            },
+            hideClass: {
+                popup: '', 
+            },
+        });
+    }
+
     static close() {
         window.Swal.close();
     }
