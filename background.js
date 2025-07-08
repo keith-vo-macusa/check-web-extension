@@ -252,10 +252,19 @@ let errors = [];
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Đảm bảo message là object
     if (message.action == 'setErrors') {
-        errors = message.errors;
+        const temp = message.errors;
+        const domain = message.domainName;
+        errors[domain] = temp;
     }
-    
+
     if (message.action == 'getErrors') {
-        sendResponse(errors);
+        const domain = message.domainName;
+        if (errors[domain]) {
+            sendResponse(errors[domain]);
+        } else {
+            sendResponse({
+                path: [],
+            });
+        }
     }
 });

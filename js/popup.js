@@ -65,10 +65,14 @@ class PopupState {
 class ErrorManager {
     static async loadErrors() {
         const tabs = await TabManager.getCurrentTab();
+
         if (!tabs || !tabs[0]) return [];
+
+        const domainName = await TabManager.getCurrentTabDomain();
 
         const result = await TabManager.sendMessageToBackground({
             action: 'getErrors',
+            domainName: domainName,
         });
 
         let errors = [];

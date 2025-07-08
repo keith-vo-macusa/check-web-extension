@@ -10,6 +10,7 @@ export default class WebsiteTestingAssistant {
         this.highlightOverlay = null;
         this.commentModal = null;
         this.currentUrl = window.location.href;
+        this.domainName = window.location.hostname;
         this.errorBorders = [];
         this.userInfo = null;
         this.rangeBreakpoint = 20;
@@ -1040,6 +1041,7 @@ export default class WebsiteTestingAssistant {
                 this.browserAPI.runtime.sendMessage({
                     action: 'setErrors',
                     errors: this.errors,
+                    domainName: this.domainName,
                 });
 
                 resolve();
@@ -1196,6 +1198,7 @@ export default class WebsiteTestingAssistant {
                 this.browserAPI.runtime.sendMessage({
                     action: 'setErrors',
                     errors: this.errors,
+                    domainName: this.domainName,
                 });
             }
         } catch (error) {
@@ -1215,6 +1218,7 @@ export default class WebsiteTestingAssistant {
             this.browserAPI.runtime.sendMessage({
                 action: 'setErrors',
                 errors: errorsData,
+                domainName: this.domainName,
             });
 
             return response.success;
@@ -1226,7 +1230,10 @@ export default class WebsiteTestingAssistant {
 
     // Helper method to get full errors data from storage
     async getErrorsData() {
-        const { path } = await this.browserAPI.runtime.sendMessage({ action: 'getErrors' });
+        const { path } = await this.browserAPI.runtime.sendMessage({
+            action: 'getErrors',
+            domainName: this.domainName,
+        });
         return {
             domain: new URL(this.currentUrl).hostname,
             path,
