@@ -426,7 +426,7 @@ class UIManager {
                  </button>
                 <button class="delete-error-btn" title="Xóa lỗi này"><i class="fa-solid fa-trash"></i></button>
             </div>
-            <div class="error-comment">${latestComment.text}</div>
+            <div class="error-comment">${latestComment?.text || ''}</div>
             <div class="error-breakpoint">
                 <span class="breakpoint-type">${
                     error.breakpoint ? error.breakpoint.type : 'all'
