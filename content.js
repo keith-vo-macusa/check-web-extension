@@ -159,8 +159,8 @@ export default class WebsiteTestingAssistant {
                     return true;
                 case "setErrorsInContent":
                     // this.displayExistingErrors();
-                    this.fetchDataFromAPI();
-                    this.displayExistingErrors();
+                    // Remove all borders
+                    this.setErrorsInContent();
                     break;
             }
         });
@@ -1509,5 +1509,15 @@ export default class WebsiteTestingAssistant {
         if (thread) {
             thread.remove();
         }
+    }
+
+    async setErrorsInContent() {
+        console.log('setErrorsInContent');
+        this.errorBorders.forEach((border) => border.remove());
+        this.errorBorders = [];
+        // Clear data
+        this.updateAllErrorBorders();
+        
+        await this.displayExistingErrors();   
     }
 }

@@ -79,11 +79,11 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (changeInfo.status === 'loading') {
         const domain = new URL(tab.url).hostname;
         setUnAuthorizedDomain(domain);
-        await fetchDataFromAPI(domain);
+        await fetchDataFromAPI(domain, tabId);
     }
 });
 
-const fetchDataFromAPI = async (domain) => {
+const fetchDataFromAPI = async (domain, tabId) => {
     const endpoint = `${API_ACTION.GET_DOMAIN_DATA}&domain=${domain}&action=get`;
 
     try {
@@ -117,13 +117,12 @@ const fetchDataFromAPI = async (domain) => {
 
         removeUnAuthorizedDomains(domain);
 
-        // const currentTabId = await TabManager.getCurrentTabId();
 
-        // chrome.tabs.sendMessage(currentTabId, {
-        //     action: 'setErrorsInContent',
-        // });
+        chrome.tabs.sendMessage(tabId, {
+            action: 'setErrorsInContent',
+        });
 
-        console.log('setErrorsInContent', currentTabId);
+        console.log('setErrorsInContent', tabId);
     } catch (err) {
         // lỗi mạng hoặc CORS
         console.error('Fetch failed:', err);
