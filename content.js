@@ -226,8 +226,8 @@ export default class WebsiteTestingAssistant {
             }
             return null;
         } catch (error) {
-            console.warn('Extension context invalidated or storage unavailable:', error);
-            // Return default state when extension context is invalid
+            console.log(error.message);
+            AlertManager.info('Extension mất kết nối với web hiện tại', 'Vui lòng reload lại trang');
             return null;
         }
     }
