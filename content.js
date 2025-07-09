@@ -914,8 +914,8 @@ export default class WebsiteTestingAssistant {
             overlay.style.position = 'absolute';
             overlay.style.border = '2px solid red';
             overlay.style.background = 'rgba(255, 0, 0, 0.1)';
-            overlay.style.left = `${error.coordinates.left}px`;
-            overlay.style.top = `${error.coordinates.top}px`;
+            overlay.style.left = `calc(${error.coordinates.left}px - var(--offset-left,0px))`;
+            overlay.style.top = `calc(${error.coordinates.top}px - var(--offset-top,0px))`;
             overlay.style.width = `${error.coordinates.width}px`;
             overlay.style.height = `${error.coordinates.height}px`;
         } else {

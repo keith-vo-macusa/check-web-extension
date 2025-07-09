@@ -1000,3 +1000,8 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
 div:where(.swal2-container) {
     z-index: 99999999999999 !important;
 }
+
+body.ext-is-popup  {
+    --offset-left: 10px;
+    --offset-top: 87px;
+}
