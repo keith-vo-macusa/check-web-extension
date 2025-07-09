@@ -606,9 +606,21 @@ export default class WebsiteTestingAssistant {
         replySend.addEventListener('click', async () => {
             const text = replyInput.value.trim();
             if (text) {
+                const commentsList = panel.querySelector('.comments-list');
                 await this.addReply(error, text);
                 this.refreshCommentThread(panel, error);
                 replyInput.value = '';
+                // scroll to bottom of comments list
+                commentsList.scrollTop = commentsList.scrollHeight;
+            }
+        });
+
+        replyInput.focus();
+        // Phím tắt để gửi comment
+        replyInput.addEventListener('keydown', (e) => {
+            if (e.key == 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                replySend.click();
             }
         });
 
