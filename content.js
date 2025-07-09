@@ -157,6 +157,11 @@ export default class WebsiteTestingAssistant {
                             });
                         });
                     return true;
+                case "setErrorsInContent":
+                    // this.displayExistingErrors();
+                    this.fetchDataFromAPI();
+                    this.displayExistingErrors();
+                    break;
             }
         });
 
@@ -1215,17 +1220,24 @@ export default class WebsiteTestingAssistant {
 
     async fetchDataFromAPI() {
         try {
-            const response = await $.ajax({
-                url: API_ACTION.GET_DOMAIN_DATA,
-                method: 'GET',
-                dataType: 'json',
-                data: {
-                    domain: new URL(this.currentUrl).hostname,
-                    action: 'get',
-                },
+            const domain = new URL(this.currentUrl).hostname;
+            const response = await this.browserAPI.runtime.sendMessage({
+                action: 'getErrors',
+                domainName: domain,
             });
 
-            // Update local storage with API data
+            console.log(JSON.stringify(response));
+            // const response = await $.ajax({
+            //     url: API_ACTION.GET_DOMAIN_DATA,
+            //     method: 'GET',
+            //     dataType: 'json',
+            //     data: {
+            //         domain: new URL(this.currentUrl).hostname,
+            //         action: 'get',
+            //     },
+            // });
+
+            // // Update local storage with API data
             if (response) {
                 const data = response.data;
                 this.errors = data;
@@ -1233,23 +1245,23 @@ export default class WebsiteTestingAssistant {
                 const pathItem = data?.path.find((p) => p.full_url === this.currentUrl);
                 this.currentTabErrors = pathItem ? pathItem.data : [];
 
-                try {
-                    this.browserAPI.runtime.sendMessage({
-                        action: 'setErrors',
-                        errors: this.errors,
-                        domainName: this.domainName,
-                    });
-                    this.browserAPI.runtime.sendMessage({
-                        action: 'removeUnauthorized',
-                        domainName: this.domainName,
-                    });
-                } catch (error) {
-                    AlertManager.error(
-                        'Lỗi',
-                        'Extension context invalidated when sending setErrors message in fetchDataFromAPI:',
-                        error,
-                    );
-                }
+                // try {
+                //     this.browserAPI.runtime.sendMessage({
+                //         action: 'setErrors',
+                //         errors: this.errors,
+                //         domainName: this.domainName,
+                //     });
+                //     this.browserAPI.runtime.sendMessage({
+                //         action: 'removeUnauthorized',
+                //         domainName: this.domainName,
+                //     });
+                // } catch (error) {
+                //     AlertManager.error(
+                //         'Lỗi',
+                //         'Extension context invalidated when sending setErrors message in fetchDataFromAPI:',
+                //         error,
+                //     );
+                // }
             }
 
             // this.browserAPI.runtime.sendMessage({

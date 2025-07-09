@@ -48,9 +48,6 @@ const DEFAULT_STORAGE = {
   updateAvailable: false,
   latestVersion: CURRENT_VERSION,
   updateUrl: 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
-  errorsVisible: true,
-  drawOpenErrors: true,
-  drawResolvedErrors: true,
 };
 
 export { 
