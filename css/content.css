@@ -996,3 +996,7 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     z-index: 251001;
     pointer-events: auto;
 }
+
+div:where(.swal2-container) {
+    z-index: 99999999999999 !important;
+}
