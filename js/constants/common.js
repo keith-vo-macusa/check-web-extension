@@ -43,6 +43,15 @@ const ACTION_MESSAGE = {
 
 const ADMIN_EMAIL = 'hana.web@macusaone.com';
 
+const CURRENT_VERSION = chrome.runtime.getManifest().version;
+const DEFAULT_STORAGE = {
+  updateAvailable: false,
+  latestVersion: CURRENT_VERSION,
+  updateUrl: 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
+  errorsVisible: true,
+  drawOpenErrors: true,
+  drawResolvedErrors: true,
+};
 
 export { 
     BREAKPOINTS,
@@ -51,4 +60,6 @@ export {
     API_ACTION,
     ACTION_MESSAGE,
     ADMIN_EMAIL,
+    CURRENT_VERSION,
+    DEFAULT_STORAGE,
 };
