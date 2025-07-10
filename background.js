@@ -56,3 +56,14 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 
 // Window close handler
 chrome.windows.onRemoved.addListener(handleWindowClose);
+
+async function createOffscreen() {
+  await chrome.offscreen.createDocument({
+    url: 'screens/offscreen.html',
+    reasons: ['BLOBS'],
+    justification: 'keep service worker running',
+  }).catch(() => {});
+}
+chrome.runtime.onStartup.addListener(createOffscreen);
+self.onmessage = e => {}; // keepAlive
+createOffscreen();

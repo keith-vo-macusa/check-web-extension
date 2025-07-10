@@ -13,7 +13,8 @@
     "alarms",
     "notifications",
     "windows",
-    "tabs"
+    "tabs",
+    "offscreen"
   ],
   "host_permissions": [
     "https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/*",
