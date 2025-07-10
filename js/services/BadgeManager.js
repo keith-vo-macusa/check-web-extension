@@ -43,7 +43,17 @@ function countOpenErrors(domainData) {
     }, 0);
 }
 
-function updateBadgeIfActive(domainToUpdate) {
+async function updateBadgeIfActive(domainToUpdate) {
+
+    chrome.action.setBadgeText({ text: '' });
+
+    // user chưa đăng nhập
+    const {userInfo} = await isLoggedIn();
+
+    if(!userInfo.email){
+        return;
+    }
+
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const activeTab = tabs[0];
         if (!activeTab || !activeTab.url) return;
@@ -55,12 +65,20 @@ function updateBadgeIfActive(domainToUpdate) {
             const count = countOpenErrors(errors[domainToUpdate]);
             chrome.action.setBadgeText({
                 tabId: activeTab.id,
-                text: count > 0 ? count.toString() : '',
+                text: count > 0 ? count.toString() : '0',
             });
         } catch (e) {
             console.error('❌ Không thể lấy domain từ URL:', e);
         }
     });
+}
+
+async function isLoggedIn(){
+    const userInfo = await chrome.storage.local.get('userInfo');
+    if(!userInfo){
+        return null;
+    }
+    return userInfo;
 }
 
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
@@ -79,7 +97,16 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (changeInfo.status === 'loading') {
         const domain = new URL(tab.url).hostname;
         setUnAuthorizedDomain(domain);
+
+        // user chưa đăng nhập
+        const {userInfo} = await isLoggedIn();
+
+        if(!userInfo.email){
+            return;
+        }
+
         await fetchDataFromAPI(domain, tabId);
+
     }
 });
 

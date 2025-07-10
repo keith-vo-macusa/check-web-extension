@@ -291,9 +291,9 @@ function injectHighlightScript(tabId, errorId) {
 
                     if (el) {
                         console.log(`Tìm thấy element với errorId: ${errorId}`);
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         const scrollDelay = 600;
                         setTimeout(() => {
+                            el.scrollIntoView({ behavior: 'instant', block: 'center' });
                             const onAnimationEnd = () => {
                                 el.removeEventListener('animationend', onAnimationEnd);
                                 el.removeEventListener('transitionend', onAnimationEnd);

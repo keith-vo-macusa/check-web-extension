@@ -77,10 +77,10 @@ export default class WebsiteTestingAssistant {
                     break;
                 case ACTION_MESSAGE.HIDE_ALL_ERRORS:
                     this.hideAllErrors();
-                    // Update storage to persist state
-                    this.browserAPI.storage.local.set({
-                        errorsVisible: false,
-                    });
+                    // // Update storage to persist state
+                    // this.browserAPI.storage.local.set({
+                    //     errorsVisible: false,
+                    // });
                     break;
                 case ACTION_MESSAGE.HIGHLIGHT_ERROR:
                     this.highlightError(request.error)
@@ -282,6 +282,13 @@ export default class WebsiteTestingAssistant {
     handleMouseOver(event) {
         if (!this.isActive) return;
 
+        // Không highlight khi đang vẽ rectangle
+        if (this.isDragging) {
+            // Remove highlight when mouse over
+            // this.removeHighlight();
+            return;
+        };
+
         // Only handle elementor elements
         if (!event.target.closest('.elementor-element')) return;
 
@@ -297,6 +304,13 @@ export default class WebsiteTestingAssistant {
 
     handleMouseOut(event) {
         if (!this.isActive) return;
+
+        // Không xử lý mouseout khi đang vẽ rectangle  
+        if (this.isDragging) {
+            // Remove highlight when mouse out
+            // this.removeHighlight();
+            return;
+        };
 
         event.stopPropagation();
 
@@ -326,25 +340,38 @@ export default class WebsiteTestingAssistant {
 
     handleMouseMove(event) {
         if (!this.isActive) return;
-
-        // Calculate current position relative to document
-        const currentX = event.clientX + (window.pageXOffset || document.documentElement.scrollLeft);
-        const currentY = event.clientY + (window.pageYOffset || document.documentElement.scrollTop);
-
+    
+        const doc = document.documentElement;
+        const scrollLeft = window.pageXOffset || doc.scrollLeft;
+        const scrollTop = window.pageYOffset || doc.scrollTop;
+    
+        let currentX = event.clientX + scrollLeft;
+        let currentY = event.clientY + scrollTop;
+    
+        // Clamp giá trị không vượt quá rìa trang
+        const maxX = scrollLeft + doc.clientWidth - 1;
+        const maxY = scrollTop + doc.clientHeight - 1;
+        const minX = scrollLeft;
+        const minY = scrollTop;
+    
+        currentX = Math.max(minX, Math.min(currentX, maxX));
+        currentY = Math.max(minY, Math.min(currentY, maxY));
+    
         const deltaX = Math.abs(currentX - this.startX);
         const deltaY = Math.abs(currentY - this.startY);
         const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
+    
         if (distance > 5 && !this.isDragging) {
-            // Start dragging - create rectangle
             this.isDragging = true;
+            this.removeHighlight();
             this.createDragOverlay();
         }
-
+    
         if (this.isDragging) {
             this.updateDragOverlay(currentX, currentY);
         }
     }
+    
 
     handleMouseUp(event) {
         if (!this.isActive) return;
@@ -388,6 +415,41 @@ export default class WebsiteTestingAssistant {
         document.body.appendChild(this.dragOverlay);
     }
 
+    // Helper functions để convert giữa px và responsive units
+    convertPxToResponsive(pxCoords) {
+        const docWidth = document.documentElement.scrollWidth;
+        const docHeight = document.documentElement.scrollHeight;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        return {
+            left: (pxCoords.left / docWidth) * 100, // % of document width
+            top: (pxCoords.top / docHeight) * 100, // % of document height
+            width: (pxCoords.width / viewportWidth) * 100, // % of viewport width (vw)
+            height: (pxCoords.height / viewportHeight) * 100, // % of viewport height (vh)
+            units: {
+                left: '%',
+                top: '%', 
+                width: 'vw',
+                height: 'vh'
+            }
+        };
+    }
+
+    convertResponsiveToPx(responsiveCoords) {
+        const docWidth = document.documentElement.scrollWidth;
+        const docHeight = document.documentElement.scrollHeight;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        return {
+            left: (responsiveCoords.left / 100) * docWidth,
+            top: (responsiveCoords.top / 100) * docHeight,
+            width: (responsiveCoords.width / 100) * viewportWidth,
+            height: (responsiveCoords.height / 100) * viewportHeight
+        };
+    }
+
     updateDragOverlay(currentX, currentY) {
         if (!this.dragOverlay) return;
 
@@ -410,7 +472,8 @@ export default class WebsiteTestingAssistant {
         const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
         const scrollY = window.pageYOffset || document.documentElement.scrollTop;
         
-        const rect = {
+        // Calculate both px and responsive coordinates
+        const pxRect = {
             left: dragRect.left + scrollX,
             top: dragRect.top + scrollY,
             width: dragRect.width,
@@ -420,6 +483,17 @@ export default class WebsiteTestingAssistant {
             viewportHeight: window.innerHeight,
             scrollX: scrollX,
             scrollY: scrollY
+        };
+
+        // Convert to responsive units (% vh vw)
+        const responsiveRect = this.convertPxToResponsive(pxRect);
+
+        // Combined coordinates object
+        const rect = {
+            // Legacy px coordinates (for backward compatibility)
+            ...pxRect,
+            // New responsive coordinates
+            responsive: responsiveRect
         };
 
         // Only proceed if rectangle is large enough
@@ -499,7 +573,7 @@ export default class WebsiteTestingAssistant {
             this.commentModal.modal.remove();
             this.commentModal = null;
         }
-        // this.removeHighlight();
+        this.removeHighlight();
     }
 
     showCommentThread(error, border) {
@@ -972,43 +1046,56 @@ export default class WebsiteTestingAssistant {
     positionRectOverlay(overlay, error) {
         if (!error.coordinates) return;
         
-        // Get current viewport and scroll info
-        // const currentScrollX = window.pageXOffset || document.documentElement.scrollLeft;
-        // const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
-        // const currentViewportWidth = window.innerWidth;
-        // const currentViewportHeight = window.innerHeight;
-        
-        // Get saved coordinates and viewport info
         const coords = error.coordinates;
-        // const savedScrollX = coords.scrollX || 0;
-        // const savedScrollY = coords.scrollY || 0;
-        // const savedViewportWidth = coords.viewportWidth || currentViewportWidth;
-        // const savedViewportHeight = coords.viewportHeight || currentViewportHeight;
+        
+        // Ưu tiên sử dụng responsive coordinates nếu có
+        if (coords.responsive) {
+            // Sử dụng responsive units (% vh vw) - stable across viewports
+            const responsive = coords.responsive;
+            const pxCoords = this.convertResponsiveToPx(responsive);
+            
+            overlay.style.left = `${pxCoords.left}px`;
+            overlay.style.top = `${pxCoords.top}px`;
+            overlay.style.width = `${pxCoords.width}px`;
+            overlay.style.height = `${pxCoords.height}px`;
+            return;
+        }
+        
+        // Fallback: sử dụng legacy px coordinates với viewport compensation
+        const currentScrollX = window.pageXOffset || document.documentElement.scrollLeft;
+        const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+        const currentViewportWidth = window.innerWidth;
+        const currentViewportHeight = window.innerHeight;
+        
+        const savedScrollX = coords.scrollX || 0;
+        const savedScrollY = coords.scrollY || 0;
+        const savedViewportWidth = coords.viewportWidth || currentViewportWidth;
+        const savedViewportHeight = coords.viewportHeight || currentViewportHeight;
         
         // Detect if we're in a different window type
-        // const isCurrentlyPopup = this.isPopupWindow();
-        // const wasSavedInPopup = this.wasCoordinateSavedInPopup(coords);
+        const isCurrentlyPopup = this.isPopupWindow();
+        const wasSavedInPopup = this.wasCoordinateSavedInPopup(coords);
         
         // Calculate position compensation
         let left = coords.left;
         let top = coords.top;
         
-        // // Adjust for different window types (popup vs regular tab)
-        // if (isCurrentlyPopup !== wasSavedInPopup) {
-        //     // We're in a different window type than when saved
-        //     const heightDiff = currentViewportHeight - savedViewportHeight;
+        // Adjust for different window types (popup vs regular tab)
+        if (isCurrentlyPopup !== wasSavedInPopup) {
+            // We're in a different window type than when saved
+            const heightDiff = currentViewportHeight - savedViewportHeight;
             
-        //     if (!isCurrentlyPopup && wasSavedInPopup) {
-        //         // Viewing in regular tab, saved in popup
-        //         // Regular tab has address bar, popup doesn't
-        //         // No adjustment needed as coordinates are document-relative
-        //     } else if (isCurrentlyPopup && !wasSavedInPopup) {
-        //         // Viewing in popup, saved in regular tab
-        //         // No adjustment needed as coordinates are document-relative
-        //     }
-        // }
+            if (!isCurrentlyPopup && wasSavedInPopup) {
+                // Viewing in regular tab, saved in popup
+                // Regular tab has address bar, popup doesn't
+                // No adjustment needed as coordinates are document-relative
+            } else if (isCurrentlyPopup && !wasSavedInPopup) {
+                // Viewing in popup, saved in regular tab
+                // No adjustment needed as coordinates are document-relative
+            }
+        }
         
-        // Apply final position
+        // Apply final position (legacy px mode)
         overlay.style.left = `${left}px`;
         overlay.style.top = `${top}px`;
         overlay.style.width = `${coords.width}px`;
@@ -1039,25 +1126,25 @@ export default class WebsiteTestingAssistant {
     }
 
     // Try to determine if coordinates were saved in a popup window
-    // wasCoordinateSavedInPopup(coords) {
-    //     if (!coords.viewportWidth || !coords.viewportHeight) {
-    //         return false; // Can't determine, assume regular tab
-    //     }
+    wasCoordinateSavedInPopup(coords) {
+        if (!coords.viewportWidth || !coords.viewportHeight) {
+            return false; // Can't determine, assume regular tab
+        }
         
-    //     // Popup windows are typically smaller
-    //     const isSmallViewport = coords.viewportWidth < 1200 || coords.viewportHeight < 600;
+        // Popup windows are typically smaller
+        const isSmallViewport = coords.viewportWidth < 1200 || coords.viewportHeight < 600;
         
-    //     // This is a heuristic - popup extension windows are often around 400x600
-    //     const isTypicalPopupSize = coords.viewportWidth <= 500 && coords.viewportHeight <= 700;
+        // This is a heuristic - popup extension windows are often around 400x600
+        const isTypicalPopupSize = coords.viewportWidth <= 500 && coords.viewportHeight <= 700;
         
-    //     return isSmallViewport || isTypicalPopupSize;
-    // }
+        return isSmallViewport || isTypicalPopupSize;
+    }
 
     positionErrorOverlay(overlay, error, errorsVisible = false) {
         const shouldShow = this.shouldShowErrorBorder(error);
 
         if (error.type === 'rect') {
-           
+            // Rectangle overlay - use new positioning logic
             overlay.className = `testing-error-border ${error.status || 'open'}`;
             if (shouldShow) {
                 overlay.style.display = 'block';
