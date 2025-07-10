@@ -314,8 +314,9 @@ export default class WebsiteTestingAssistant {
         event.stopPropagation();
 
         this.isDragging = false;
-        this.startX = event.pageX;
-        this.startY = event.pageY;
+        // Store initial coordinates relative to viewport
+        this.startX = event.clientX + (window.pageXOffset || document.documentElement.scrollLeft);
+        this.startY = event.clientY + (window.pageYOffset || document.documentElement.scrollTop);
         this.selectedElement = this.getTargetElement(event.target);
 
         // Add temporary listeners for mouse move and up
@@ -326,8 +327,12 @@ export default class WebsiteTestingAssistant {
     handleMouseMove(event) {
         if (!this.isActive) return;
 
-        const deltaX = Math.abs(event.pageX - this.startX);
-        const deltaY = Math.abs(event.pageY - this.startY);
+        // Calculate current position relative to document
+        const currentX = event.clientX + (window.pageXOffset || document.documentElement.scrollLeft);
+        const currentY = event.clientY + (window.pageYOffset || document.documentElement.scrollTop);
+
+        const deltaX = Math.abs(currentX - this.startX);
+        const deltaY = Math.abs(currentY - this.startY);
         const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
         if (distance > 5 && !this.isDragging) {
@@ -337,7 +342,7 @@ export default class WebsiteTestingAssistant {
         }
 
         if (this.isDragging) {
-            this.updateDragOverlay(event.pageX, event.pageY);
+            this.updateDragOverlay(currentX, currentY);
         }
     }
 
@@ -400,11 +405,21 @@ export default class WebsiteTestingAssistant {
     finalizeDragSelection() {
         if (!this.dragOverlay) return;
 
+        // Get viewport-relative coordinates instead of absolute
+        const dragRect = this.dragOverlay.getBoundingClientRect();
+        const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+        const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+        
         const rect = {
-            left: parseFloat(this.dragOverlay.style.left),
-            top: parseFloat(this.dragOverlay.style.top),
-            width: parseFloat(this.dragOverlay.style.width),
-            height: parseFloat(this.dragOverlay.style.height),
+            left: dragRect.left + scrollX,
+            top: dragRect.top + scrollY,
+            width: dragRect.width,
+            height: dragRect.height,
+            // Store viewport info for compensation
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+            scrollX: scrollX,
+            scrollY: scrollY
         };
 
         // Only proceed if rectangle is large enough
@@ -910,14 +925,13 @@ export default class WebsiteTestingAssistant {
         overlay.style.zIndex = '251001';
 
         if (error.type === 'rect') {
-            // Rectangle overlay
+            // Rectangle overlay with viewport compensation
             overlay.style.position = 'absolute';
             overlay.style.border = '2px solid red';
             overlay.style.background = 'rgba(255, 0, 0, 0.1)';
-            overlay.style.left = `calc(${error.coordinates.left}px - var(--offset-left,0px))`;
-            overlay.style.top = `calc(${error.coordinates.top}px - var(--offset-top,0px))`;
-            overlay.style.width = `${error.coordinates.width}px`;
-            overlay.style.height = `${error.coordinates.height}px`;
+            
+            // Apply coordinates with viewport compensation
+            this.positionRectOverlay(overlay, error);
         } else {
             // Element border overlay
             const element = this.findErrorElement(error);
@@ -955,14 +969,100 @@ export default class WebsiteTestingAssistant {
         this.updateAllErrorBorders();
     }
 
+    positionRectOverlay(overlay, error) {
+        if (!error.coordinates) return;
+        
+        // Get current viewport and scroll info
+        // const currentScrollX = window.pageXOffset || document.documentElement.scrollLeft;
+        // const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+        // const currentViewportWidth = window.innerWidth;
+        // const currentViewportHeight = window.innerHeight;
+        
+        // Get saved coordinates and viewport info
+        const coords = error.coordinates;
+        // const savedScrollX = coords.scrollX || 0;
+        // const savedScrollY = coords.scrollY || 0;
+        // const savedViewportWidth = coords.viewportWidth || currentViewportWidth;
+        // const savedViewportHeight = coords.viewportHeight || currentViewportHeight;
+        
+        // Detect if we're in a different window type
+        // const isCurrentlyPopup = this.isPopupWindow();
+        // const wasSavedInPopup = this.wasCoordinateSavedInPopup(coords);
+        
+        // Calculate position compensation
+        let left = coords.left;
+        let top = coords.top;
+        
+        // // Adjust for different window types (popup vs regular tab)
+        // if (isCurrentlyPopup !== wasSavedInPopup) {
+        //     // We're in a different window type than when saved
+        //     const heightDiff = currentViewportHeight - savedViewportHeight;
+            
+        //     if (!isCurrentlyPopup && wasSavedInPopup) {
+        //         // Viewing in regular tab, saved in popup
+        //         // Regular tab has address bar, popup doesn't
+        //         // No adjustment needed as coordinates are document-relative
+        //     } else if (isCurrentlyPopup && !wasSavedInPopup) {
+        //         // Viewing in popup, saved in regular tab
+        //         // No adjustment needed as coordinates are document-relative
+        //     }
+        // }
+        
+        // Apply final position
+        overlay.style.left = `${left}px`;
+        overlay.style.top = `${top}px`;
+        overlay.style.width = `${coords.width}px`;
+        overlay.style.height = `${coords.height}px`;
+    }
+
+    // Utility method to detect if current window is a popup
+    isPopupWindow() {
+        // Check various indicators that suggest this is a popup window
+        try {
+            // Popup windows typically have:
+            // 1. No menubar, toolbar, or location bar
+            // 2. Smaller viewport compared to screen
+            // 3. Window.opener exists (if opened via window.open)
+            
+            const hasOpener = window.opener !== null;
+            const isSmallWindow = window.outerWidth < screen.availWidth * 0.8 || 
+                                window.outerHeight < screen.availHeight * 0.8;
+            
+            // Check if toolbar elements are hidden (Chrome extension popups)
+            const hasLimitedToolbar = !window.menubar?.visible || !window.toolbar?.visible;
+            
+            return hasOpener || isSmallWindow || hasLimitedToolbar;
+        } catch (e) {
+            // If we can't access these properties, assume it's a regular tab
+            return false;
+        }
+    }
+
+    // Try to determine if coordinates were saved in a popup window
+    // wasCoordinateSavedInPopup(coords) {
+    //     if (!coords.viewportWidth || !coords.viewportHeight) {
+    //         return false; // Can't determine, assume regular tab
+    //     }
+        
+    //     // Popup windows are typically smaller
+    //     const isSmallViewport = coords.viewportWidth < 1200 || coords.viewportHeight < 600;
+        
+    //     // This is a heuristic - popup extension windows are often around 400x600
+    //     const isTypicalPopupSize = coords.viewportWidth <= 500 && coords.viewportHeight <= 700;
+        
+    //     return isSmallViewport || isTypicalPopupSize;
+    // }
+
     positionErrorOverlay(overlay, error, errorsVisible = false) {
         const shouldShow = this.shouldShowErrorBorder(error);
 
         if (error.type === 'rect') {
-            // Rectangle overlay - coordinates are fixed
+           
             overlay.className = `testing-error-border ${error.status || 'open'}`;
             if (shouldShow) {
                 overlay.style.display = 'block';
+                // Reposition with viewport compensation
+                this.positionRectOverlay(overlay, error);
                 if (errorsVisible) {
                     overlay.classList.add('show');
                 }
@@ -1344,9 +1444,11 @@ export default class WebsiteTestingAssistant {
         if (type === 'rect' && !this.selectedRect) return;
 
         const width = window.innerWidth;
+        const height = window.innerHeight;
         const breakpoint = {
             type: window.getCurrentBreakpoint(width),
             width: width,
+            height: height,
         };
 
         const error = {

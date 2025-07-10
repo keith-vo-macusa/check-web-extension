@@ -520,6 +520,7 @@ class UIManager {
                     action: 'openOrResizeErrorWindow',
                     url: error.url,
                     width: error.breakpoint?.width,
+                    height: error.breakpoint?.height,
                     errorId: error.id,
                 });
                 AlertManager.close();
