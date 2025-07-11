@@ -780,7 +780,6 @@ export default class WebsiteTestingAssistant {
                 this.updateToAPI(errorsData);
 
                 // Update UI
-                this.saveErrors();
                 this.updateErrorBorder(error);
             }
         }
@@ -838,12 +837,12 @@ export default class WebsiteTestingAssistant {
                         this.currentTabErrors[errorIndex] = error;
                     }
 
-                    // Save to localStorage first
-                    await this.saveErrors();
-                    console.log('Saved to localStorage');
 
                     // Get updated errors data and sync with API
                     let errorsData = await this.getErrorsData();
+
+                    this.updateErrors(errorsData, error);
+
                     this.updateToAPI(errorsData);
 
                     // Update UI last
@@ -878,18 +877,18 @@ export default class WebsiteTestingAssistant {
             // Remove comment locally
             error.comments = error.comments.filter((c) => c.id !== commentId);
 
-            // Find and update in this.errors array
-            const errorIndex = this.currentTabErrors.findIndex((e) => e.id === error.id);
-            if (errorIndex !== -1) {
-                this.currentTabErrors[errorIndex] = error;
-            }
+            // // Find and update in this.errors array
+            // const errorIndex = this.currentTabErrors.findIndex((e) => e.id === error.id);
+            // if (errorIndex !== -1) {
+            //     this.currentTabErrors[errorIndex] = error;
+            // }
 
-            // Save to localStorage first
-            await this.saveErrors();
-            console.log('Saved to localStorage');
 
             // Get updated errors data and sync with API
             let errorsData = await this.getErrorsData();
+            
+            this.updateErrors(errorsData, error);
+
             this.updateToAPI(errorsData);
 
             // Update UI last
@@ -916,10 +915,11 @@ export default class WebsiteTestingAssistant {
                 this.currentTabErrors[errorIndex] = error;
             }
 
-            // Save to localStorage first
-            await this.saveErrors();
             // Get updated errors data and sync with API
             let errorsData = await this.getErrorsData();
+
+            this.updateErrors(errorsData, error);
+            
             this.updateToAPI(errorsData);
             // Update UI last
             this.updateAllErrorBorders();
@@ -979,7 +979,6 @@ export default class WebsiteTestingAssistant {
 
                 // Update local state
                 this.currentTabErrors = this.currentTabErrors.filter((e) => e.id !== errorId);
-                this.saveErrors();
 
                 // Remove border
                 const border = document.querySelector(
@@ -1216,51 +1215,6 @@ export default class WebsiteTestingAssistant {
         }
     }
 
-    async saveErrors() {
-        return new Promise((resolve, reject) => {
-            try {
-                // Initialize errors array if it doesn't exist
-                if (!this.errors) {
-                    try {
-                        const domain = new URL(this.currentUrl).hostname;
-                        this.errors = {
-                            domain: domain,
-                            path: [],
-                        };
-                    } catch (e) {
-                        this.errors = {
-                            domain: '',
-                            path: [],
-                        };
-                    }
-                }
-
-                // Update the current URL's data in the errors array
-                let pathIndex = this.errors.path.findIndex((p) => p.full_url === this.currentUrl);
-
-                if (pathIndex >= 0) {
-                    this.errors.path[pathIndex].data = this.currentTabErrors;
-                } else {
-                    this.errors.path.push({
-                        full_url: this.currentUrl,
-                        data: this.currentTabErrors,
-                    });
-                }
-
-                // Notify background script about error changes
-                this.browserAPI.runtime.sendMessage({
-                    action: 'setErrors',
-                    errors: this.errors,
-                    domainName: this.domainName,
-                });
-
-                resolve();
-            } catch (error) {
-                console.error('Error saving errors:', error);
-                reject(error);
-            }
-        });
-    }
 
     async displayExistingErrors() {
         const { path } = await this.getErrorsData();
@@ -1501,7 +1455,7 @@ export default class WebsiteTestingAssistant {
         this.updateToAPI(errorsData);
 
         this.currentTabErrors.push(error);
-        this.saveErrors();
+
         this.createErrorOverlay(error);
 
         if (type === 'rect') {
@@ -1517,7 +1471,7 @@ export default class WebsiteTestingAssistant {
 
             // Clear data
             this.currentTabErrors = [];
-            this.saveErrors();
+
             this.updateAllErrorBorders();
             this.hideAllErrors();
             // Reset state
@@ -1649,5 +1603,23 @@ export default class WebsiteTestingAssistant {
 
     toggleShowError(isActive) {
         document.body.classList.toggle('show-error', isActive);
+    }
+
+    async updateError(error) {
+        const errorsData = await this.getErrorsData();
+        for (const pathItem of errorsData.path) {
+            const errorIndex = pathItem.data.findIndex((e) => e.id === error.id);
+            if (errorIndex !== -1) {
+                pathItem.data[errorIndex] = error;
+            }
+        }
+        return errorsData;
+    }
+
+    updateErrors(errorsData, error) {
+        errorsData.path.forEach(pathItem => {
+            const idx = pathItem.data.findIndex(e => e.id === error.id);
+            if (idx !== -1) pathItem.data[idx] = error;
+        });
     }
 }

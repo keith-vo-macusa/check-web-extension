@@ -2,18 +2,18 @@ let errors = [];
 let unAuthorizedDomains = [];
 import { API_ACTION } from '../constants/common.js';
 
-export function handleBadgeAndErrors(message, sender, sendResponse) {
+export async function handleBadgeAndErrors(message, sender, sendResponse) {
     const { action, domainName } = message;
 
     if (!domainName) return;
 
     switch (action) {
         case 'setErrors':
-            setErrors(domainName, message.errors);
-            updateBadgeIfActive(domainName);
+            await setErrors(domainName, message.errors);
+            await updateBadgeIfActive(domainName);
             break;
         case 'getErrors':
-            const result = getErrors(domainName) || { path: [] };
+            const result = await getErrors(domainName) || { path: [] };
             sendResponse(result);
             break;
         case 'setUnauthorized':
@@ -23,11 +23,11 @@ export function handleBadgeAndErrors(message, sender, sendResponse) {
             sendResponse(isAuthorized(domainName));
             break;
         case 'removeUnauthorized':
-            removeUnAuthorizedDomains(domainName);
+            await removeUnAuthorizedDomains(domainName);
             sendResponse(true);
             break;
         case 'domIsReady':
-            const errorsForDomain = getErrors(domainName);
+            const errorsForDomain = await getErrors(domainName);
             chrome.tabs.sendMessage(sender.tab.id, { action: 'setErrorsInContent' });
             break;
         default:
@@ -65,7 +65,7 @@ async function updateBadgeIfActive(domainToUpdate) {
             const count = countOpenErrors(errors[domainToUpdate]);
             chrome.action.setBadgeText({
                 tabId: activeTab.id,
-                text: count > 0 ? count.toString() : '0',
+                text: count > 0 ? count.toString() : '',
             });
         } catch (e) {
             console.error('❌ Không thể lấy domain từ URL:', e);
@@ -138,7 +138,7 @@ const fetchDataFromAPI = async (domain, tabId) => {
         // Nếu response OK (status 2xx)
         const result = await response.json();
 
-        setErrors(domain, result.data);
+        await setErrors(domain, result.data);
 
         updateBadgeIfActive(domain);
 
@@ -156,11 +156,12 @@ const fetchDataFromAPI = async (domain, tabId) => {
     }
 };
 
-const removeUnAuthorizedDomains = (domain) => {
-    unAuthorizedDomains = unAuthorizedDomains.filter((domain) => domain !== domain);
+const removeUnAuthorizedDomains = async (domain) => {
+    unAuthorizedDomains = unAuthorizedDomains.filter((d) => d !== domain);
 };
 
-const setErrors = (domain, tempErrors) => {
+const setErrors = async (domain, tempErrors) => {
+    console.log(JSON.stringify(tempErrors));
     errors[domain] = tempErrors;
 };
 
