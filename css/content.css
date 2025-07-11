@@ -1,37 +1,48 @@
 /* Content CSS for Website Testing Assistant */
 
-/* Prevent conflicts with website styles */
-.testing-assistant-container * {
-    box-sizing: border-box !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
-}
-
 /* Testing selection mode cursor */
 body.testing-selection-mode .elementor-element {
     cursor: crosshair !important;
 }
-
-body.show-error .jet-sticky-section {
-    /* z-index: 99998 !important; */
+body {
+    position: relative;
 }
-body.show-error .testing-error-border:not(.show) {
+#testing-error-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+/* Mặc định: ẩn hết lỗi nếu chưa bật hiển thị */
+#testing-error-container .testing-error-border {
+    display: none;
+}
+
+/* Chỉ hiển thị khi body đang bật chế độ show lỗi */
+body.show-error #testing-error-container.draw-open-errors .testing-error-border.open.match-breakpoint,
+body.show-error #testing-error-container.draw-resolved-errors .testing-error-border.resolved.match-breakpoint {
+    display: block;
+}
+
+/* Nếu body không có class `show-error`, ẩn hết luôn */
+body:not(.show-error) #testing-error-container .testing-error-border {
     display: none !important;
 }
-
-body.show-error .testing-error-border.show {
-    display: block !important; 
-}
-
 
 /* Override any specific cursor styles during selection */
 body.testing-selection-mode .elementor-element a,
 body.testing-selection-mode .elementor-element button,
 body.testing-selection-mode .elementor-element input,
-body.testing-selection-mode .elementor-element [role="button"],
-body.testing-selection-mode .elementor-element [class*="slider"],
-body.testing-selection-mode .elementor-element [class*="carousel"], 
-body.testing-selection-mode .elementor-element [class*="gallery"],
-body.testing-selection-mode .elementor-element [class*="swiper"] {
+body.testing-selection-mode .elementor-element [role='button'],
+body.testing-selection-mode .elementor-element [class*='slider'],
+body.testing-selection-mode .elementor-element [class*='carousel'],
+body.testing-selection-mode .elementor-element [class*='gallery'],
+body.testing-selection-mode .elementor-element [class*='swiper'] {
     cursor: crosshair !important;
     pointer-events: auto !important;
 }
@@ -133,62 +144,9 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     background: rgba(0, 123, 255, 0.1) !important;
 }
 
-/* Error marker animations */
-.testing-error-marker {
-    animation: testing-marker-appear 0.3s ease-out !important;
-}
-
-@keyframes testing-marker-appear {
-    from {
-        opacity: 0 !important;
-        transform: scale(0.5) !important;
-    }
-    to {
-        opacity: 1 !important;
-        transform: scale(1) !important;
-    }
-}
-
-/* Tooltip animations */
-.testing-comment-tooltip {
-    animation: testing-tooltip-appear 0.2s ease-out !important;
-}
-
-@keyframes testing-tooltip-appear {
-    from {
-        opacity: 0 !important;
-        transform: translateY(10px) !important;
-    }
-    to {
-        opacity: 1 !important;
-        transform: translateY(0) !important;
-    }
-}
-
 /* Modal animations */
 .testing-comment-modal {
     animation: testing-modal-appear 0.3s ease-out !important;
-}
-
-
-@keyframes testing-modal-appear {
-    from {
-        opacity: 0 !important;
-        transform: translate(-50%, -50%) scale(0.9) !important;
-    }
-    to {
-        opacity: 1 !important;
-        transform: translate(-50%, -50%) scale(1) !important;
-    }
-}
-
-@keyframes testing-backdrop-appear {
-    from {
-        opacity: 0 !important;
-    }
-    to {
-        opacity: 1 !important;
-    }
 }
 
 /* Responsive adjustments */
@@ -197,25 +155,13 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
         width: 90vw !important;
         padding: 16px !important;
     }
-    
-    .testing-comment-tooltip {
-        max-width: 250px !important;
-        font-size: 12px !important;
-    }
-    
-    .testing-error-marker {
-        width: 24px !important;
-        height: 24px !important;
-        font-size: 11px !important;
-        border-width: 2px !important;
-    }
-    
+
     .testing-comment-thread {
         width: 90vw !important;
         max-width: 320px !important;
         max-height: 70vh !important;
     }
-    
+
     /* Mobile: always center panels */
     .testing-comment-thread.position-right,
     .testing-comment-thread.position-left {
@@ -228,13 +174,6 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
 }
 
 @media (max-width: 480px) {
-    .testing-error-marker {
-        width: 28px !important;
-        height: 28px !important;
-        font-size: 12px !important;
-        font-weight: 600 !important;
-    }
-    
     .testing-comment-thread {
         width: 95vw !important;
         max-height: 80vh !important;
@@ -242,80 +181,18 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
         right: 2.5vw !important;
         top: 10vh !important;
     }
-    
+
     .testing-comment-tooltip {
         max-width: 200px !important;
         font-size: 11px !important;
     }
 }
 
-/* Ensure markers are always visible and clickable */
-.testing-error-marker {
-    min-width: 20px !important;
-    min-height: 20px !important;
-    z-index: 999996 !important;
-    pointer-events: auto !important;
-    touch-action: manipulation !important;
-}
-
-/* Responsive marker variations */
-.testing-error-marker.mobile {
-    width: 20px !important;
-    height: 20px !important;
-    font-size: 11px !important;
-}
-
-.testing-error-marker.compact {
-    width: 18px !important;
-    height: 18px !important;
-    font-size: 10px !important;
-}
-
-.testing-error-marker.position-inside {
-    background: rgba(255, 71, 87, 0.9) !important;
-    border: 1px solid white !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
-}
-
-.testing-error-marker.position-inside.resolved {
-    background: rgba(40, 167, 69, 0.9) !important;
-}
-
-/* Position-specific adjustments */
-.testing-error-marker.position-top,
-.testing-error-marker.position-bottom {
-    border-radius: 6px !important;
-}
-
-.testing-error-marker.position-left {
-    border-radius: 50% 12px 12px 50% !important;
-}
-
-.testing-error-marker.position-right {
-    border-radius: 12px 50% 50% 12px !important;
-}
-
-/* Improve positioning for various screen densities */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-    .testing-error-marker {
-        border-width: 1.5px !important;
-    }
-}
-
-/* Ensure markers don't interfere with page content */
-.testing-error-marker {
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -moz-user-select: none !important;
-    -ms-user-select: none !important;
-}
-
 /* Error border overlay styles */
 .testing-error-border {
     position: absolute !important;
     border: 3px solid #ff4757 !important;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
-                inset 0 0 0 1px rgba(255, 71, 87, 0.2) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 0 1px rgba(255, 71, 87, 0.2) !important;
     pointer-events: auto !important;
     cursor: pointer !important;
     background: rgba(255, 71, 87, 0.05) !important;
@@ -326,120 +203,39 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
 .testing-border-hover {
     border-color: #ff3742 !important;
     background: rgba(255, 71, 87, 0.1) !important;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 
-                inset 0 0 0 1px rgba(255, 71, 87, 0.3),
-                0 0 12px rgba(255, 71, 87, 0.3) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), inset 0 0 0 1px rgba(255, 71, 87, 0.3),
+        0 0 12px rgba(255, 71, 87, 0.3) !important;
 }
 
 .testing-error-border.resolved {
     border-color: #2e7d32 !important;
-    background: rgba(46, 125, 50, 0.05) !important;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
-                inset 0 0 0 1px rgba(46, 125, 50, 0.2) !important;
-    /* z-index: 999994 !important; */
+    background: rgba(46, 125, 50, 0.05);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 0 1px rgba(46, 125, 50, 0.2) !important;
 }
 
 .testing-error-border.resolved:hover {
     border-color: #1b5e20 !important;
     background: rgba(46, 125, 50, 0.1) !important;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 
-                inset 0 0 0 1px rgba(46, 125, 50, 0.3),
-                0 0 12px rgba(46, 125, 50, 0.3) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), inset 0 0 0 1px rgba(46, 125, 50, 0.3),
+        0 0 12px rgba(46, 125, 50, 0.3) !important;
 }
 
 .testing-error-border.closed {
     border-color: #6c757d !important;
     background: rgba(108, 117, 125, 0.05) !important;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 
-                inset 0 0 0 1px rgba(108, 117, 125, 0.2) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 0 1px rgba(108, 117, 125, 0.2) !important;
 }
 
 .testing-error-border.closed:hover {
     border-color: #5a6268 !important;
     background: rgba(108, 117, 125, 0.1) !important;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), 
-                inset 0 0 0 1px rgba(108, 117, 125, 0.3),
-                0 0 12px rgba(108, 117, 125, 0.3) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8), inset 0 0 0 1px rgba(108, 117, 125, 0.3),
+        0 0 12px rgba(108, 117, 125, 0.3) !important;
 }
 
 /* Animate border appearance */
 .testing-error-border {
     transition: none !important;
-}
-
-@keyframes borderFadeIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-/* Sticky marker styles for out-of-viewport elements */
-.testing-marker-sticky {
-    background: #ff6b35 !important;
-    border-color: #ff4500 !important;
-    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3) !important;
-    animation: stickyPulse 2s infinite !important;
-}
-
-.testing-marker-sticky.resolved {
-    background: #ff8c42 !important;
-    border-color: #ff6b35 !important;
-}
-
-.sticky-arrow {
-    position: absolute !important;
-    top: -8px !important;
-    right: -8px !important;
-    width: 16px !important;
-    height: 16px !important;
-    background: #ff4500 !important;
-    color: white !important;
-    border-radius: 50% !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 10px !important;
-    font-weight: bold !important;
-    z-index: 1 !important;
-}
-
-@keyframes stickyPulse {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-    50% {
-        transform: scale(1.1);
-        opacity: 0.8;
-    }
-}
-
-/* Improved marker visibility on all backgrounds */
-.testing-error-marker {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), 
-                0 0 0 1px rgba(255, 255, 255, 0.5) !important;
-}
-
-.testing-error-marker.resolved {
-    box-shadow: 0 2px 6px rgba(46, 125, 50, 0.3), 
-                0 0 0 1px rgba(255, 255, 255, 0.5) !important;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .testing-highlight {
-        outline-color: #000000 !important;
-        background: rgba(255, 255, 0, 0.3) !important;
-    }
-    
-    .testing-error-marker {
-        border: 2px solid #000000 !important;
-    }
 }
 
 /* Thread styles - Figma-like */
@@ -601,7 +397,7 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     width: 32px !important;
     height: 32px !important;
     border-radius: 50% !important;
-    background: #007AFF !important;
+    background: #007aff !important;
     color: white !important;
     display: flex !important;
     align-items: center !important;
@@ -704,7 +500,7 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
 
 .reply-input:focus {
     outline: none !important;
-    border-color: #007AFF !important;
+    border-color: #007aff !important;
 }
 
 .reply-buttons {
@@ -725,12 +521,12 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
 }
 
 .btn-reply-send {
-    background: #007AFF !important;
+    background: #007aff !important;
     color: white !important;
 }
 
 .btn-reply-send:hover {
-    background: #0056CC !important;
+    background: #0056cc !important;
 }
 
 .btn-reply-cancel {
@@ -806,7 +602,7 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
 
 .edit-input:focus {
     outline: none !important;
-    border-color: #007AFF !important;
+    border-color: #007aff !important;
 }
 
 .edit-buttons {
@@ -827,12 +623,12 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
 }
 
 .btn-edit-save {
-    background: #007AFF !important;
+    background: #007aff !important;
     color: white !important;
 }
 
 .btn-edit-save:hover {
-    background: #0056CC !important;
+    background: #0056cc !important;
 }
 
 .btn-edit-cancel {
@@ -862,33 +658,10 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     line-height: 1.3 !important;
 }
 
-@keyframes threadSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px) scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-@keyframes slideInPanel {
-    from {
-        opacity: 0;
-        transform: translateY(-15px) scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
 .testing-highlight {
     outline: 3px solid #007bff !important;
     outline-offset: 2px !important;
 }
-
 
 .testing-comment-modal {
     position: fixed !important;
@@ -904,8 +677,6 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     max-width: 90vw !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
 }
-
-
 
 .testing-comment-modal h3 {
     margin: 0 0 16px 0 !important;
@@ -974,11 +745,6 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     animation: testing-pulse 2s ease-in-out !important;
 }
 
-@keyframes testing-pulse {
-    0%, 100% { outline-color: #ffc107; }
-    50% { outline-color: #ff6b6b; }
-}
-
 /* Vùng kéo khi tạo rect */
 .testing-drag-overlay {
     position: absolute;
@@ -995,4 +761,8 @@ body.testing-selection-mode .elementor-element [class*="swiper"] {
     background: rgba(255, 0, 0, 0.1);
     z-index: 251001;
     pointer-events: auto;
+}
+
+div:where(.swal2-container) {
+    z-index: 99999999999999 !important;
 }

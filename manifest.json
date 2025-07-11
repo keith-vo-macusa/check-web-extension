@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Website Testing Assistant",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Chrome Extension hỗ trợ tester kiểm tra website, cho phép chọn vùng lỗi và thêm comment",
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
@@ -13,7 +13,8 @@
     "alarms",
     "notifications",
     "windows",
-    "tabs"
+    "tabs",
+    "offscreen"
   ],
   "host_permissions": [
     "https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/*",
@@ -26,29 +27,47 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["lib/jquery.min.js", "js/utils.js", "content.js", "js/auth.js"],
-      "css": ["css/content.css"],
-      "run_at": "document_end"
+      "js": [
+       "lib/jquery.min.js",
+       "lib/sweet-alert/sweetalert2.all.min.js",
+       "js/utils.js",
+       "content-loader.js",
+       "js/auth.js"
+      ],
+      "css": [
+        "css/content.css",
+        "lib/sweet-alert/sweetalert2.min.css"
+      ],
+      "run_at": "document_end",
+      "type": "module"
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "web_accessible_resources": [
     {
       "resources": [
         "assets/*",
         "lib/*", 
+        "lib/sweet-alert/*",
         "screens/login.html", 
         "screens/popup.html",
         "js/auth.js", 
         "js/login.js", 
-        "js/popup.js"
+        "js/popup.js",
+        "content.js",
+        "lib/**/*.js",
+        "js/**/*.js"
       ],
       "matches": ["<all_urls>"]
     }
   ],
   "icons": {
-    "16": "assets/icon16.png"
+    "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
+    "48": "assets/icon48.png",
+    "64": "assets/icon64.png"
   }
 } 

@@ -176,7 +176,7 @@ function findElementByIdentifiers(identifiers) {
             console.warn('CSS selector matches multiple elements:', identifiers.cssSelector);
         }
     } catch (e) {
-        console.warn('CSS selector failed:', e);
+        // console.warn('CSS selector failed:', e);
     }
 
     // Thử XPath
@@ -271,6 +271,14 @@ function getStatusText(status) {
     return statusMap[status] || 'Mở';
 }
 
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+}
+
 window.getElementXPath = getElementXPath;
 window.getElementCSSSelector = getElementCSSSelector;
 window.getJsPath = getJsPath;
@@ -280,6 +288,7 @@ window.findElementByAttributes = findElementByAttributes;
 window.getCurrentBreakpoint = getCurrentBreakpoint;
 window.formatTime = formatTime;
 window.getStatusText = getStatusText;
+window.generateUUID = generateUUID;
 
 
 
