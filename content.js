@@ -44,9 +44,9 @@ export default class WebsiteTestingAssistant {
         if (!this.userInfo) {
             return;
         }
-        this.initDraw();
         await this.fetchDataFromAPI();
         this.bindEvents();
+        this.initDraw();
         this.displayExistingErrors();
     }
 
@@ -57,7 +57,7 @@ export default class WebsiteTestingAssistant {
         this.browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             switch (request.action) {
                 case ACTION_MESSAGE.ACTIVATE:
-                    this.activate();       
+                    this.activate();
                     break;
                 case ACTION_MESSAGE.DEACTIVATE:
                     this.deactivate();
@@ -132,6 +132,7 @@ export default class WebsiteTestingAssistant {
                     return true;
                 case ACTION_MESSAGE.DRAW_OPEN_ERRORS:
                     this.drawOpenErrors = request.drawOpenErrors;
+                    this.toggleDrawErrors(this.drawOpenErrors);
                     this.updateAllErrorBorders()
                         .then(() => {
                             sendResponse({ success: true });
@@ -146,6 +147,7 @@ export default class WebsiteTestingAssistant {
                     break;
                 case ACTION_MESSAGE.DRAW_RESOLVED_ERRORS:
                     this.drawResolvedErrors = request.drawResolvedErrors;
+                    this.toggleDrawResolvedErrors(this.drawResolvedErrors);
                     this.updateAllErrorBorders()
                         .then(() => {
                             sendResponse({ success: true });
@@ -157,7 +159,7 @@ export default class WebsiteTestingAssistant {
                             });
                         });
                     return true;
-                case "setErrorsInContent":
+                case 'setErrorsInContent':
                     // this.displayExistingErrors();
                     // Remove all borders
                     this.setErrorsInContent();
@@ -232,7 +234,10 @@ export default class WebsiteTestingAssistant {
             return null;
         } catch (error) {
             console.log(error.message);
-            AlertManager.info('Extension mất kết nối với web hiện tại', 'Vui lòng reload lại trang');
+            AlertManager.info(
+                'Extension mất kết nối với web hiện tại',
+                'Vui lòng reload lại trang',
+            );
             return null;
         }
     }
@@ -287,7 +292,7 @@ export default class WebsiteTestingAssistant {
             // Remove highlight when mouse over
             // this.removeHighlight();
             return;
-        };
+        }
 
         // Only handle elementor elements
         if (!event.target.closest('.elementor-element')) return;
@@ -305,12 +310,12 @@ export default class WebsiteTestingAssistant {
     handleMouseOut(event) {
         if (!this.isActive) return;
 
-        // Không xử lý mouseout khi đang vẽ rectangle  
+        // Không xử lý mouseout khi đang vẽ rectangle
         if (this.isDragging) {
             // Remove highlight when mouse out
             // this.removeHighlight();
             return;
-        };
+        }
 
         event.stopPropagation();
 
@@ -340,38 +345,37 @@ export default class WebsiteTestingAssistant {
 
     handleMouseMove(event) {
         if (!this.isActive) return;
-    
+
         const doc = document.documentElement;
         const scrollLeft = window.pageXOffset || doc.scrollLeft;
         const scrollTop = window.pageYOffset || doc.scrollTop;
-    
+
         let currentX = event.clientX + scrollLeft;
         let currentY = event.clientY + scrollTop;
-    
+
         // Clamp giá trị không vượt quá rìa trang
-        const maxX = scrollLeft + doc.clientWidth - 1;
-        const maxY = scrollTop + doc.clientHeight - 1;
+        const maxX = scrollLeft + doc.clientWidth - 2;
+        const maxY = scrollTop + doc.clientHeight - 2;
         const minX = scrollLeft;
         const minY = scrollTop;
-    
+
         currentX = Math.max(minX, Math.min(currentX, maxX));
         currentY = Math.max(minY, Math.min(currentY, maxY));
-    
+
         const deltaX = Math.abs(currentX - this.startX);
         const deltaY = Math.abs(currentY - this.startY);
         const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
+
         if (distance > 5 && !this.isDragging) {
             this.isDragging = true;
             this.removeHighlight();
             this.createDragOverlay();
         }
-    
+
         if (this.isDragging) {
             this.updateDragOverlay(currentX, currentY);
         }
     }
-    
 
     handleMouseUp(event) {
         if (!this.isActive) return;
@@ -429,10 +433,10 @@ export default class WebsiteTestingAssistant {
             height: (pxCoords.height / viewportHeight) * 100, // % of viewport height (vh)
             units: {
                 left: '%',
-                top: '%', 
+                top: '%',
                 width: 'vw',
-                height: 'vh'
-            }
+                height: 'vh',
+            },
         };
     }
 
@@ -446,7 +450,7 @@ export default class WebsiteTestingAssistant {
             left: (responsiveCoords.left / 100) * docWidth,
             top: (responsiveCoords.top / 100) * docHeight,
             width: (responsiveCoords.width / 100) * viewportWidth,
-            height: (responsiveCoords.height / 100) * viewportHeight
+            height: (responsiveCoords.height / 100) * viewportHeight,
         };
     }
 
@@ -471,7 +475,7 @@ export default class WebsiteTestingAssistant {
         const dragRect = this.dragOverlay.getBoundingClientRect();
         const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
         const scrollY = window.pageYOffset || document.documentElement.scrollTop;
-        
+
         // Calculate both px and responsive coordinates
         const pxRect = {
             left: dragRect.left + scrollX,
@@ -482,7 +486,7 @@ export default class WebsiteTestingAssistant {
             viewportWidth: window.innerWidth,
             viewportHeight: window.innerHeight,
             scrollX: scrollX,
-            scrollY: scrollY
+            scrollY: scrollY,
         };
 
         // Convert to responsive units (% vh vw)
@@ -493,7 +497,7 @@ export default class WebsiteTestingAssistant {
             // Legacy px coordinates (for backward compatibility)
             ...pxRect,
             // New responsive coordinates
-            responsive: responsiveRect
+            responsive: responsiveRect,
         };
 
         // Only proceed if rectangle is large enough
@@ -993,6 +997,8 @@ export default class WebsiteTestingAssistant {
     }
 
     createErrorOverlay(error) {
+        let container = this.getErrorContainer();
+
         const overlay = document.createElement('div');
         overlay.className = 'testing-error-border';
         overlay.dataset.errorId = error.id;
@@ -1000,12 +1006,6 @@ export default class WebsiteTestingAssistant {
 
         if (error.type === 'rect') {
             // Rectangle overlay with viewport compensation
-            overlay.style.position = 'absolute';
-            overlay.style.border = '2px solid red';
-            overlay.style.background = 'rgba(255, 0, 0, 0.1)';
-            
-            // Apply coordinates with viewport compensation
-            this.positionRectOverlay(overlay, error);
         } else {
             // Element border overlay
             const element = this.findErrorElement(error);
@@ -1037,7 +1037,7 @@ export default class WebsiteTestingAssistant {
             overlay.classList.remove('testing-border-hover');
         });
 
-        document.body.appendChild(overlay);
+        container.appendChild(overlay);
         this.errorBorders.push(overlay);
 
         this.updateAllErrorBorders();
@@ -1045,46 +1045,46 @@ export default class WebsiteTestingAssistant {
 
     positionRectOverlay(overlay, error) {
         if (!error.coordinates) return;
-        
+
         const coords = error.coordinates;
-        
+
         // Ưu tiên sử dụng responsive coordinates nếu có
         if (coords.responsive) {
             // Sử dụng responsive units (% vh vw) - stable across viewports
             const responsive = coords.responsive;
             const pxCoords = this.convertResponsiveToPx(responsive);
-            
+
             overlay.style.left = `${pxCoords.left}px`;
             overlay.style.top = `${pxCoords.top}px`;
             overlay.style.width = `${pxCoords.width}px`;
             overlay.style.height = `${pxCoords.height}px`;
             return;
         }
-        
+
         // Fallback: sử dụng legacy px coordinates với viewport compensation
         const currentScrollX = window.pageXOffset || document.documentElement.scrollLeft;
         const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
         const currentViewportWidth = window.innerWidth;
         const currentViewportHeight = window.innerHeight;
-        
+
         const savedScrollX = coords.scrollX || 0;
         const savedScrollY = coords.scrollY || 0;
         const savedViewportWidth = coords.viewportWidth || currentViewportWidth;
         const savedViewportHeight = coords.viewportHeight || currentViewportHeight;
-        
+
         // Detect if we're in a different window type
         const isCurrentlyPopup = this.isPopupWindow();
         const wasSavedInPopup = this.wasCoordinateSavedInPopup(coords);
-        
+
         // Calculate position compensation
         let left = coords.left;
         let top = coords.top;
-        
+
         // Adjust for different window types (popup vs regular tab)
         if (isCurrentlyPopup !== wasSavedInPopup) {
             // We're in a different window type than when saved
             const heightDiff = currentViewportHeight - savedViewportHeight;
-            
+
             if (!isCurrentlyPopup && wasSavedInPopup) {
                 // Viewing in regular tab, saved in popup
                 // Regular tab has address bar, popup doesn't
@@ -1094,7 +1094,7 @@ export default class WebsiteTestingAssistant {
                 // No adjustment needed as coordinates are document-relative
             }
         }
-        
+
         // Apply final position (legacy px mode)
         overlay.style.left = `${left}px`;
         overlay.style.top = `${top}px`;
@@ -1110,14 +1110,15 @@ export default class WebsiteTestingAssistant {
             // 1. No menubar, toolbar, or location bar
             // 2. Smaller viewport compared to screen
             // 3. Window.opener exists (if opened via window.open)
-            
+
             const hasOpener = window.opener !== null;
-            const isSmallWindow = window.outerWidth < screen.availWidth * 0.8 || 
-                                window.outerHeight < screen.availHeight * 0.8;
-            
+            const isSmallWindow =
+                window.outerWidth < screen.availWidth * 0.8 ||
+                window.outerHeight < screen.availHeight * 0.8;
+
             // Check if toolbar elements are hidden (Chrome extension popups)
             const hasLimitedToolbar = !window.menubar?.visible || !window.toolbar?.visible;
-            
+
             return hasOpener || isSmallWindow || hasLimitedToolbar;
         } catch (e) {
             // If we can't access these properties, assume it's a regular tab
@@ -1130,63 +1131,50 @@ export default class WebsiteTestingAssistant {
         if (!coords.viewportWidth || !coords.viewportHeight) {
             return false; // Can't determine, assume regular tab
         }
-        
+
         // Popup windows are typically smaller
         const isSmallViewport = coords.viewportWidth < 1200 || coords.viewportHeight < 600;
-        
+
         // This is a heuristic - popup extension windows are often around 400x600
         const isTypicalPopupSize = coords.viewportWidth <= 500 && coords.viewportHeight <= 700;
-        
+
         return isSmallViewport || isTypicalPopupSize;
     }
 
     positionErrorOverlay(overlay, error, errorsVisible = false) {
         const shouldShow = this.shouldShowErrorBorder(error);
-
+    
+        // Reset trạng thái base
+        overlay.classList.remove('open', 'resolved', 'match-breakpoint');
+    
+        if (error.status === 'resolved') {
+            overlay.classList.add('resolved');
+        } else {
+            overlay.classList.add('open');
+        }
+    
         if (error.type === 'rect') {
-            // Rectangle overlay - use new positioning logic
-            overlay.className = `testing-error-border ${error.status || 'open'}`;
             if (shouldShow) {
-                overlay.style.display = 'block';
-                // Reposition with viewport compensation
+                overlay.classList.add('match-breakpoint');
                 this.positionRectOverlay(overlay, error);
-                if (errorsVisible) {
-                    overlay.classList.add('show');
-                }
-            } else {
-                overlay.style.display = 'none';
-                overlay.classList.remove('show');
             }
         } else {
-            // Element overlay - needs repositioning
             const element = this.findErrorElement(error);
             if (!element) {
-                overlay.style.display = 'none';
                 return;
             }
-
+    
             if (shouldShow) {
                 const rect = element.getBoundingClientRect();
-
-                // Position overlay to match the element
-                overlay.style.position = 'absolute';
                 overlay.style.top = `${rect.top + window.scrollY}px`;
                 overlay.style.left = `${rect.left + window.scrollX}px`;
                 overlay.style.width = `${rect.width}px`;
                 overlay.style.height = `${rect.height}px`;
-
-                // Add status class
-                overlay.className = `testing-error-border ${error.status || 'open'}`;
-                overlay.style.display = 'block';
-                if (errorsVisible) {
-                    overlay.classList.add('show');
-                }
-            } else {
-                overlay.style.display = 'none';
-                overlay.classList.remove('show');
+                overlay.classList.add('match-breakpoint');
             }
         }
     }
+    
 
     shouldShowErrorBorder(error) {
         const width = window.innerWidth;
@@ -1204,25 +1192,9 @@ export default class WebsiteTestingAssistant {
             const errorId = overlay.dataset.errorId;
             const error = this.currentTabErrors.find((e) => e.id === errorId);
             if (error) {
-                // Check if errors should be shown at all
-                if (!this.allErrorsVisible) {
-                    // Hide all errors when allErrorsVisible is false
-                    overlay.style.display = 'none';
-                    overlay.classList.remove('show');
-                } else {
-                    // Check if this error type should be drawn when allErrorsVisible is true
-                    const shouldDraw =
-                        (error.status == 'open' && this.drawOpenErrors) ||
-                        (error.status == 'resolved' && this.drawResolvedErrors);
-
-                    if (shouldDraw) {
-                        this.positionErrorOverlay(overlay, error, visible);
-                    } else {
-                        // Hide overlay if it shouldn't be drawn
-                        overlay.style.display = 'none';
-                        overlay.classList.remove('show');
-                    }
-                }
+                // Check if this error type should be drawn when allErrorsVisible is true
+                this.positionErrorOverlay(overlay, error, true);
+                
             }
         });
     }
@@ -1316,7 +1288,9 @@ export default class WebsiteTestingAssistant {
     }
 
     updateErrorBordersVisibility() {
-        document.body.classList.toggle('show-error', this.allErrorsVisible);
+        this.toggleShowError(this.allErrorsVisible);
+        this.toggleDrawErrors(this.drawOpenErrors);
+        this.toggleDrawResolvedErrors(this.drawResolvedErrors);
         this.updateAllErrorBorders();
     }
 
@@ -1324,41 +1298,6 @@ export default class WebsiteTestingAssistant {
         // Hide all errors regardless of drawOpenErrors and drawResolvedErrors
         this.allErrorsVisible = false;
         this.updateErrorBordersVisibility();
-    }
-
-    highlightError(error) {
-        if (!error) return;
-
-        // const currentWidth = window.innerWidth;
-        // const currentHeight = window.innerHeight;
-
-        // const newWidth = error.breakpoint.width;
-
-        // try {
-        //     this.browserAPI.runtime.sendMessage({
-        //         action: 'openOrResizeErrorWindow',
-        //         url: error.url,
-        //         width: error.breakpoint.width,
-        //         height: window.innerHeight,
-        //         errorId: error.id,
-        //     });
-        // } catch (error) {
-        //     AlertManager.error("Lỗi", "Không thể mở cửa sổ lỗi");
-        // }
-        // // Remove existing highlights
-        // document.querySelectorAll('.testing-error-highlight').forEach(el => {
-        //     el.classList.remove('testing-error-highlight');
-        // });
-
-        // //find div with data-error-id = error.id
-        // const errorElement = document.querySelector(`div[data-error-id="${error.id}"]`);
-        // if (errorElement) {
-        //     errorElement.classList.add('testing-error-highlight');
-        //     errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        //     setTimeout(() => {
-        //         errorElement.classList.remove('testing-error-highlight');
-        //     }, 1000);
-        // }
     }
 
     async clearAllErrors() {
@@ -1425,17 +1364,6 @@ export default class WebsiteTestingAssistant {
                 domainName: domain,
             });
 
-            console.log(JSON.stringify(response));
-            // const response = await $.ajax({
-            //     url: API_ACTION.GET_DOMAIN_DATA,
-            //     method: 'GET',
-            //     dataType: 'json',
-            //     data: {
-            //         domain: new URL(this.currentUrl).hostname,
-            //         action: 'get',
-            //     },
-            // });
-
             // // Update local storage with API data
             if (response) {
                 const data = response.data;
@@ -1443,30 +1371,7 @@ export default class WebsiteTestingAssistant {
                 // Update local errors for current URL
                 const pathItem = data?.path.find((p) => p.full_url === this.currentUrl);
                 this.currentTabErrors = pathItem ? pathItem.data : [];
-
-                // try {
-                //     this.browserAPI.runtime.sendMessage({
-                //         action: 'setErrors',
-                //         errors: this.errors,
-                //         domainName: this.domainName,
-                //     });
-                //     this.browserAPI.runtime.sendMessage({
-                //         action: 'removeUnauthorized',
-                //         domainName: this.domainName,
-                //     });
-                // } catch (error) {
-                //     AlertManager.error(
-                //         'Lỗi',
-                //         'Extension context invalidated when sending setErrors message in fetchDataFromAPI:',
-                //         error,
-                //     );
-                // }
             }
-
-            // this.browserAPI.runtime.sendMessage({
-            //     action: 'updateBadge',
-            //     domainName: this.domainName,
-            // });
         } catch (error) {
             console.error('Error fetching data from API:', error);
             await this.browserAPI.runtime.sendMessage({
@@ -1684,8 +1589,15 @@ export default class WebsiteTestingAssistant {
                 this.drawOpenErrors = result.drawOpenErrors || false;
                 this.drawResolvedErrors = result.drawResolvedErrors || false;
                 this.allErrorsVisible = result.errorsVisible || false;
+                this.toggleDrawErrors(this.drawOpenErrors);
+                this.toggleDrawResolvedErrors(this.drawResolvedErrors);
             },
         );
+
+        // create error container
+        if (!this.getErrorContainer()) {
+            this.createErrorContainer();
+        }
     }
 
     removeModal() {
@@ -1706,7 +1618,36 @@ export default class WebsiteTestingAssistant {
         this.errorBorders = [];
         // Clear data
         this.updateAllErrorBorders();
-        
-        await this.displayExistingErrors();   
+
+        await this.displayExistingErrors();
+    }
+
+    getErrorContainer() {
+        return document.querySelector('#testing-error-container');
+    }
+
+    createErrorContainer() {
+        const container = document.createElement('div');
+        container.id = 'testing-error-container';
+        document.body.appendChild(container);
+        return container;
+    }
+
+    toggleDrawErrors(isActive) {
+        const container = this.getErrorContainer();
+        if (container) {
+            container.classList.toggle('draw-open-errors', isActive);
+        }
+    }
+
+    toggleDrawResolvedErrors(isActive) {
+        const container = this.getErrorContainer();
+        if (container) {
+            container.classList.toggle('draw-resolved-errors', isActive);
+        }
+    }
+
+    toggleShowError(isActive) {
+        document.body.classList.toggle('show-error', isActive);
     }
 }
