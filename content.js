@@ -26,6 +26,8 @@ export default class WebsiteTestingAssistant {
         this.drawOpenErrors = false;
         this.drawResolvedErrors = false;
         this.allErrorsVisible = false; // Flag để theo dõi trạng thái show/hide tổng quát
+        this.hasAdminBar = false;
+        this.adminBarHeight = 0;
         this.init();
     }
 
@@ -44,10 +46,19 @@ export default class WebsiteTestingAssistant {
         if (!this.userInfo) {
             return;
         }
+        await this.checkHasAdminBar();
         await this.fetchDataFromAPI();
         this.bindEvents();
         this.initDraw();
         this.displayExistingErrors();
+    }
+
+    async checkHasAdminBar() {
+        const adminBar = document.getElementById('wpadminbar');
+        if (adminBar) {
+            this.hasAdminBar = true;
+            this.adminBarHeight = adminBar.offsetHeight;
+        }
     }
 
     bindEvents() {
@@ -1054,7 +1065,7 @@ export default class WebsiteTestingAssistant {
             const pxCoords = this.convertResponsiveToPx(responsive);
 
             overlay.style.left = `${pxCoords.left}px`;
-            overlay.style.top = `${pxCoords.top}px`;
+            overlay.style.top = `${pxCoords.top - this.adminBarHeight}px`;
             overlay.style.width = `${pxCoords.width}px`;
             overlay.style.height = `${pxCoords.height}px`;
             return;
@@ -1165,7 +1176,7 @@ export default class WebsiteTestingAssistant {
     
             if (shouldShow) {
                 const rect = element.getBoundingClientRect();
-                overlay.style.top = `${rect.top + window.scrollY}px`;
+                overlay.style.top = `${rect.top + window.scrollY - this.adminBarHeight}px`;
                 overlay.style.left = `${rect.left + window.scrollX}px`;
                 overlay.style.width = `${rect.width}px`;
                 overlay.style.height = `${rect.height}px`;
