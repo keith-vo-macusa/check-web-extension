@@ -13,11 +13,11 @@ export default class NotificationManager {
         const domainUrl = await TabManager.getCurrentTabDomain();
 
         // Chuẩn bị dữ liệu để gửi
-        const data = JSON.stringify({
+        const data = {
             domain_url: domainUrl,
             type: type,
             email: userInfo.email,
-        });
+        };
 
         // Lấy button thông báo từ DOM
         const btnNotification = $('#sendNotification');

@@ -111,7 +111,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 });
 
 const fetchDataFromAPI = async (domain, tabId) => {
-    const endpoint = `${API_ACTION.GET_DOMAIN_DATA}&domain=${domain}&action=get`;
+    const endpoint = `${API_ACTION.GET_DOMAIN_DATA}?domain=${domain}`;
 
     try {
         const response = await fetch(endpoint, {
