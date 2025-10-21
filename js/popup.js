@@ -142,6 +142,10 @@ class UIManager {
             $('#toggleErrors').prop('checked', true);
         }
 
+        // thêm UI cho toggle hiển thị lỗi đã giải quyết
+        const { resolvedErrorsVisible } = await chrome.storage.local.get('resolvedErrorsVisible');
+        $('#toggleResolvedErrors').prop('checked', resolvedErrorsVisible).trigger('change');
+
         $('#drawOpenErrors').prop('disabled', !errorsVisible);
         $('#drawResolvedErrors').prop('disabled', !errorsVisible);
 
