@@ -8,6 +8,7 @@ import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { ValidationService } from '../utils/ValidationService.js';
 import { MessagingService } from '../core/MessagingService.js';
+import AuthManager from '../auth.js';
 
 export class ErrorDataManager {
     /**
@@ -54,11 +55,19 @@ export class ErrorDataManager {
      */
     async updateErrors(errorsData) {
         try {
+            // Get access token for authentication
+            const accessToken = await AuthManager.getAccessToken();
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+
+            if (accessToken) {
+                headers['Authorization'] = `Bearer ${accessToken}`;
+            }
+
             const response = await fetch(ConfigurationManager.getApiUrl('SET_DOMAIN_DATA'), {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: JSON.stringify(errorsData),
             });
 

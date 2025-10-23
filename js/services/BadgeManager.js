@@ -9,6 +9,7 @@ import { TabsService } from '../core/TabsService.js';
 import { MessagingService } from '../core/MessagingService.js';
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
+import AuthManager from '../auth.js';
 
 /**
  * BadgeManager class - manages badges and domain errors
@@ -274,11 +275,19 @@ export class BadgeManager {
         const url = ConfigurationManager.API.BASE_URL + endpoint;
 
         try {
+            // Get access token for authentication
+            const accessToken = await AuthManager.getAccessToken();
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+
+            if (accessToken) {
+                headers['Authorization'] = `Bearer ${accessToken}`;
+            }
+
             const response = await fetch(url, {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
             });
 

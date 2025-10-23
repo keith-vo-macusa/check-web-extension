@@ -164,6 +164,7 @@ class LoginManager {
                 id: data.id,
                 name: data.name,
                 email: data.email || null,
+                accessToken: data.accessToken || null,
                 loginTime: new Date().toISOString(),
             };
 

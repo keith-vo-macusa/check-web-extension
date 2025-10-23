@@ -79,6 +79,22 @@ class AuthManager {
     }
 
     /**
+     * Get access token from storage
+     * @returns {Promise<string|null>} Access token or null
+     */
+    static async getAccessToken() {
+        try {
+            const userInfo = await StorageService.getSafe(
+                ConfigurationManager.STORAGE_KEYS.USER_INFO,
+            );
+            return userInfo?.accessToken || null;
+        } catch (error) {
+            ErrorLogger.error('Error getting access token', { error });
+            return null;
+        }
+    }
+
+    /**
      * Logout user
      * @returns {Promise<boolean>} True if successful
      */
