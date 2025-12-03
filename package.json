@@ -1,0 +1,25 @@
+{
+    "name": "check-web-extension",
+    "version": "1.1.9",
+    "description": "Chrome Extension hỗ trợ tester kiểm tra website, cho phép chọn vùng lỗi và thêm comment",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "vite build --watch",
+        "build": "vite build",
+        "build:clean": "rimraf dist",
+        "prebuild": "npm run build:clean",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "chrome-extension",
+        "testing",
+        "website-testing"
+    ],
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "rimraf": "^5.0.0",
+        "vite": "^4.5.0"
+    }
+}

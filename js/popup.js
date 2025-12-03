@@ -1,4 +1,5 @@
 import TabManager from './services/TabManager.js';
+import AuthManager from './auth.js';
 import {
     BREAKPOINTS,
     typeNotification,
@@ -564,7 +565,11 @@ $(document).ready(async function () {
     });
 
     if (!isAuthorized) {
-        AlertManager.errorWithOutClose('Lỗi', `${domainName} chưa được khởi tạo trên Checkwise`, false);
+        AlertManager.errorWithOutClose(
+            'Lỗi',
+            `${domainName} chưa được khởi tạo trên Checkwise`,
+            false,
+        );
         return;
     }
 

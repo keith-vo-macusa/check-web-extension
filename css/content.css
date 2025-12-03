@@ -24,8 +24,12 @@ body {
 }
 
 /* Chỉ hiển thị khi body đang bật chế độ show lỗi */
-body.show-error #testing-error-container.draw-open-errors .testing-error-border.open.match-breakpoint,
-body.show-error #testing-error-container.draw-resolved-errors .testing-error-border.resolved.match-breakpoint {
+body.show-error
+    #testing-error-container.draw-open-errors
+    .testing-error-border.open.match-breakpoint,
+body.show-error
+    #testing-error-container.draw-resolved-errors
+    .testing-error-border.resolved.match-breakpoint {
     display: block;
 }
 
@@ -124,8 +128,14 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     color: white !important;
 }
 
-.testing-modal-btn-primary:hover {
+.testing-modal-btn-primary:hover:not(:disabled) {
     background: #0056b3 !important;
+}
+
+.testing-modal-btn-primary:disabled {
+    background: #6c757d !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
 }
 
 .testing-modal-btn-secondary {
@@ -133,8 +143,13 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     color: white !important;
 }
 
-.testing-modal-btn-secondary:hover {
+.testing-modal-btn-secondary:hover:not(:disabled) {
     background: #545b62 !important;
+}
+
+.testing-modal-btn-secondary:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
 }
 
 /* Highlighted element during selection */
@@ -725,8 +740,14 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     color: white !important;
 }
 
-.testing-modal-btn-primary:hover {
+.testing-modal-btn-primary:hover:not(:disabled) {
     background: #0056b3 !important;
+}
+
+.testing-modal-btn-primary:disabled {
+    background: #6c757d !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
 }
 
 .testing-modal-btn-secondary {
@@ -734,8 +755,13 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     color: white !important;
 }
 
-.testing-modal-btn-secondary:hover {
+.testing-modal-btn-secondary:hover:not(:disabled) {
     background: #545b62 !important;
+}
+
+.testing-modal-btn-secondary:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
 }
 
 .testing-error-highlight {
