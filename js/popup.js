@@ -1,4 +1,5 @@
 import TabManager from './services/TabManager.js';
+import AuthManager from './auth.js';
 import {
     BREAKPOINTS,
     typeNotification,
@@ -141,6 +142,10 @@ class UIManager {
         if (errorsVisible) {
             $('#toggleErrors').prop('checked', true);
         }
+
+        // thêm UI cho toggle hiển thị lỗi đã giải quyết
+        const { resolvedErrorsVisible } = await chrome.storage.local.get('resolvedErrorsVisible');
+        $('#toggleResolvedErrors').prop('checked', resolvedErrorsVisible).trigger('change');
 
         $('#drawOpenErrors').prop('disabled', !errorsVisible);
         $('#drawResolvedErrors').prop('disabled', !errorsVisible);
@@ -560,7 +565,11 @@ $(document).ready(async function () {
     });
 
     if (!isAuthorized) {
-        AlertManager.errorWithOutClose('Lỗi', `${domainName} chưa được khởi tạo trên Checkwise`, false);
+        AlertManager.errorWithOutClose(
+            'Lỗi',
+            `${domainName} chưa được khởi tạo trên Checkwise`,
+            false,
+        );
         return;
     }
 
