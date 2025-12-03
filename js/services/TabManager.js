@@ -1,152 +1,77 @@
-/**
- * TabManager - High-level tab operations (Refactored)
- * Uses TabsService for Chrome API calls
- * @module TabManager
- */
-
-import { TabsService } from '../core/TabsService.js';
-import { MessagingService } from '../core/MessagingService.js';
-import { ErrorLogger } from '../utils/ErrorLogger.js';
-
 export default class TabManager {
-    /**
-     * Get current tab
-     * @returns {Promise<chrome.tabs.Tab[]>} Array with current tab
-     */
     static async getCurrentTab() {
-        const tab = await TabsService.getActiveTab();
-        return tab ? [tab] : [];
+        return await chrome.tabs.query({
+            active: true,
+            currentWindow: true
+        });
     }
 
-    /**
-     * Send message to content script in active tab
-     * @param {Object} message - Message to send
-     * @returns {Promise<*>} Response from content script
-     */
     static async sendMessage(message) {
         try {
-            return await MessagingService.sendToContentScript(message);
+            const tabs = await this.getCurrentTab();
+            if (tabs && tabs[0]) {
+                return await chrome.tabs.sendMessage(tabs[0].id, message);
+            }
         } catch (error) {
-            ErrorLogger.warn('Failed to send message to content script', { message, error });
+            // Content script not available - this is normal for special pages
+            console.log('Cannot send message to content script:', error.message);
             return null;
         }
     }
 
-    /**
-     * Send message to background script
-     * @param {Object} message - Message to send
-     * @returns {Promise<*>} Response from background
-     */
     static async sendMessageToBackground(message) {
-        try {
-            return await MessagingService.sendToBackground(message);
-        } catch (error) {
-            ErrorLogger.error('Failed to send message to background', { message, error });
-            throw error;
-        }
+        return await chrome.runtime.sendMessage(message);
     }
 
-    /**
-     * Get current tab URL
-     * @returns {Promise<string|null>} Current URL
-     */
     static async getCurrentTabUrl() {
-        return await TabsService.getCurrentUrl();
+        const tabs = await this.getCurrentTab();
+        return tabs[0].url;
     }
 
-    /**
-     * Get current tab domain
-     * @returns {Promise<string|null>} Current domain
-     */
     static async getCurrentTabDomain() {
-        return await TabsService.getCurrentDomain();
+        const url = await this.getCurrentTabUrl();
+        return new URL(url).hostname;
     }
 
-    /**
-     * Get current tab ID
-     * @returns {Promise<number|null>} Tab ID
-     */
     static async getCurrentTabId() {
-        const tab = await TabsService.getActiveTab();
-        return tab?.id || null;
+        const tabs = await this.getCurrentTab();
+        return tabs[0].id;
     }
 
-    /**
-     * Get current tab title
-     * @returns {Promise<string|null>} Tab title
-     */
     static async getCurrentTabTitle() {
-        const tab = await TabsService.getActiveTab();
-        return tab?.title || null;
+        const tabs = await this.getCurrentTab();
+        return tabs[0].title;
     }
 
-    /**
-     * Create new tab
-     * @param {string} url - URL to open
-     * @returns {Promise<chrome.tabs.Tab|null>} Created tab
-     */
     static async createTab(url) {
-        return await TabsService.createTab(url);
+        return await chrome.tabs.create({
+            url: url,
+        });
     }
 
-    /**
-     * Update tab
-     * @param {number} tabId - Tab ID
-     * @param {Object} updateInfo - Update properties
-     * @returns {Promise<chrome.tabs.Tab|null>} Updated tab
-     */
     static async updateTab(tabId, updateInfo) {
-        return await TabsService.updateTab(tabId, updateInfo);
+        return await chrome.tabs.update(tabId, updateInfo);
     }
 
-    /**
-     * Reload tab
-     * @param {number} tabId - Tab ID
-     * @returns {Promise<boolean>} True if successful
-     */
     static async reloadTab(tabId) {
-        return await TabsService.reloadTab(tabId);
+        return await chrome.tabs.reload(tabId);
     }
 
-    /**
-     * Close tab
-     * @param {number} tabId - Tab ID
-     * @returns {Promise<boolean>} True if successful
-     */
     static async closeTab(tabId) {
-        return await TabsService.closeTab(tabId);
+        return await chrome.tabs.remove(tabId);
     }
 
-    /**
-     * Get tab by ID
-     * @param {number} tabId - Tab ID
-     * @returns {Promise<chrome.tabs.Tab|null>} Tab
-     */
     static async getTabById(tabId) {
-        return await TabsService.getTab(tabId);
+        return await chrome.tabs.get(tabId);
     }
-
-    /**
-     * Reload current tab
-     * @returns {Promise<boolean>} True if successful
-     */
+    
     static async reloadCurrentTab() {
-        const tab = await TabsService.getActiveTab();
-        if (!tab) {
-            return false;
-        }
-        return await TabsService.reloadTab(tab.id);
+        const tabs = await this.getCurrentTab();
+        return await chrome.tabs.reload(tabs[0].id);
     }
 
-    /**
-     * Close current tab
-     * @returns {Promise<boolean>} True if successful
-     */
     static async closeCurrentTab() {
-        const tab = await TabsService.getActiveTab();
-        if (!tab) {
-            return false;
-        }
-        return await TabsService.closeTab(tab.id);
+        const tabs = await this.getCurrentTab();
+        return await chrome.tabs.remove(tabs[0].id);
     }
 }

@@ -1,113 +1,55 @@
-/**
- * AuthManager - Authentication management (Refactored)
- * Uses StorageService for storage operations
- * @module AuthManager
- */
-
-import { StorageService } from './core/StorageService.js';
-import { ConfigurationManager } from './config/ConfigurationManager.js';
-import { ErrorLogger } from './utils/ErrorLogger.js';
-
+// Auth.js - Quản lý authentication state cho Testing Assistant
 class AuthManager {
-    /**
-     * Constructor - initializes redirect check
-     */
     constructor() {
         this.init();
     }
 
-    /**
-     * Initialize authentication check
-     */
     init() {
         this.checkAuthAndRedirect();
     }
 
-    /**
-     * Check authentication and redirect if needed
-     */
     async checkAuthAndRedirect() {
         try {
-            const isAuth = await AuthManager.isAuthenticated();
-
-            if (isAuth) {
+            const result = await chrome.storage.local.get(['isAuthenticated', 'userInfo']);
+            
+            if (result.isAuthenticated && result.userInfo) {
                 // User is authenticated, redirect to main popup
                 window.location.href = 'popup.html';
             } else {
-                ErrorLogger.info('User not authenticated');
+                // User is not authenticated, stay on login page
+                console.log('User not authenticated');
             }
         } catch (error) {
-            ErrorLogger.error('Error checking authentication', { error });
+            console.error('Error checking authentication:', error);
         }
     }
 
-    /**
-     * Check if user is authenticated
-     * @returns {Promise<boolean>} True if authenticated
-     */
     static async isAuthenticated() {
         try {
-            const result = await StorageService.get([
-                ConfigurationManager.STORAGE_KEYS.IS_AUTHENTICATED,
-                ConfigurationManager.STORAGE_KEYS.USER_INFO,
-            ]);
-
-            return (
-                result[ConfigurationManager.STORAGE_KEYS.IS_AUTHENTICATED] &&
-                result[ConfigurationManager.STORAGE_KEYS.USER_INFO]
-            );
+            const result = await chrome.storage.local.get(['isAuthenticated', 'userInfo']);
+            return result.isAuthenticated && result.userInfo;
         } catch (error) {
-            ErrorLogger.error('Error checking authentication status', { error });
+            console.error('Error checking authentication status:', error);
             return false;
         }
     }
 
-    /**
-     * Get user info from storage
-     * @returns {Promise<Object|null>} User info or null
-     */
     static async getUserInfo() {
         try {
-            const userInfo = await StorageService.getSafe(
-                ConfigurationManager.STORAGE_KEYS.USER_INFO,
-            );
-            return userInfo;
+            const result = await chrome.storage.local.get(['userInfo']);
+            return result.userInfo || null;
         } catch (error) {
-            ErrorLogger.error('Error getting user info', { error });
+            console.error('Error getting user info:', error);
             return null;
         }
     }
 
-    /**
-     * Get access token from storage
-     * @returns {Promise<string|null>} Access token or null
-     */
-    static async getAccessToken() {
-        try {
-            const userInfo = await StorageService.getSafe(
-                ConfigurationManager.STORAGE_KEYS.USER_INFO,
-            );
-            return userInfo?.accessToken || null;
-        } catch (error) {
-            ErrorLogger.error('Error getting access token', { error });
-            return null;
-        }
-    }
-
-    /**
-     * Logout user
-     * @returns {Promise<boolean>} True if successful
-     */
     static async logout() {
         try {
-            await StorageService.remove([
-                ConfigurationManager.STORAGE_KEYS.IS_AUTHENTICATED,
-                ConfigurationManager.STORAGE_KEYS.USER_INFO,
-            ]);
-            ErrorLogger.info('User logged out successfully');
+            await chrome.storage.local.remove(['isAuthenticated', 'userInfo']);
             return true;
         } catch (error) {
-            ErrorLogger.error('Error during logout', { error });
+            console.error('Error during logout:', error);
             return false;
         }
     }
@@ -116,6 +58,4 @@ class AuthManager {
 // Export for use in other files
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = AuthManager;
-}
-
-export default AuthManager;
+} 
