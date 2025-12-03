@@ -90,15 +90,19 @@ export class CommentThreadManager {
 
             if (!validation.valid) {
                 textarea.focus();
-                // Could show error message here
                 return;
             }
 
-            this.closeCommentInputModal();
+            // Disable buttons and show loading
+            saveBtn.disabled = true;
+            cancelBtn.disabled = true;
+            saveBtn.textContent = 'Đang lưu...';
 
             if (onSave) {
-                onSave(comment);
+                await Promise.resolve(onSave(comment));
             }
+
+            this.closeCommentInputModal();
         });
 
         document.body.appendChild(backdrop);
