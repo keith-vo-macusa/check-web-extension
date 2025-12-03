@@ -20,11 +20,11 @@ const messages = {
     'loading': 'Đang xử lý...',
 };
 
-const API_ENDPOINT = 'https://checkwise.macusaone.com/';
+const API_ENDPOINT = 'https://wpm.macusaone.com/';
 const API_ACTION = {
-    SEND_NOTIFICATION_TELEGRAM: API_ENDPOINT + 'api_domain_data.php?action=send_telegram',
-    GET_DOMAIN_DATA: API_ENDPOINT + 'api_domain_data.php?action=get_domain_data',
-    SET_DOMAIN_DATA: API_ENDPOINT + 'api_domain_data.php?action=set',
+    SEND_NOTIFICATION_TELEGRAM: API_ENDPOINT + 'api/v1/websites/check-wise/ext/notification',
+    GET_DOMAIN_DATA: API_ENDPOINT + 'api/v1/websites/check-wise/ext/',
+    SET_DOMAIN_DATA: API_ENDPOINT + 'api/v1/websites/check-wise/ext/',
 };
 
 const ACTION_MESSAGE = {
