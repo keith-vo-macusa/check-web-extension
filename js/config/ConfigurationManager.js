@@ -122,7 +122,7 @@ export class ConfigurationManager {
      * Admin configuration
      */
     static ADMIN = {
-        EMAIL: 'hana.web@macusaone.com',
+        ROLE: 'SITE_CHECK_ADMIN',
     };
 
     /**
@@ -233,11 +233,11 @@ export class ConfigurationManager {
     }
 
     /**
-     * Check if email is admin
-     * @param {string} email - Email to check
+     * Check if user is admin
+     * @param {Object} userInfo - User info
      * @returns {boolean} True if admin
      */
-    static isAdmin(email) {
-        return email === this.ADMIN.EMAIL;
+    static isAdmin(userInfo) {
+        return userInfo.roles.some((role) => role.name === this.ADMIN.ROLE);
     }
 }

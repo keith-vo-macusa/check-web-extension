@@ -9,6 +9,7 @@ import {
 } from './constants/index.js';
 import AlertManager from './services/AlertManager.js';
 import NotificationManager from './services/NotificationManager.js';
+import { ConfigurationManager } from './config/ConfigurationManager.js';
 
 // State Management
 class PopupState {
@@ -640,7 +641,8 @@ $(document).ready(async function () {
                 });
             });
             // sửa text của button và binding sự kiện theo type
-            if (userInfo.email == ADMIN_EMAIL) {
+            console.log('userInfo', userInfo);
+            if (ConfigurationManager.isAdmin(userInfo)) {
                 $('#sendNotification').text('Gửi thông báo lỗi');
                 $('#sendNotification').click(() => {
                     showConfirmSendNotification(userInfo, typeNotification.BUG_FOUND);
