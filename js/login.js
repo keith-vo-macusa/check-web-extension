@@ -164,7 +164,8 @@ class LoginManager {
                 id: data.id,
                 name: data.name,
                 email: data.email || null,
-                accessToken: data.accessToken || null,
+                accessToken: data.token || data.accessToken || null,
+                roles: data.roles || [],
                 loginTime: new Date().toISOString(),
             };
 
@@ -173,7 +174,7 @@ class LoginManager {
                 [ConfigurationManager.STORAGE_KEYS.USER_INFO]: userInfo,
             });
 
-            ErrorLogger.info('Auth state saved', { userId: userInfo.id });
+            ErrorLogger.info('Auth state saved', { userId: userInfo.id, roles: userInfo.roles });
         } catch (error) {
             ErrorLogger.error('Error saving auth state', { error });
             throw error;
