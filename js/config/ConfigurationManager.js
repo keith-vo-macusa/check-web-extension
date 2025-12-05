@@ -70,7 +70,7 @@ export class ConfigurationManager {
      * API configuration
      */
     static API = {
-        BASE_URL: 'https://wpm.macusaone.com/',
+        BASE_URL: 'https://dev-wpm.macusaone.com/',
         ENDPOINTS: {
             LOGIN: 'api/loginForExt',
             SEND_NOTIFICATION: 'api/v1/websites/check-wise/ext/notification',
@@ -122,7 +122,7 @@ export class ConfigurationManager {
      * Admin configuration
      */
     static ADMIN = {
-        ROLE: 'SITE_CHECK_ADMIN',
+        PERMISSON: 'SITE_CHECK_ADMIN',
     };
 
     /**
@@ -237,7 +237,7 @@ export class ConfigurationManager {
      * @param {Object} userInfo - User info
      * @returns {boolean} True if admin
      */
-    static isAdmin(userInfo) {
-        return userInfo.roles.some((role) => role.name === this.ADMIN.ROLE);
+    static isCheckwiseAdmin(userInfo) {
+        return userInfo.permissions.some((per) => per.name == this.ADMIN.PERMISSON);
     }
 }

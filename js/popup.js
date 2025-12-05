@@ -642,7 +642,7 @@ $(document).ready(async function () {
             });
             // sửa text của button và binding sự kiện theo type
             console.log('userInfo', userInfo);
-            if (ConfigurationManager.isAdmin(userInfo)) {
+            if (ConfigurationManager.isCheckwiseAdmin(userInfo)) {
                 $('#sendNotification').text('Gửi thông báo lỗi');
                 $('#sendNotification').click(() => {
                     showConfirmSendNotification(userInfo, typeNotification.BUG_FOUND);

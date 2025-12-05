@@ -14,13 +14,13 @@ const typeNotification = {
 const messages = {
     [typeNotification.BUG_FOUND]: 'Bạn có chắc muốn gửi thông báo lỗi không?',
     [typeNotification.BUG_FIXED]: 'Bạn có chắc muốn gửi thông báo đã sửa tất cả lỗi không?',
-    'remove_error': 'Bạn có chắc muốn xóa lỗi này không??',
-    'remove_all_errors': 'Bạn có chắc muốn xóa tất cả lỗi không???',
-    'change_status_error': 'Bạn có chắc muốn thay đổi trạng thái của lỗi này không?',
-    'loading': 'Đang xử lý...',
+    remove_error: 'Bạn có chắc muốn xóa lỗi này không??',
+    remove_all_errors: 'Bạn có chắc muốn xóa tất cả lỗi không???',
+    change_status_error: 'Bạn có chắc muốn thay đổi trạng thái của lỗi này không?',
+    loading: 'Đang xử lý...',
 };
 
-const API_ENDPOINT = 'https://wpm.macusaone.com/';
+const API_ENDPOINT = 'https://dev-wpm.macusaone.com/';
 const API_ACTION = {
     SEND_NOTIFICATION_TELEGRAM: API_ENDPOINT + 'api/v1/websites/check-wise/ext/notification',
     GET_DOMAIN_DATA: API_ENDPOINT + 'api/v1/websites/check-wise/ext/',
@@ -45,12 +45,12 @@ const ADMIN_EMAIL = 'hana.web@macusaone.com';
 
 const CURRENT_VERSION = chrome.runtime.getManifest().version;
 const DEFAULT_STORAGE = {
-  updateAvailable: false,
-  latestVersion: CURRENT_VERSION,
-  updateUrl: 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
+    updateAvailable: false,
+    latestVersion: CURRENT_VERSION,
+    updateUrl: 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
 };
 
-export { 
+export {
     BREAKPOINTS,
     typeNotification,
     messages,

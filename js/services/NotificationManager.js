@@ -1,8 +1,8 @@
 import TabManager from './TabManager.js';
-import { API_ACTION, messages } from '../constants/index.js';
+import { messages } from '../constants/index.js';
 import AlertManager from './AlertManager.js';
 import AuthManager from '../auth.js';
-
+import { ConfigurationManager } from '../config/ConfigurationManager.js';
 export default class NotificationManager {
     /**
      * Gửi thông báo về việc đánh dấu lỗi đã được giải quyết hoặc có lỗi mới
@@ -38,8 +38,8 @@ export default class NotificationManager {
                 headers['Authorization'] = `Bearer ${accessToken}`;
             }
 
-            // Gửi request bằng fetch API
-            const response = await fetch(API_ACTION.SEND_NOTIFICATION_TELEGRAM, {
+            // Gửi request bằng fetch API (sử dụng URL đầy đủ từ ConfigurationManager)
+            const response = await fetch(ConfigurationManager.getApiUrl('SEND_NOTIFICATION'), {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(data),
@@ -56,6 +56,7 @@ export default class NotificationManager {
             }
         } catch (error) {
             // Hiển thị thông báo lỗi nếu có exception
+            console.error(error);
             AlertManager.error('Thông báo', 'Có lỗi xảy ra khi gửi thông báo');
         } finally {
             // Kích hoạt lại button sau khi hoàn thành

@@ -54,10 +54,7 @@ export class CommentThreadManager {
         modal.className = ConfigurationManager.CSS_CLASSES.COMMENT_MODAL;
         modal.innerHTML = `
             <h3>💬 Thêm comment cho lỗi</h3>
-            <textarea
-                placeholder="Mô tả lỗi hoặc ghi chú..."
-                maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}">
-            </textarea>
+            <textarea placeholder="Mô tả lỗi hoặc ghi chú..." maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>
             <div class="testing-modal-buttons">
                 <button class="testing-modal-btn testing-modal-btn-secondary" data-action="cancel">Hủy</button>
                 <button class="testing-modal-btn testing-modal-btn-primary" data-action="save">Lưu</button>
