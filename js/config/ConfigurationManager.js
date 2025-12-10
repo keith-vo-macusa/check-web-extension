@@ -70,7 +70,7 @@ export class ConfigurationManager {
      * API configuration
      */
     static API = {
-        BASE_URL: 'https://dev-wpm.macusaone.com/',
+        BASE_URL: 'https://wpm.macusaone.com/',
         ENDPOINTS: {
             LOGIN: 'api/loginForExt',
             SEND_NOTIFICATION: 'api/v1/websites/check-wise/ext/notification',

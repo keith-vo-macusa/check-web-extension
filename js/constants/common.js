@@ -20,7 +20,7 @@ const messages = {
     loading: 'Đang xử lý...',
 };
 
-const API_ENDPOINT = 'https://dev-wpm.macusaone.com/';
+const API_ENDPOINT = 'https://wpm.macusaone.com/';
 const API_ACTION = {
     SEND_NOTIFICATION_TELEGRAM: API_ENDPOINT + 'api/v1/websites/check-wise/ext/notification',
     GET_DOMAIN_DATA: API_ENDPOINT + 'api/v1/websites/check-wise/ext/',
