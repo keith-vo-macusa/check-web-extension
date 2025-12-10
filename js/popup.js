@@ -91,9 +91,11 @@ class ErrorManager {
         const tabs = await TabManager.getCurrentTab();
         if (!tabs || !tabs[0]) return;
 
-        return await TabManager.sendMessage({
+        const domainName = await TabManager.getCurrentTabDomain();
+        return await TabManager.sendMessageToBackground({
             action: 'removeError',
             errorId,
+            domainName,
         });
     }
 
@@ -101,10 +103,10 @@ class ErrorManager {
         const tabs = await TabManager.getCurrentTab();
         if (!tabs || !tabs[0]) return;
 
-        // const url = tabs[0].url;
-        // await browserAPI.storage.local.set({[url]: []});
-        return await TabManager.sendMessage({
+        const domainName = await TabManager.getCurrentTabDomain();
+        return await TabManager.sendMessageToBackground({
             action: 'clearAllErrors',
+            domainName,
         });
     }
 
@@ -497,9 +499,11 @@ class UIManager {
                 if (result.isConfirmed) {
                     try {
                         AlertManager.loading(messages['loading']);
-                        const result = await TabManager.sendMessage({
+                        const domainName = await TabManager.getCurrentTabDomain();
+                        const result = await TabManager.sendMessageToBackground({
                             action: ACTION_MESSAGE.CHECK_FIXED,
                             errorId: error.id,
+                            domainName: domainName,
                         });
                         if (result?.success) {
                             AlertManager.close();

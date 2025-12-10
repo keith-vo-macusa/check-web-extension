@@ -162,6 +162,21 @@ export class BadgeManager {
                     sendResponse({ success: true });
                     break;
 
+                case ConfigurationManager.ACTIONS.CHECK_FIXED:
+                    const toggleResult = await this.toggleErrorStatus(domainName, message.errorId);
+                    sendResponse(toggleResult);
+                    break;
+
+                case ConfigurationManager.ACTIONS.REMOVE_ERROR:
+                    const removeResult = await this.removeError(domainName, message.errorId);
+                    sendResponse(removeResult);
+                    break;
+
+                case ConfigurationManager.ACTIONS.CLEAR_ALL_ERRORS:
+                    const clearResult = await this.clearAllErrorsForDomain(domainName);
+                    sendResponse(clearResult);
+                    break;
+
                 default:
                     sendResponse({ success: false, error: 'Unknown action' });
             }
@@ -400,6 +415,229 @@ export class BadgeManager {
     clearAllUnauthorized() {
         this.unauthorizedDomains.clear();
         ErrorLogger.info('All unauthorized domains cleared');
+    }
+
+    /**
+     * Remove single error
+     * @param {string} domain - Domain name
+     * @param {string} errorId - Error ID
+     * @returns {Promise<Object>} Result object with success status
+     */
+    async removeError(domain, errorId) {
+        try {
+            const domainData = this.getErrors(domain);
+
+            if (!domainData?.path) {
+                return { success: false, message: 'Domain data not found' };
+            }
+
+            // Find and remove error
+            let found = false;
+
+            for (const pathItem of domainData.path) {
+                const errorIndex = pathItem.data?.findIndex((e) => e.id === errorId);
+                if (errorIndex !== -1) {
+                    pathItem.data.splice(errorIndex, 1);
+                    found = true;
+
+                    // Remove empty path entries
+                    if (pathItem.data.length === 0) {
+                        const pathIndex = domainData.path.indexOf(pathItem);
+                        domainData.path.splice(pathIndex, 1);
+                    }
+
+                    ErrorLogger.info('Error removed', { errorId });
+                    break;
+                }
+            }
+
+            if (!found) {
+                return { success: false, message: 'Error not found' };
+            }
+
+            // Update API
+            const updateSuccess = await this.updateErrorsToAPI(domain, domainData);
+
+            if (updateSuccess) {
+                // Update local cache
+                await this.setErrors(domain, domainData);
+
+                // Notify content script to refresh UI
+                this.notifyContentScript();
+
+                // Update badge
+                await this.updateBadge(domain);
+
+                return { success: true };
+            }
+
+            return { success: false, message: 'Failed to update API' };
+        } catch (error) {
+            ErrorLogger.error('Failed to remove error', { domain, errorId, error });
+            return { success: false, message: error.message };
+        }
+    }
+
+    /**
+     * Clear all errors for a domain
+     * @param {string} domain - Domain name
+     * @returns {Promise<Object>} Result object with success status
+     */
+    async clearAllErrorsForDomain(domain) {
+        try {
+            const emptyData = { path: [] };
+
+            // Update API
+            const updateSuccess = await this.updateErrorsToAPI(domain, emptyData);
+
+            if (updateSuccess) {
+                // Update local cache
+                await this.setErrors(domain, emptyData);
+
+                // Notify content script to refresh UI
+                this.notifyContentScript();
+
+                // Update badge
+                await this.updateBadge(domain);
+
+                ErrorLogger.info('All errors cleared for domain', { domain });
+                return { success: true };
+            }
+
+            return { success: false, message: 'Failed to update API' };
+        } catch (error) {
+            ErrorLogger.error('Failed to clear all errors', { domain, error });
+            return { success: false, message: error.message };
+        }
+    }
+
+    /**
+     * Notify content script to refresh errors
+     * @private
+     */
+    async notifyContentScript() {
+        try {
+            const activeTab = await TabsService.getActiveTab();
+            if (activeTab?.id) {
+                await MessagingService.sendToContentScript(
+                    { action: ConfigurationManager.ACTIONS.SET_ERRORS_IN_CONTENT },
+                    activeTab.id,
+                ).catch(() => {
+                    // Content script may not be available, ignore
+                });
+            }
+        } catch (error) {
+            ErrorLogger.error('Failed to notify content script', { error });
+        }
+    }
+
+    /**
+     * Toggle error status (open <-> resolved)
+     * @param {string} domain - Domain name
+     * @param {string} errorId - Error ID
+     * @returns {Promise<Object>} Result object with success status
+     */
+    async toggleErrorStatus(domain, errorId) {
+        try {
+            const domainData = this.getErrors(domain);
+
+            if (!domainData?.path) {
+                return { success: false, message: 'Domain data not found' };
+            }
+
+            // Find and toggle error status
+            let found = false;
+            let updatedError = null;
+
+            for (const pathItem of domainData.path) {
+                const error = pathItem.data?.find((e) => e.id === errorId);
+                if (error) {
+                    const oldStatus = error.status;
+                    error.status =
+                        error.status === ConfigurationManager.ERROR_STATUS.OPEN
+                            ? ConfigurationManager.ERROR_STATUS.RESOLVED
+                            : ConfigurationManager.ERROR_STATUS.OPEN;
+                    updatedError = error;
+                    found = true;
+
+                    ErrorLogger.info('Error status toggled', {
+                        errorId,
+                        oldStatus,
+                        newStatus: error.status,
+                    });
+                    break;
+                }
+            }
+
+            if (!found) {
+                return { success: false, message: 'Error not found' };
+            }
+
+            // Update API
+            const updateSuccess = await this.updateErrorsToAPI(domain, domainData);
+
+            if (updateSuccess) {
+                // Update local cache
+                await this.setErrors(domain, domainData);
+
+                // Notify content script to refresh UI
+                this.notifyContentScript();
+
+                // Update badge
+                await this.updateBadge(domain);
+
+                return { success: true };
+            }
+
+            return { success: false, message: 'Failed to update API' };
+        } catch (error) {
+            ErrorLogger.error('Failed to toggle error status', { domain, errorId, error });
+            return { success: false, message: error.message };
+        }
+    }
+
+    /**
+     * Update errors to API
+     * @private
+     * @param {string} domain - Domain name
+     * @param {Object} errorsData - Errors data structure
+     * @returns {Promise<boolean>} True if successful
+     */
+    async updateErrorsToAPI(domain, errorsData) {
+        try {
+            const accessToken = await AuthManager.getAccessToken();
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+
+            if (accessToken) {
+                headers['Authorization'] = `Bearer ${accessToken}`;
+            }
+
+            const response = await fetch(
+                ConfigurationManager.API.BASE_URL +
+                    ConfigurationManager.API.ENDPOINTS.SET_DOMAIN_DATA,
+                {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        domain: domain,
+                        path: errorsData.path,
+                    }),
+                    signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error(`API returned ${response.status}`);
+            }
+
+            ErrorLogger.info('Errors updated to API successfully', { domain });
+            return true;
+        } catch (error) {
+            ErrorLogger.error('Failed to update errors to API', { domain, error });
+            return false;
+        }
     }
 }
 
