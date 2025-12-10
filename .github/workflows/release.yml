@@ -1,0 +1,152 @@
+name: Build and Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger khi push tag như v1.2.3
+    paths:
+      - 'manifest.json'  # Trigger khi manifest.json thay đổi
+  workflow_dispatch:  # Cho phép trigger thủ công
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.2.3)'
+        required: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Cần full history để check tags
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract version
+        id: get_version
+        run: |
+          # Nếu trigger từ tag, dùng tag đó
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.ref }}" ]; then
+            TAG_REF="${{ github.ref }}"
+            if [[ "$TAG_REF" == refs/tags/* ]]; then
+              VERSION="${TAG_REF#refs/tags/v}"
+              echo "📦 Version from tag: $VERSION"
+            else
+              # Lấy từ manifest.json
+              VERSION=$(node -p "require('./manifest.json').version")
+              echo "📦 Version from manifest.json: $VERSION"
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            # Manual trigger với version input
+            VERSION="${{ github.event.inputs.version }}"
+            echo "📦 Version from input: $VERSION"
+          else
+            # Mặc định: lấy từ manifest.json
+            VERSION=$(node -p "require('./manifest.json').version")
+            echo "📦 Version from manifest.json: $VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          TAG="v${{ steps.get_version.outputs.version }}"
+          
+          # Nếu trigger từ tag push, tag đã tồn tại
+          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Tag $TAG exists (triggered from tag push)"
+          elif git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Tag $TAG already exists"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+            echo "🆕 Tag $TAG does not exist, will create"
+          fi
+
+      - name: Create Git Tag (if not exists and not from tag push)
+        if: steps.check_tag.outputs.tag_exists == 'false' && github.event_name != 'workflow_dispatch'
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          TAG="v${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release v${VERSION}"
+          git push origin "$TAG"
+          echo "✅ Created and pushed tag $TAG"
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Create ZIP archive
+        run: |
+          cd dist
+          zip -r ../extension-v${{ steps.get_version.outputs.version }}.zip .
+          cd ..
+
+      - name: Create Release
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: Release v${{ steps.get_version.outputs.version }}
+          body: |
+            ## 🚀 Release v${{ steps.get_version.outputs.version }}
+            
+            ### 📦 Extension Package
+            - Download the `extension-v${{ steps.get_version.outputs.version }}.zip` file
+            - Extract and load as unpacked extension in Chrome/Edge
+            
+            ### 📝 Changes
+            - See commit history for changes
+            
+            ### ⚙️ Installation
+            1. Download `extension-v${{ steps.get_version.outputs.version }}.zip`
+            2. Extract the ZIP file
+            3. Open Chrome/Edge → Extensions → Developer mode
+            4. Click "Load unpacked" and select the extracted folder
+          files: |
+            extension-v${{ steps.get_version.outputs.version }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Release (if tag exists)
+        if: steps.check_tag.outputs.tag_exists == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: Release v${{ steps.get_version.outputs.version }}
+          body: |
+            ## 🔄 Updated Release v${{ steps.get_version.outputs.version }}
+            
+            ### 📦 Extension Package
+            - Download the `extension-v${{ steps.get_version.outputs.version }}.zip` file
+            - Extract and load as unpacked extension in Chrome/Edge
+          files: |
+            extension-v${{ steps.get_version.outputs.version }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-v${{ steps.get_version.outputs.version }}
+          path: |
+            extension-v${{ steps.get_version.outputs.version }}.zip
+            dist/
+          retention-days: 30
+

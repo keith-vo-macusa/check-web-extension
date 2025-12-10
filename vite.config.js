@@ -27,10 +27,23 @@ export default defineConfig({
     build: {
         outDir: 'dist',
         emptyOutDir: true,
+        minify: 'esbuild', // Minify code (faster than terser, built-in)
+        // esbuild will handle minification automatically
         rollupOptions: {
             input: {
-                // Placeholder để Vite không báo lỗi
-                dummy: resolve(__dirname, 'manifest.json'),
+                // Bundle content script
+                content: resolve(__dirname, 'content.js'),
+                // Bundle background script
+                background: resolve(__dirname, 'background.js'),
+                // Bundle content loader
+                'content-loader': resolve(__dirname, 'content-loader.js'),
+            },
+            output: {
+                // Preserve original file names
+                entryFileNames: '[name].js',
+                chunkFileNames: 'chunks/[name]-[hash].js',
+                assetFileNames: 'assets/[name]-[hash].[ext]',
+                format: 'es', // ES modules
             },
         },
     },
@@ -41,17 +54,7 @@ export default defineConfig({
                 // Copy manifest.json
                 copyFileSync('manifest.json', 'dist/manifest.json');
 
-                // Copy JavaScript files (không bundle)
-                const jsFiles = [
-                    'background.js',
-                    'content.js',
-                    'content-loader.js',
-                ];
-                jsFiles.forEach((file) => {
-                    if (existsSync(file)) {
-                        copyFileSync(file, join('dist', file));
-                    }
-                });
+                // Note: content.js, background.js, content-loader.js are bundled by Vite, no need to copy
 
                 // Copy HTML files
                 const htmlFiles = [
@@ -64,11 +67,16 @@ export default defineConfig({
                     copyFileWithDir(file, dest);
                 });
 
-                // Copy directories
-                const dirsToCopy = ['assets', 'lib', 'css', 'js'];
+                // Copy directories (lib, css, assets)
+                // Note: js/ is not copied because it is bundled into content.js and background.js
+                const dirsToCopy = ['assets', 'lib', 'css'];
                 dirsToCopy.forEach((dir) => {
                     copyDir(dir, join('dist', dir));
                 });
+
+                // Copy js/ for popup.js and other files not included in the bundle
+                // (popup.js runs in the popup context and does not need to be bundled)
+                copyDir('js', join('dist', 'js'));
             },
         },
     ],
