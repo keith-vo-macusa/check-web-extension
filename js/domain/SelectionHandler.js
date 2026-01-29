@@ -241,8 +241,26 @@ export class SelectionHandler {
             return;
         }
 
+        
+        // Allow interactions inside extension UI (modal/thread/overlays)
+        const extensionUiSelectors = [
+            '.testing-comment-thread',
+            '.testing-comment-modal',
+            '.testing-modal-backdrop',
+            '.testing-error-border',
+            '.testing-error-marker',
+        ].join(', ');
+
+        if (event.target.closest(extensionUiSelectors)) {
+            return;
+        }
+
         const linkElement = event.target.closest('a');
         if (linkElement) {
+            // Only block page links; allow links rendered inside extension UI
+            if (linkElement.closest(extensionUiSelectors)) {
+                return;
+            }
             event.preventDefault();
             event.stopPropagation();
         }
