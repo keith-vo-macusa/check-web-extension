@@ -139,6 +139,16 @@ class UIManager {
         this.checkForUpdates();
     }
 
+    escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     async setupUI() {
         const { errorsVisible } = await chrome.storage.local.get('errorsVisible');
 
@@ -418,32 +428,51 @@ class UIManager {
         if (error.status === 'resolved') {
             errorItem.addClass('resolved');
         }
+        if (error.status === 'closed') {
+            errorItem.addClass('closed');
+        }
+        if (!error.status || error.status === 'open') {
+            errorItem.addClass('open');
+        }
         const date = new Date(error.timestamp);
         const timeString = date.toLocaleString('vi-VN');
         const latestComment = error.comments[error.comments.length - 1];
         const statusBadge = this.createStatusBadge(error.status);
         const fixed = error.status === 'resolved';
         const bgBtnCheckFixed = fixed ? 'bg-success' : '';
+        const commentText = this.escapeHtml(latestComment?.text || '');
+        const commentCount = error.comments?.length || 0;
+        const bpType = error.breakpoint ? error.breakpoint.type : 'all';
+        const bpWidth = error.breakpoint ? `${error.breakpoint.width}px` : '';
+        const urlText = this.escapeHtml(error.url || '');
         errorItem.html(`
-            <div class="error-header">
-                <span class="error-number">#${index + 1}</span>
-                ${statusBadge}
-                <span class="error-time">${timeString}</span>
-                <button class="btn-toogle-check-fixed ${bgBtnCheckFixed}" data-fixed="${fixed}">
-                    <i class="fa-solid ${fixed ? 'fa-x' : 'fa-check'}"></i>
-                 </button>
-                <button class="delete-error-btn" title="Xóa lỗi này"><i class="fa-solid fa-trash"></i></button>
+            <div class="error-row">
+                <div class="error-main">
+                    <div class="error-topline">
+                        <span class="error-number">#${index + 1}</span>
+                        ${statusBadge}
+                        <span class="error-meta-pill">${commentCount} comment</span>
+                        <span class="error-time">${timeString}</span>
+                    </div>
+
+                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>
+
+                    <div class="error-bottomline">
+                        <span class="breakpoint-type">${bpType}</span>
+                        ${bpWidth ? `<span class="breakpoint-width">${bpWidth}</span>` : ''}
+                        ${urlText ? `<span class="error-url" title="${urlText}">${urlText}</span>` : ''}
+                    </div>
+                </div>
+
+                <div class="error-actions">
+                    <button class="btn-toogle-check-fixed ${bgBtnCheckFixed}" data-fixed="${fixed}" title="${fixed ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${fixed ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">
+                        <i class="fa-solid ${fixed ? 'fa-x' : 'fa-check'}"></i>
+                    </button>
+                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
             </div>
-            <div class="error-comment">${latestComment?.text || ''}</div>
-            <div class="error-breakpoint">
-                <span class="breakpoint-type">${
-                    error.breakpoint ? error.breakpoint.type : 'all'
-                }</span>
-                <span class="breakpoint-width">${
-                    error.breakpoint ? error.breakpoint.width + 'px' : ''
-                }</span>
-            </div>
-            <div class="error-url">${error.url}</div>
         `);
 
         this.setupErrorItemEventHandlers(errorItem, error);
@@ -647,12 +676,18 @@ $(document).ready(async function () {
             // sửa text của button và binding sự kiện theo type
             console.log('userInfo', userInfo);
             if (ConfigurationManager.isCheckwiseAdmin(userInfo)) {
-                $('#sendNotification').text('Gửi thông báo lỗi');
+                $('#sendNotification')
+                    .attr('aria-label', 'Gửi thông báo lỗi')
+                    .attr('title', 'Gửi thông báo lỗi');
+                $('#sendNotificationLabel').text('Gửi thông báo lỗi');
                 $('#sendNotification').click(() => {
                     showConfirmSendNotification(userInfo, typeNotification.BUG_FOUND);
                 });
             } else {
-                $('#sendNotification').text('Gửi thông báo đã sửa tất cả lỗi');
+                $('#sendNotification')
+                    .attr('aria-label', 'Gửi thông báo đã sửa tất cả lỗi')
+                    .attr('title', 'Gửi thông báo đã sửa tất cả lỗi');
+                $('#sendNotificationLabel').text('Gửi thông báo đã sửa tất cả lỗi');
                 $('#sendNotification').click(() => {
                     showConfirmSendNotification(userInfo, typeNotification.BUG_FIXED);
                 });
