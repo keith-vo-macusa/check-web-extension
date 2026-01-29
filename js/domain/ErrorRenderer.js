@@ -19,8 +19,11 @@ export class ErrorRenderer {
         this.onErrorClick = onErrorClick;
         this.errorBorders = []; // Array of error border elements
         this.container = null;
+        this.errorsData = new Map(); // Map errorId -> {error, element}
+        this.currentHoveredId = null; // Currently boosted error ID
 
         this.initializeContainer();
+        this.setupMouseMoveHandler();
     }
 
     /**
@@ -47,20 +50,25 @@ export class ErrorRenderer {
         overlay.className = ConfigurationManager.CSS_CLASSES.ERROR_BORDER;
         overlay.dataset.errorId = error.id;
 
-        // Set base z-index
+        // Calculate z-index based on area (smaller = higher z-index)
         let zIndex = 251001;
+        let element = null;
 
         if (error.type === ConfigurationManager.ERROR_TYPES.BORDER) {
-            // For element borders, calculate z-index based on DOM depth
-            const element = this.findErrorElement(error);
+            element = this.findErrorElement(error);
             if (!element) {
                 ErrorLogger.warn('Cannot find element for error', { errorId: error.id });
                 return null;
             }
-            zIndex = this.coordsCalculator.calculateZIndex(element);
         }
 
+        // Store error data for mousemove detection
+        this.errorsData.set(error.id, { error, element });
+
+        // Use area-based z-index for all error types
+        zIndex = this.coordsCalculator.calculateZIndexByArea(error, element);
         overlay.style.zIndex = zIndex.toString();
+        overlay.dataset.originalZIndex = zIndex.toString(); // Store original z-index
 
         // Add click handler
         overlay.addEventListener('click', (e) => {
@@ -70,18 +78,13 @@ export class ErrorRenderer {
             }
         });
 
-        // Add hover effect
-        overlay.addEventListener('mouseleave', () => {
-            overlay.classList.remove('testing-border-hover');
-        });
-
         this.container.appendChild(overlay);
         this.errorBorders.push(overlay);
 
         // Position the overlay
         this.positionErrorOverlay(overlay, error);
 
-        ErrorLogger.debug('Error overlay created', { errorId: error.id, type: error.type });
+        ErrorLogger.debug('Error overlay created', { errorId: error.id, type: error.type, zIndex });
 
         return overlay;
     }
@@ -297,6 +300,7 @@ export class ErrorRenderer {
         document.body.classList.toggle(ConfigurationManager.CSS_CLASSES.SHOW_ERROR, isVisible);
     }
 
+
     /**
      * Get error border element by ID
      * @param {string} errorId - Error ID
@@ -312,5 +316,87 @@ export class ErrorRenderer {
      */
     getContainer() {
         return this.container;
+    }
+
+    /**
+     * Setup document-level mousemove handler for smart hover detection
+     * @private
+     */
+    setupMouseMoveHandler() {
+        // Throttle mousemove for performance
+        let lastCall = 0;
+        const throttleMs = 50;
+
+        document.addEventListener('mousemove', (e) => {
+            const now = Date.now();
+            if (now - lastCall < throttleMs) return;
+            lastCall = now;
+
+            this.handleMouseMove(e.pageX, e.pageY);
+        });
+    }
+
+    /**
+     * Handle mouse move - find smallest error containing mouse and boost its z-index
+     * @param {number} x - Page X coordinate
+     * @param {number} y - Page Y coordinate
+     */
+    handleMouseMove(x, y) {
+        let smallestError = null;
+        let smallestArea = Infinity;
+
+        // Find all visible errors containing the mouse point
+        this.errorsData.forEach((data, errorId) => {
+            const overlay = this.getErrorBorder(errorId);
+            if (!overlay) return;
+
+            // Check if overlay is visible
+            const computedStyle = window.getComputedStyle(overlay);
+            if (computedStyle.display === 'none') return;
+
+            // Get overlay bounds
+            const rect = overlay.getBoundingClientRect();
+            const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+            const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+            const bounds = {
+                left: rect.left + scrollX,
+                top: rect.top + scrollY,
+                right: rect.left + scrollX + rect.width,
+                bottom: rect.top + scrollY + rect.height,
+            };
+
+            // Check if mouse is inside this error
+            if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) {
+                const area = rect.width * rect.height;
+                if (area < smallestArea) {
+                    smallestArea = area;
+                    smallestError = errorId;
+                }
+            }
+        });
+
+        // Update z-index boost
+        if (smallestError !== this.currentHoveredId) {
+            // Reset previous hovered error
+            if (this.currentHoveredId) {
+                const prevOverlay = this.getErrorBorder(this.currentHoveredId);
+                if (prevOverlay) {
+                    prevOverlay.style.zIndex = prevOverlay.dataset.originalZIndex || '251001';
+                    prevOverlay.classList.remove('testing-border-hover');
+                }
+            }
+
+            // Boost new smallest error
+            if (smallestError) {
+                const overlay = this.getErrorBorder(smallestError);
+                if (overlay) {
+                    overlay.style.zIndex = '999999';
+                    overlay.classList.add('testing-border-hover');
+                }
+            }
+
+            this.currentHoveredId = smallestError;
+        }
     }
 }

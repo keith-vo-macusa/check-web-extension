@@ -4,9 +4,11 @@
 body.testing-selection-mode .elementor-element {
     cursor: crosshair !important;
 }
+
 body {
     position: relative;
 }
+
 #testing-error-container {
     position: absolute;
     top: 0;
@@ -24,12 +26,8 @@ body {
 }
 
 /* Chỉ hiển thị khi body đang bật chế độ show lỗi */
-body.show-error
-    #testing-error-container.draw-open-errors
-    .testing-error-border.open.match-breakpoint,
-body.show-error
-    #testing-error-container.draw-resolved-errors
-    .testing-error-border.resolved.match-breakpoint {
+body.show-error #testing-error-container.draw-open-errors .testing-error-border.open.match-breakpoint,
+body.show-error #testing-error-container.draw-resolved-errors .testing-error-border.resolved.match-breakpoint {
     display: block;
 }
 

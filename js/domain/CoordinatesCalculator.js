@@ -220,4 +220,32 @@ export class CoordinatesCalculator {
         const baseZIndex = 251001;
         return baseZIndex + depth;
     }
+
+    /**
+     * Calculate z-index based on area (smaller = higher z-index)
+     * This ensures smaller/inner errors appear on top of larger/outer errors
+     * @param {Object} error - Error object with type and coordinates/elementIdentifiers
+     * @param {HTMLElement|null} element - DOM element (for border type)
+     * @returns {number} Calculated z-index
+     */
+    calculateZIndexByArea(error, element = null) {
+        const BASE_Z_INDEX = 251001;
+        const MAX_Z_OFFSET = 1000;
+        const MAX_AREA = 2073600; // ~1920x1080
+
+        let area = MAX_AREA;
+
+        if (error.type === 'rect' && error.coordinates) {
+            area = (error.coordinates.width || 0) * (error.coordinates.height || 0);
+        } else if (error.type === 'border' && element) {
+            const rect = element.getBoundingClientRect();
+            area = rect.width * rect.height;
+        }
+
+        // Normalize: smaller area = higher z-index offset
+        const normalizedArea = Math.min(Math.max(area, 1), MAX_AREA);
+        const zOffset = Math.floor((1 - normalizedArea / MAX_AREA) * MAX_Z_OFFSET);
+
+        return BASE_Z_INDEX + zOffset;
+    }
 }

@@ -1,182 +1,438 @@
-# 🐛 Website Testing Assistant - Chrome Extension
+# Website Testing Assistant - Chrome Extension
 
-## 📋 Mô tả
+## Mô tả
 
-Chrome Extension hỗ trợ tester kiểm tra website, cho phép chọn vùng lỗi trên giao diện, thêm bình luận trực tiếp vào vùng lỗi, và hiển thị danh sách các lỗi đã được ghi nhận.
-
-## ✨ Tính năng chính
-
-### 🎯 Chọn vùng bị lỗi
-- Click để kích hoạt chế độ chọn lỗi
-- Hover để highlight phần tử
-- Click để chọn vùng lỗi cần ghi nhận
-- Hiển thị trực quan vùng được chọn với viền đỏ
-
-### 💬 Thêm comment trực tiếp
-- Modal popup để nhập comment cho lỗi
-- Hỗ trợ Ctrl+Enter để lưu nhanh
-- Giới hạn 500 ký tự
-- Hiển thị tooltip khi hover vào marker lỗi
-
-### 📋 Quản lý danh sách lỗi
-- Hiển thị tất cả lỗi đã ghi nhận trên trang
-- Tìm kiếm lỗi theo comment hoặc selector
-- Click vào lỗi để highlight vùng tương ứng
-- Xóa tất cả lỗi với xác nhận
-
-### 💾 Lưu trữ dữ liệu
-- Dữ liệu được lưu trong Chrome Storage theo URL
-- Giữ nguyên sau khi refresh trang (F5)
-- Tự động xóa dữ liệu cũ hơn 1 tuần
-
-## 🚀 Cài đặt
-
-1. **Tải extension:**
-   ```bash
-   git clone <repository-url>
-   cd mac-extension
-   ```
-
-2. **Cài đặt extension trong Chrome:**
-   - Mở Chrome và truy cập `chrome://extensions/`
-   - Bật "Developer mode" ở góc phải trên
-   - Click "Load unpacked"
-   - Chọn thư mục chứa extension
-
-3. **Sử dụng extension:**
-   - Click vào icon extension trên thanh công cụ
-   - Click "🎯 Bắt đầu chọn lỗi" để kích hoạt
-   - Click vào vùng lỗi trên website
-   - Nhập comment và lưu
-
-## 🎮 Hướng dẫn sử dụng
-
-### Bước 1: Kích hoạt chế độ chọn lỗi
-- Click vào icon extension
-- Click nút "🎯 Bắt đầu chọn lỗi"
-- Con trỏ sẽ chuyển thành dạng crosshair
-
-### Bước 2: Chọn vùng lỗi
-- Di chuyển chuột để highlight phần tử
-- Click vào phần tử cần ghi nhận lỗi
-- Modal comment sẽ xuất hiện
-
-### Bước 3: Thêm comment
-- Nhập mô tả lỗi vào textarea
-- Có thể sử dụng Ctrl+Enter để lưu nhanh
-- Click "Lưu" để hoàn tất
-
-### Bước 4: Quản lý lỗi
-- Xem danh sách lỗi trong popup
-- Tìm kiếm bằng ô search
-- Click vào lỗi để highlight trên trang
-- Sử dụng các nút hiển thị/ẩn tất cả
-
-## 🛠️ Cấu trúc dự án
-
-```
-mac-extension/
-├── manifest.json          # Cấu hình extension
-├── popup.html             # Giao diện popup
-├── popup.js               # Logic popup
-├── content.js             # Script inject vào trang web
-├── content.css            # Styles cho content
-├── background.js          # Service worker
-├── lib/
-│   └── jquery.min.js     # jQuery library
-├── assets/
-│   ├── icon16.png        # Icon 16x16
-│   ├── icon48.png        # Icon 48x48
-│   └── icon128.png       # Icon 128x128
-└── README.md             # Tài liệu này
-```
-
-## 🎨 Giao diện
-
-### Popup Interface
-- **Header**: Tiêu đề và mô tả ngắn
-- **Controls**: Các nút điều khiển chính
-- **Status**: Hiển thị trạng thái hoạt động
-- **Errors List**: Danh sách lỗi với tìm kiếm
-
-### Content Interface
-- **Error Markers**: Chấm đỏ đánh số thứ tự
-- **Tooltips**: Hiển thị comment khi hover
-- **Highlight**: Viền vàng khi click từ danh sách
-- **Modal**: Form nhập comment
-
-## 🔧 Công nghệ sử dụng
-
-- **Manifest V3**: Chrome Extension API mới nhất
-- **jQuery 3.7.1**: DOM manipulation và event handling
-- **Chrome Storage API**: Lưu trữ dữ liệu cục bộ
-- **CSS3**: Animations và responsive design
-- **ES6+**: Modern JavaScript features
-
-## 📊 Lưu trữ dữ liệu
-
-Extension sử dụng Chrome Storage API để lưu trữ:
-
-```javascript
-// Cấu trúc dữ liệu
-{
-  "https://example.com": [
-    {
-      "id": "unique-id",
-      "comment": "Mô tả lỗi",
-      "selector": "div.class#id",
-      "timestamp": 1684567890123,
-      "position": { top, left, width, height },
-      "url": "https://example.com"
-    }
-  ]
-}
-```
-
-## 🚧 Roadmap
-
-### Giai đoạn 1 (Hiện tại) - jQuery
-- ✅ Chọn vùng lỗi cơ bản
-- ✅ Thêm comment với modal
-- ✅ Hiển thị danh sách lỗi
-- ✅ Lưu trữ trong Chrome Storage
-- ✅ Tìm kiếm và lọc lỗi
-
-### Giai đoạn 2 (Tương lai) - React
-- 🔄 Migrate sang React
-- 🔄 Component-based architecture
-- 🔄 State management với Redux/Context
-- 🔄 TypeScript support
-- 🔄 Unit testing
-
-### Tính năng bổ sung
-- 🔮 Export/Import dữ liệu
-- 🔮 Chia sẻ lỗi qua URL
-- 🔮 Screenshot tự động
-- 🔮 Tích hợp với Jira/Trello
-- 🔮 Team collaboration
-- 🔮 Dark mode
-
-## 🐛 Báo lỗi
-
-Nếu gặp lỗi, vui lòng tạo issue với thông tin:
-- Phiên bản Chrome
-- URL trang web
-- Mô tả lỗi chi tiết
-- Screenshot (nếu có)
-
-## 📄 License
-
-MIT License - Xem file LICENSE để biết thêm chi tiết.
-
-## 🤝 Đóng góp
-
-1. Fork dự án
-2. Tạo feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Tạo Pull Request
+Chrome Extension (Manifest V3) hỗ trợ tester kiểm tra website. Cho phép chọn vùng lỗi trực tiếp trên giao diện, thêm comment, quản lý trạng thái lỗi và đồng bộ với server.
 
 ---
 
-**Made with ❤️ by Development Team** 
+## Tính năng chính
+
+### Chọn vùng lỗi
+- **Border Mode**: Click vào element để đánh dấu lỗi theo vùng element
+- **Rect Mode**: Kéo thả để vẽ vùng lỗi tự do
+- Hỗ trợ **responsive breakpoints** (Desktop, Tablet, Mobile)
+- **Smart Hover**: Di chuột vào vùng chồng lấp → error nhỏ nhất tự động nổi lên trên
+
+### Comment System
+- Thread comments (nhiều người có thể comment)
+- Chỉnh sửa/xóa comment của mình
+- Tooltip preview khi hover
+- Ctrl+Enter để lưu nhanh
+
+### Quản lý lỗi
+- Danh sách lỗi theo trang
+- Lọc theo trạng thái: **Open** / **Resolved**
+- Lọc theo breakpoint: Desktop / Tablet / Mobile
+- Toggle hiển thị/ẩn error markers
+- Xóa đơn lẻ hoặc xóa tất cả
+
+### Thông báo & Updates
+- Gửi thông báo lỗi đến team
+- Tự động check update phiên bản mới
+- Badge hiển thị số lỗi
+
+---
+
+## Công nghệ sử dụng
+
+| Công nghệ | Mục đích |
+|-----------|----------|
+| **Manifest V3** | Chrome Extension API mới nhất |
+| **ES6 Modules** | Modern JavaScript architecture |
+| **Vite** | Build tool |
+| **jQuery 3.7.1** | DOM manipulation (popup) |
+| **SweetAlert2** | Beautiful modals |
+| **Chrome Storage API** | Lưu trữ local |
+| **Chrome Messaging API** | Giao tiếp giữa components |
+
+---
+
+## Cấu trúc dự án
+
+```
+check-web-extension/
+├── manifest.json              # Cấu hình extension (v1.2.3)
+├── background.js              # Service Worker
+├── content.js                 # Main content script class
+├── content-loader.js          # Loader cho content script
+│
+├── screens/
+│   ├── login.html             # Màn hình đăng nhập
+│   ├── popup.html             # Popup chính
+│   └── offscreen.html         # Offscreen document
+│
+├── js/
+│   ├── auth.js                # Authentication manager
+│   ├── login.js               # Login logic
+│   ├── popup.js               # Popup logic
+│   ├── utils.js               # Utilities
+│   │
+│   ├── config/
+│   │   └── ConfigurationManager.js    # Centralized config
+│   │
+│   ├── constants/
+│   │   └── index.js           # App constants
+│   │
+│   ├── core/
+│   │   ├── StorageService.js      # Chrome Storage wrapper
+│   │   ├── MessagingService.js    # Chrome Messaging wrapper
+│   │   ├── TabsService.js         # Tabs management
+│   │   └── WindowsService.js      # Windows management
+│   │
+│   ├── domain/
+│   │   ├── ErrorDataManager.js    # Error CRUD & API sync
+│   │   ├── ErrorRenderer.js       # Render error markers
+│   │   ├── SelectionHandler.js    # Element selection logic
+│   │   ├── CommentModal.js        # Comment input modal
+│   │   ├── CommentThreadManager.js # Comment thread UI
+│   │   └── CoordinatesCalculator.js # Position calculations
+│   │
+│   ├── services/
+│   │   ├── BadgeService.js        # Extension badge
+│   │   ├── NotificationManager.js # Notifications
+│   │   ├── UpdateChecker.js       # Version updates
+│   │   ├── AlertManager.js        # SweetAlert wrapper
+│   │   └── TabManager.js          # Tab utilities
+│   │
+│   └── utils/
+│       ├── ErrorLogger.js         # Logging utility
+│       └── ValidationService.js   # Input validation
+│
+├── css/
+│   ├── content.css            # Styles injected vào trang
+│   ├── login.css              # Login screen styles
+│   └── popup.css              # Popup styles
+│
+├── lib/
+│   ├── jquery.min.js          # jQuery
+│   └── sweet-alert/           # SweetAlert2
+│
+└── assets/
+    ├── icon16.png
+    ├── icon48.png
+    └── icon128.png
+```
+
+---
+
+## Kiến trúc hệ thống
+
+### Component Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        CHROME EXTENSION                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌─────────────┐     Messages     ┌─────────────────────────┐   │
+│  │   Popup     │ ◄──────────────► │    Background Script    │   │
+│  │  (popup.js) │                  │    (Service Worker)     │   │
+│  └─────────────┘                  └───────────┬─────────────┘   │
+│         │                                     │                   │
+│         │                                     │ API Calls         │
+│         │                                     ▼                   │
+│         │                         ┌─────────────────────────┐   │
+│         │                         │   Backend API Server     │   │
+│         │                         │  (wpm.macusaone.com)     │   │
+│         │                         └─────────────────────────┘   │
+│         │                                     │                   │
+│         │              Messages               │                   │
+│         └──────────────────┬──────────────────┘                   │
+│                            ▼                                       │
+│                  ┌─────────────────────────────────────────┐     │
+│                  │           Content Script                 │     │
+│                  │  ┌─────────────────────────────────┐    │     │
+│                  │  │   WebsiteTestingAssistant       │    │     │
+│                  │  │                                  │    │     │
+│                  │  │  ├── ErrorDataManager           │    │     │
+│                  │  │  ├── ErrorRenderer              │    │     │
+│                  │  │  ├── SelectionHandler           │    │     │
+│                  │  │  ├── CommentModal               │    │     │
+│                  │  │  └── CommentThreadManager       │    │     │
+│                  │  └─────────────────────────────────┘    │     │
+│                  └─────────────────────────────────────────┘     │
+│                                    │                               │
+│                                    ▼                               │
+│                          ┌─────────────────┐                      │
+│                          │   Target Website │                      │
+│                          │  (DOM injection) │                      │
+│                          └─────────────────┘                      │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         DATA FLOW                                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│   User Action                                                     │
+│       │                                                           │
+│       ▼                                                           │
+│   SelectionHandler ──► CommentModal ──► ErrorDataManager         │
+│                                              │                    │
+│                                              ▼                    │
+│                                    ┌─────────────────┐           │
+│                                    │ MessagingService │           │
+│                                    └────────┬────────┘           │
+│                                              │                    │
+│                            ┌─────────────────┼─────────────────┐ │
+│                            ▼                 ▼                  ▼ │
+│                    Background Script    Chrome Storage    API Server
+│                            │                 │                  │ │
+│                            └─────────────────┼──────────────────┘ │
+│                                              │                    │
+│                                              ▼                    │
+│                                       ErrorRenderer               │
+│                                              │                    │
+│                                              ▼                    │
+│                                    DOM (Error Markers)            │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Data Structures
+
+### Error Object
+
+```javascript
+{
+  "id": "uuid-v4",
+  "type": "border" | "rect",
+  "status": "open" | "resolved",
+  "url": "https://example.com/page",
+  "breakpoint": {
+    "type": "desktop" | "tablet" | "mobile",
+    "width": 1920,
+    "height": 1080
+  },
+  "elementIdentifiers": {           // For border type
+    "xpath": "/html/body/div[1]/..."
+  },
+  "coordinates": {                  // For rect type
+    "left": 100,
+    "top": 200,
+    "width": 300,
+    "height": 150,
+    "responsive": {
+      "left": 5.2,    // % of document width
+      "top": 10.5,    // % of document height
+      "width": 15.6,  // vw
+      "height": 10.2  // vh
+    }
+  },
+  "comments": [
+    {
+      "id": "comment-uuid",
+      "text": "Lỗi font size",
+      "author": {
+        "id": "user-id",
+        "name": "Tester Name"
+      },
+      "timestamp": "2024-01-29T10:00:00Z",
+      "editedAt": null
+    }
+  ],
+  "timestamp": 1706518800000
+}
+```
+
+### API Data Structure (per domain)
+
+```javascript
+{
+  "domain": "example.com",
+  "errors": [ /* Array of Error objects */ ],
+  "lastUpdated": "2024-01-29T10:00:00Z"
+}
+```
+
+### User Info (Chrome Storage)
+
+```javascript
+{
+  "isAuthenticated": true,
+  "userInfo": {
+    "id": "user-id",
+    "name": "Tester Name",
+    "email": "tester@example.com",
+    "accessToken": "jwt-token",
+    "roles": ["TESTER"],
+    "permissions": ["SITE_CHECK"],
+    "loginTime": "2024-01-29T08:00:00Z"
+  }
+}
+```
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/loginForExt` | Đăng nhập |
+| `GET` | `/api/v1/websites/check-wise/ext/{domain}` | Lấy errors theo domain |
+| `PUT` | `/api/v1/websites/check-wise/ext/{domain}` | Cập nhật errors |
+| `POST` | `/api/v1/websites/check-wise/ext/notification` | Gửi thông báo lỗi |
+
+**Base URL**: `https://wpm.macusaone.com/`
+
+---
+
+## Phím tắt
+
+| Phím tắt | Chức năng |
+|----------|-----------|
+| `Shift + W` | Toggle chế độ chọn lỗi |
+| `Shift + E` | Toggle hiển thị tất cả lỗi |
+| `Ctrl + Enter` | Lưu comment nhanh |
+| `Escape` | Thoát chế độ chọn / đóng modal |
+
+---
+
+## Core Services
+
+### StorageService
+Wrapper cho Chrome Storage API với Promise-based interface.
+
+```javascript
+import { StorageService } from './core/StorageService.js';
+
+// Get
+const data = await StorageService.get('key');
+const safe = await StorageService.getSafe('key', defaultValue);
+
+// Set
+await StorageService.set({ key: value });
+
+// Remove
+await StorageService.remove('key');
+```
+
+### MessagingService
+Giao tiếp giữa popup, background, và content script.
+
+```javascript
+import { MessagingService } from './core/MessagingService.js';
+
+// Send to background
+const response = await MessagingService.sendToBackground({ action: 'getState' });
+
+// Send to content script
+await MessagingService.sendToContentScript({ action: 'activate' });
+
+// Add listener
+const cleanup = MessagingService.addListener((message, sender) => {
+  // Handle message
+});
+```
+
+### ConfigurationManager
+Centralized configuration và constants.
+
+```javascript
+import { ConfigurationManager } from './config/ConfigurationManager.js';
+
+// Constants
+ConfigurationManager.ERROR_STATUS.OPEN  // 'open'
+ConfigurationManager.ACTIONS.ACTIVATE   // 'activate'
+ConfigurationManager.API.BASE_URL       // 'https://wpm.macusaone.com/'
+
+// Helper methods
+ConfigurationManager.getApiUrl('LOGIN');
+ConfigurationManager.getBreakpointType(window.innerWidth);
+ConfigurationManager.isCheckwiseAdmin(userInfo);
+```
+
+---
+
+## ErrorRenderer - Smart Hover
+
+Xử lý trường hợp nhiều errors lồng nhau:
+
+1. **Z-index by Area**: Error nhỏ hơn có z-index cao hơn (mặc định)
+2. **Smart Hover**: Khi di chuột, error nhỏ nhất chứa chuột tự động nổi lên trên
+
+```javascript
+// Throttled mousemove listener
+document.addEventListener('mousemove', (e) => {
+  // Find all errors containing mouse position
+  // Boost z-index of smallest one
+});
+```
+
+---
+
+## Scripts
+
+```bash
+# Development (watch mode)
+npm run dev
+
+# Production build
+npm run build
+
+# Clean build
+npm run build:clean
+```
+
+---
+
+## Installation
+
+1. **Clone repository**
+   ```bash
+   git clone https://github.com/keith-vo-macusa/check-web-extension.git
+   cd check-web-extension
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Build**
+   ```bash
+   npm run build
+   ```
+
+4. **Load in Chrome**
+   - Open `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select the project folder
+
+---
+
+## Debugging
+
+### Console Logs
+Extension sử dụng `ErrorLogger` với các log levels:
+- `[INFO]` - Thông tin operation thành công
+- `[WARN]` - Cảnh báo non-critical
+- `[ERROR]` - Lỗi cần xử lý
+- `[DEBUG]` - Chi tiết debug (development)
+
+### Common Issues
+
+| Vấn đề | Nguyên nhân | Giải pháp |
+|--------|-------------|-----------|
+| "Extension context invalidated" | Extension bị reload | Refresh trang web |
+| "Content script not available" | Content script chưa inject | Refresh trang web |
+| Errors không hiển thị | Toggle visibility tắt | Bật toggle trong popup |
+| API call failed | Token hết hạn | Đăng nhập lại |
+
+---
+
+## License
+
+MIT License - Xem file LICENSE để biết thêm chi tiết.
+
+---
+
+**Made by MACUSA Development Team**
