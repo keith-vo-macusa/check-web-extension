@@ -635,7 +635,23 @@ $(document).ready(async function () {
                 <div class="user-info">
                     <span class="user-id">ID: ${userInfo.id}</span>
                     <span class="user-name">Tên: ${userInfo.name}</span>
-                    <button id="logoutBtn" class="logout-btn">Đăng xuất</button>
+                    <button id="logoutBtn" class="logout-btn" title="Đăng xuất" aria-label="Đăng xuất">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path
+                            d="M12 2v10"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            />
+                            <path
+                            d="M6 5a8 8 0 1 0 12 0"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            />
+                        </svg>
+                        <span class="visually-hidden">Đăng xuất</span>
+                        </button>
                 </div>
             `);
 
@@ -673,8 +689,15 @@ $(document).ready(async function () {
                     }
                 });
             });
+            // ẩn/hiện toggleModeSection dựa vào quyền admin
+            const toggleModeSection = $('#toggleModeSection');
+
+            if(ConfigurationManager.isCheckwiseAdmin(userInfo)) {
+                toggleModeSection.show();
+            } else {
+                toggleModeSection.hide();
+            }
             // sửa text của button và binding sự kiện theo type
-            console.log('userInfo', userInfo);
             if (ConfigurationManager.isCheckwiseAdmin(userInfo)) {
                 $('#sendNotification')
                     .attr('aria-label', 'Gửi thông báo lỗi')

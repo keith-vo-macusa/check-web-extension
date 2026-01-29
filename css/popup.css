@@ -317,6 +317,7 @@ body {
     gap: 6px;
     align-items: flex-end;
     flex-shrink: 0;
+    margin-top: 10%;
 }
 
 .error-topline {
@@ -536,18 +537,30 @@ body {
 }
 
 .logout-btn {
-    font-size: var(--font-size-xs);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    background: var(--color-gray-600);
-    color: var(--color-white);
-    border: none;
-    border-radius: var(--border-radius-md);
+    font-size: 0;
+    padding: 6px;
+    background: transparent;
+    color: #d93025;
+    border: 1px solid rgba(217, 48, 37, 0.4);
+    border-radius: 999px;
     cursor: pointer;
     transition: var(--transition-base);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .logout-btn:hover {
-    background: var(--color-gray-700);
+    background: #fce8e6;
+}
+
+.logout-btn svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    /* fill: currentColor;s */
 }
 
 .breakpoint-indicator {
@@ -968,4 +981,52 @@ body[data-show-resolved='false'] .error-item.resolved {
     clip: rect(0, 0, 0, 0) !important;
     white-space: nowrap !important;
     border: 0 !important;
+}
+
+/* Chrome, Edge, Safari */
+.errors-list::-webkit-scrollbar {
+    width: 3px; /* độ mảnh của scrollbar */
+}
+
+.errors-list::-webkit-scrollbar-track {
+    background: transparent; /* nền track */
+}
+
+.errors-list::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.25);
+    border-radius: 999px;
+}
+
+.errors-list::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.45);
+}
+
+/* Firefox */
+.errors-list {
+    scrollbar-width: thin; /* thin | auto */
+    scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
+}
+
+/* Chrome, Edge, Safari */
+.popup-shell::-webkit-scrollbar {
+    width: 3px;
+}
+
+.popup-shell::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.popup-shell::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 999px;
+}
+
+.popup-shell::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Firefox */
+.popup-shell {
+    scrollbar-width: thin; /* thin | auto */
+    scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
 }
