@@ -61,97 +61,11 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     width: 100% !important;
     height: 100% !important;
     background: rgba(0, 0, 0, 0.5) !important;
-    z-index: 2147483647 !important;
+    z-index: 1000000 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     cursor: default !important;
-}
-
-.testing-comment-modal {
-    background: white !important;
-    border-radius: 8px !important;
-    padding: 24px !important;
-    max-width: 500px !important;
-    width: 90% !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
-    position: relative !important;
-    cursor: default !important;
-}
-
-.testing-comment-modal * {
-    cursor: default !important;
-}
-
-.testing-comment-modal h3 {
-    margin: 0 0 16px 0 !important;
-    font-size: 18px !important;
-    font-weight: 600 !important;
-    color: #333 !important;
-}
-
-.testing-comment-modal textarea {
-    width: 100% !important;
-    height: 100px !important;
-    padding: 12px !important;
-    border: 2px solid #e1e5e9 !important;
-    border-radius: 6px !important;
-    font-size: 14px !important;
-    font-family: inherit !important;
-    resize: vertical !important;
-    outline: none !important;
-    margin-bottom: 16px !important;
-    cursor: text !important;
-}
-
-.testing-comment-modal textarea:focus {
-    border-color: #007bff !important;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1) !important;
-}
-
-.testing-modal-buttons {
-    display: flex !important;
-    gap: 12px !important;
-    justify-content: flex-end !important;
-}
-
-.testing-modal-btn {
-    padding: 8px 16px !important;
-    border: none !important;
-    border-radius: 6px !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    cursor: pointer !important;
-    transition: all 0.2s ease !important;
-}
-
-.testing-modal-btn-primary {
-    background: #007bff !important;
-    color: white !important;
-}
-
-.testing-modal-btn-primary:hover:not(:disabled) {
-    background: #0056b3 !important;
-}
-
-.testing-modal-btn-primary:disabled {
-    background: #6c757d !important;
-    cursor: not-allowed !important;
-    opacity: 0.6 !important;
-}
-
-.testing-modal-btn-secondary {
-    background: #6c757d !important;
-    color: white !important;
-}
-
-.testing-modal-btn-secondary:hover:not(:disabled) {
-    background: #545b62 !important;
-}
-
-.testing-modal-btn-secondary:disabled {
-    opacity: 0.5 !important;
-    cursor: not-allowed !important;
 }
 
 /* Highlighted element during selection */
@@ -159,11 +73,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     outline: 3px dashed #007bff !important;
     outline-offset: 2px !important;
     background: rgba(0, 123, 255, 0.1) !important;
-}
-
-/* Modal animations */
-.testing-comment-modal {
-    animation: testing-modal-appear 0.3s ease-out !important;
 }
 
 /* Responsive adjustments */
@@ -268,24 +177,14 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
 }
 
 /* Thread styles - Figma-like */
-.testing-thread-backdrop {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background: rgba(0, 0, 0, 0.3) !important;
-    z-index: 9999998 !important;
-    cursor: default !important;
-}
-
 .testing-comment-thread {
     position: fixed !important;
     width: 650px !important;
     max-height: min(82vh, 760px) !important;
+    max-width: 90vw !important; /* đồng bộ với testing-comment-modal */
     background: #ffffff !important;
     border-radius: 12px !important;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18) !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important; /* giống modal thêm lỗi */
     border: 1px solid rgba(0, 0, 0, 0.08) !important;
     font-family:
         -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
@@ -362,16 +261,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     color: #050505 !important;
     font-size: 15px !important;
     letter-spacing: -0.2px !important;
-}
-
-.thread-icon {
-    font-size: 16px !important;
-}
-
-.thread-title span:nth-child(2) {
-    font-weight: 600 !important;
-    color: #1a1a1a !important;
-    font-size: 14px !important;
 }
 
 .thread-status {
@@ -674,17 +563,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     justify-content: flex-end !important;
 }
 
-.btn-reply-cancel,
-.btn-reply-send {
-    padding: 6px 12px !important;
-    border-radius: 6px !important;
-    border: none !important;
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    cursor: pointer !important;
-    transition: all 0.2s ease !important;
-}
-
 .btn-reply-send {
     background: #1877f2 !important;
     color: white !important;
@@ -701,15 +579,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
 
 .btn-edit-save.btn-send-icon:hover {
     background: #166fe5 !important;
-}
-
-.btn-reply-cancel {
-    background: transparent !important;
-    color: #5f6368 !important;
-}
-
-.btn-reply-cancel:hover {
-    background: #f1f3f4 !important;
 }
 
 /* Actions moved to header */
@@ -858,8 +727,8 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
     background: white !important;
-    padding: 24px !important;
-    border-radius: 12px !important;
+    padding: 16px 16px 16px 16px !important;
+    border-radius: 12px !important; /* đồng bộ với comment thread */
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important;
     z-index: 2147483647 !important;
     width: 650px !important;
@@ -869,27 +738,84 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
 }
 
 .testing-comment-modal h3 {
-    margin: 0 0 16px 0 !important;
-    font-size: 18px !important;
-    color: #2c3e50 !important;
-    font-weight: 600 !important;
+    margin: 0 !important;
+    font-size: 17px !important;
+    color: #050505 !important;
+    font-weight: 700 !important;
 }
 
 .testing-comment-modal textarea {
     width: 100% !important;
-    height: 100px !important;
-    border: 2px solid #e9ecef !important;
-    border-radius: 6px !important;
-    padding: 12px !important;
+    min-height: 80px !important;
+
+    max-height: 200px !important;
+    border: 0 !important;
+    border-radius: 18px !important;
+    padding: 10px 12px !important;
     font-size: 14px !important;
-    resize: vertical !important;
+    resize: none !important;
     font-family: inherit !important;
     box-sizing: border-box !important;
+    background: transparent !important;
 }
 
 .testing-comment-modal textarea:focus {
     outline: none !important;
-    border-color: #007bff !important;
+}
+
+.testing-modal-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 12px !important;
+}
+
+.testing-modal-close {
+    background: none !important;
+    border: none !important;
+    font-size: 20px !important;
+    color: #9aa0a6 !important;
+    cursor: pointer !important;
+    padding: 4px !important;
+    border-radius: 4px !important;
+    transition: all 0.2s ease !important;
+}
+
+.testing-modal-close:hover {
+    background: #f1f3f4 !important;
+    color: #5f6368 !important;
+}
+
+.testing-modal-body {
+    margin-top: 4px !important;
+}
+
+.testing-comment-input-wrap {
+    position: relative !important;
+    background: #f0f2f5 !important;
+    border-radius: 18px !important;
+    border: 1px solid transparent !important;
+}
+
+.testing-comment-input-wrap textarea {
+    border: 0 !important;
+    background: transparent !important;
+    padding-right: 54px !important; /* chừa chỗ cho icon gửi */
+}
+
+.testing-comment-input-wrap:focus-within {
+    border-color: rgba(24, 119, 242, 0.55) !important;
+    box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.15) !important;
+    background: #ffffff !important;
+}
+
+.testing-modal-send {
+    background: #1877f2 !important;
+    color: #ffffff !important;
+}
+
+.testing-modal-send:hover {
+    background: #166fe5 !important;
 }
 
 .testing-modal-buttons {
@@ -900,9 +826,9 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
 }
 
 .testing-modal-btn {
-    padding: 10px 20px !important;
+    padding: 8px 16px !important;
     border: none !important;
-    border-radius: 6px !important;
+    border-radius: 999px !important;
     font-size: 14px !important;
     font-weight: 500 !important;
     cursor: pointer !important;
@@ -911,12 +837,12 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
 }
 
 .testing-modal-btn-primary {
-    background: #007bff !important;
+    background: #1877f2 !important;
     color: white !important;
 }
 
 .testing-modal-btn-primary:hover:not(:disabled) {
-    background: #0056b3 !important;
+    background: #166fe5 !important;
 }
 
 .testing-modal-btn-primary:disabled {
@@ -926,12 +852,12 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
 }
 
 .testing-modal-btn-secondary {
-    background: #6c757d !important;
-    color: white !important;
+    background: #e4e6eb !important;
+    color: #050505 !important;
 }
 
 .testing-modal-btn-secondary:hover:not(:disabled) {
-    background: #545b62 !important;
+    background: #d8dadf !important;
 }
 
 .testing-modal-btn-secondary:disabled {

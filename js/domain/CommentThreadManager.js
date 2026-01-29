@@ -53,11 +53,19 @@ export class CommentThreadManager {
         const modal = document.createElement('div');
         modal.className = ConfigurationManager.CSS_CLASSES.COMMENT_MODAL;
         modal.innerHTML = `
-            <h3>💬 Thêm comment cho lỗi</h3>
-            <textarea placeholder="Mô tả lỗi hoặc ghi chú..." maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>
-            <div class="testing-modal-buttons">
-                <button class="testing-modal-btn testing-modal-btn-secondary" data-action="cancel">Hủy</button>
-                <button class="testing-modal-btn testing-modal-btn-primary" data-action="save">Lưu</button>
+            <div class="testing-modal-header">
+                <h3>Thêm bình luận</h3>
+                <button class="testing-modal-close" data-action="cancel" aria-label="Đóng">×</button>
+            </div>
+            <div class="testing-modal-body">
+                <div class="testing-comment-input-wrap">
+                    <textarea placeholder="Mô tả lỗi hoặc ghi chú..." maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>
+                    <button class="testing-modal-send btn-inside-input btn-send-icon" data-action="save" aria-label="Lưu bình luận" title="Lưu">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
         `;
 
@@ -93,7 +101,6 @@ export class CommentThreadManager {
             // Disable buttons and show loading
             saveBtn.disabled = true;
             cancelBtn.disabled = true;
-            saveBtn.textContent = 'Đang lưu...';
 
             if (onSave) {
                 await Promise.resolve(onSave(comment));
@@ -139,7 +146,8 @@ export class CommentThreadManager {
 
         // Create backdrop
         const backdrop = document.createElement('div');
-        backdrop.className = 'testing-thread-backdrop';
+        // Reuse common modal backdrop for consistent structure/styling
+        backdrop.className = ConfigurationManager.CSS_CLASSES.MODAL_BACKDROP;
         backdrop.addEventListener('click', () => this.closeCommentThread());
 
         // Create thread panel
@@ -199,7 +207,7 @@ export class CommentThreadManager {
                                 <div class="reply-input-wrap">
                                     <textarea placeholder="Viết bình luận..." class="reply-input"
                                               maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>
-                                    <button class="btn-reply-send btn-inside-input btn-send-icon" aria-label="Gửi bình luận" title="Gửi">
+                                    <button class="btn-reply-send btn-inside-input btn-send-icon" style="border-radius: 50% !important;" aria-label="Gửi bình luận" title="Gửi">
                                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
                                         </svg>
@@ -386,7 +394,7 @@ export class CommentThreadManager {
         editForm.innerHTML = `
             <div class="edit-input-wrap">
                 <textarea class="edit-input" maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}">${originalText}</textarea>
-                <button class="btn-edit-save btn-inside-input btn-send-icon" aria-label="Lưu chỉnh sửa" title="Lưu">
+                <button class="btn-edit-save btn-inside-input btn-send-icon" style="border-radius: 50% !important;" aria-label="Lưu chỉnh sửa" title="Lưu">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
                     </svg>
