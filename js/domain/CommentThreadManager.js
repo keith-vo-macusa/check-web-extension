@@ -37,6 +37,68 @@ export class CommentThreadManager {
     }
 
     /**
+     * @private
+     * @returns {string} Spinner SVG (uses currentColor)
+     */
+    getSpinnerSvg() {
+        return `
+            <svg class="btn-loading-spinner" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9"></circle>
+            </svg>
+        `;
+    }
+
+    /**
+     * @private
+     * @param {HTMLButtonElement} button
+     * @param {boolean} isLoading
+     * @param {{ text?: string }=} options
+     */
+    setButtonLoading(button, isLoading, options) {
+        if (!button) return;
+
+        if (isLoading) {
+            if (!button.dataset.originalHtml) {
+                button.dataset.originalHtml = button.innerHTML;
+            }
+            if (button.dataset.originalDisabled === undefined) {
+                button.dataset.originalDisabled = String(!!button.disabled);
+            }
+
+            button.disabled = true;
+            button.classList.add('is-loading');
+            button.setAttribute('aria-busy', 'true');
+
+            const isIconButton =
+                button.classList.contains('btn-send-icon') ||
+                button.classList.contains('btn-inside-input') ||
+                button.classList.contains('testing-modal-send');
+
+            if (isIconButton) {
+                button.innerHTML = this.getSpinnerSvg();
+            } else {
+                button.textContent = options?.text || 'Đang xử lý...';
+            }
+            return;
+        }
+
+        button.classList.remove('is-loading');
+        button.removeAttribute('aria-busy');
+
+        if (button.dataset.originalHtml) {
+            button.innerHTML = button.dataset.originalHtml;
+            delete button.dataset.originalHtml;
+        }
+
+        if (button.dataset.originalDisabled !== undefined) {
+            button.disabled = button.dataset.originalDisabled === 'true';
+            delete button.dataset.originalDisabled;
+        } else {
+            button.disabled = false;
+        }
+    }
+
+    /**
      * Show comment input modal for new error
      * @param {boolean} isRect - Whether this is a rectangle selection
      * @param {Function} onSave - Callback with comment text
@@ -98,15 +160,20 @@ export class CommentThreadManager {
                 return;
             }
 
-            // Disable buttons and show loading
-            saveBtn.disabled = true;
             cancelBtn.disabled = true;
+            this.setButtonLoading(saveBtn, true);
 
-            if (onSave) {
-                await Promise.resolve(onSave(comment));
+            try {
+                if (onSave) {
+                    await Promise.resolve(onSave(comment));
+                }
+                this.closeCommentInputModal();
+            } catch (err) {
+                ErrorLogger.error('Failed to save comment', err);
+                cancelBtn.disabled = false;
+                this.setButtonLoading(saveBtn, false);
+                textarea.focus();
             }
-
-            this.closeCommentInputModal();
         });
 
         document.body.appendChild(backdrop);
@@ -305,14 +372,29 @@ export class CommentThreadManager {
                 return;
             }
 
-            if (this.onCommentAdded) {
+            if (!this.onCommentAdded) {
+                return;
+            }
+
+            replyInput.disabled = true;
+            this.setButtonLoading(replySend, true);
+
+            try {
                 await this.onCommentAdded(error, text);
-                this.refreshThreadPanel(panel, error);
+                await this.refreshThreadPanel(panel, error);
                 replyInput.value = '';
 
                 // Scroll to bottom
                 const commentsList = panel.querySelector('.comments-list');
-                commentsList.scrollTop = commentsList.scrollHeight;
+                if (commentsList) {
+                    commentsList.scrollTop = commentsList.scrollHeight;
+                }
+            } catch (err) {
+                ErrorLogger.error('Failed to add comment', err);
+            } finally {
+                replyInput.disabled = false;
+                this.setButtonLoading(replySend, false);
+                replyInput.focus();
             }
         };
 
@@ -328,16 +410,29 @@ export class CommentThreadManager {
         replyInput.focus();
 
         // Resolve button
-        panel.querySelector('.btn-resolve').addEventListener('click', async () => {
-            if (this.onErrorResolved) {
-                await this.onErrorResolved(error);
-                this.refreshThreadPanel(panel, error);
+        const resolveBtn = panel.querySelector('.btn-resolve');
+        resolveBtn.addEventListener('click', async () => {
+            if (!this.onErrorResolved) {
+                return;
             }
+
+            this.setButtonLoading(resolveBtn, true, { text: 'Đang xử lý...' });
+            try {
+                await this.onErrorResolved(error);
+            } catch (err) {
+                ErrorLogger.error('Failed to resolve error', err);
+            } finally {
+                // Restore before refresh so UI can update text/class
+                this.setButtonLoading(resolveBtn, false);
+            }
+
+            await this.refreshThreadPanel(panel, error);
         });
 
         // Delete error button
-        panel.querySelector('.btn-delete').addEventListener('click', () => {
-            this.confirmDeleteError(error);
+        const deleteErrorBtn = panel.querySelector('.btn-delete');
+        deleteErrorBtn.addEventListener('click', () => {
+            this.confirmDeleteError(error, deleteErrorBtn);
         });
 
         // Edit/Delete comment buttons
@@ -365,7 +460,7 @@ export class CommentThreadManager {
 
             if (e.target.classList.contains('btn-delete-comment')) {
                 const commentId = e.target.dataset.commentId;
-                await this.confirmDeleteComment(panel, error, commentId);
+                await this.confirmDeleteComment(panel, error, commentId, e.target);
             }
         });
     }
@@ -422,7 +517,10 @@ export class CommentThreadManager {
         });
 
         // Save edit
-        editForm.querySelector('.btn-edit-save').addEventListener('click', async () => {
+        const saveEditBtn = editForm.querySelector('.btn-edit-save');
+        const cancelEditBtn = editForm.querySelector('.btn-edit-cancel');
+
+        saveEditBtn.addEventListener('click', async () => {
             const newText = editInput.value.trim();
             const validation = ValidationService.validateComment(newText);
 
@@ -431,9 +529,23 @@ export class CommentThreadManager {
                 return;
             }
 
-            if (this.onCommentEdited) {
+            if (!this.onCommentEdited) {
+                return;
+            }
+
+            editInput.disabled = true;
+            cancelEditBtn.disabled = true;
+            this.setButtonLoading(saveEditBtn, true);
+
+            try {
                 await this.onCommentEdited(error, commentId, newText);
-                this.refreshThreadPanel(panel, error);
+                await this.refreshThreadPanel(panel, error);
+            } catch (err) {
+                ErrorLogger.error('Failed to edit comment', err);
+            } finally {
+                editInput.disabled = false;
+                cancelEditBtn.disabled = false;
+                this.setButtonLoading(saveEditBtn, false);
             }
         });
     }
@@ -454,14 +566,23 @@ export class CommentThreadManager {
      * Confirm and delete a comment
      * @private
      */
-    async confirmDeleteComment(panel, error, commentId) {
+    async confirmDeleteComment(panel, error, commentId, triggerButton) {
         if (!confirm('Bạn có chắc muốn xóa comment này?')) {
             return;
         }
 
-        if (this.onCommentDeleted) {
+        if (!this.onCommentDeleted) {
+            return;
+        }
+
+        this.setButtonLoading(triggerButton, true, { text: 'Đang xóa...' });
+        try {
             await this.onCommentDeleted(error, commentId);
-            this.refreshThreadPanel(panel, error);
+            await this.refreshThreadPanel(panel, error);
+        } catch (err) {
+            ErrorLogger.error('Failed to delete comment', err);
+        } finally {
+            this.setButtonLoading(triggerButton, false);
         }
     }
 
@@ -469,16 +590,24 @@ export class CommentThreadManager {
      * Confirm and delete an error
      * @private
      */
-    confirmDeleteError(error) {
+    async confirmDeleteError(error, triggerButton) {
         if (!confirm('Bạn có chắc muốn xóa lỗi này?')) {
             return;
         }
 
-        if (this.onErrorDeleted) {
-            this.onErrorDeleted(error);
+        if (!this.onErrorDeleted) {
+            this.closeCommentThread();
+            return;
         }
 
-        this.closeCommentThread();
+        this.setButtonLoading(triggerButton, true, { text: 'Đang xóa...' });
+        try {
+            await Promise.resolve(this.onErrorDeleted(error));
+            this.closeCommentThread();
+        } catch (err) {
+            ErrorLogger.error('Failed to delete error', err);
+            this.setButtonLoading(triggerButton, false);
+        }
     }
 
     /**

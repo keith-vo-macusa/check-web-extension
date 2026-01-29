@@ -557,6 +557,33 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     display: block !important;
 }
 
+.is-loading {
+    opacity: 0.85 !important;
+    cursor: not-allowed !important;
+}
+
+@keyframes testing-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.btn-loading-spinner {
+    width: 20px !important;
+    height: 20px !important;
+    display: block !important;
+    animation: testing-spin 0.9s linear infinite !important;
+}
+
+.btn-loading-spinner circle {
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 2.5 !important;
+    stroke-linecap: round !important;
+    stroke-dasharray: 56 !important;
+    stroke-dashoffset: 42 !important;
+}
+
 .reply-buttons {
     display: flex !important;
     gap: 8px !important;
