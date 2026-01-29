@@ -215,4 +215,25 @@ export class ValidationService {
             error: null,
         };
     }
+
+    /**
+     * Convert URLs in text to clickable links
+     * @param {string} text - Text to linkify
+     * @returns {string} Text with clickable links
+     */
+    static linkify(text) {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
+
+        // Regex for URLs starting with http, https, or ftp
+        const urlRegex = /(https?:\/\/[^\s<]+)/g;
+
+        return text.replace(urlRegex, (url) => {
+            // Trim trailing punctuation that might be part of the sentence but not the URL
+            const cleanUrl = url.replace(/[.,!?;:]+$/, '');
+            const trailing = url.substring(cleanUrl.length);
+            return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`;
+        });
+    }
 }

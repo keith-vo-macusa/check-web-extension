@@ -139,12 +139,12 @@ export class CommentThreadManager {
 
         // Create backdrop
         const backdrop = document.createElement('div');
-        backdrop.className = ConfigurationManager.CSS_CLASSES.MODAL_BACKDROP;
+        backdrop.className = 'testing-thread-backdrop';
         backdrop.addEventListener('click', () => this.closeCommentThread());
 
         // Create thread panel
         const panel = document.createElement('div');
-        panel.className = ConfigurationManager.CSS_CLASSES.COMMENT_MODAL;
+        panel.className = 'testing-comment-thread position-center';
 
         // Render panel content
         this.renderThreadPanel(panel, error, userInfo);
@@ -167,13 +167,23 @@ export class CommentThreadManager {
     renderThreadPanel(panel, error, userInfo) {
         const statusText = this.getStatusText(error.status);
         const statusClass = `status-${error.status}`;
+        const currentUserName = userInfo?.name || 'You';
+        const currentUserInitial = currentUserName.charAt(0).toUpperCase();
+        const isResolved = error.status === ConfigurationManager.ERROR_STATUS.RESOLVED;
 
         panel.innerHTML = `
             <div class="thread-header">
                 <div class="thread-title">
+                    <div class="thread-heading">Bình luận</div>
                     <div class="thread-status ${statusClass}">${statusText}</div>
                 </div>
-                <button class="thread-close" aria-label="Đóng">×</button>
+                <div class="thread-header-actions">
+                    <button class="btn-resolve ${isResolved ? 'resolved' : ''}" data-error-id="${error.id}">
+                        ${isResolved ? '✓ Đã giải quyết' : 'Đánh dấu đã giải quyết'}
+                    </button>
+                    <button class="btn-delete" data-error-id="${error.id}" aria-label="Xóa">Xóa</button>
+                    <button class="thread-close" aria-label="Đóng">×</button>
+                </div>
             </div>
             <div class="thread-content">
                 <div class="comments-list" id="comments-${error.id}">
@@ -181,27 +191,22 @@ export class CommentThreadManager {
                 </div>
                 <div class="thread-actions">
                     <div class="reply-form">
-                        <textarea placeholder="Thêm comment..." class="reply-input"
-                                  maxlength="${
-                                      ConfigurationManager.UI.COMMENT_MAX_LENGTH
-                                  }"></textarea>
-                        <div class="reply-buttons">
-                            <button class="btn-reply-send">Gửi</button>
+                        <div class="reply-composer">
+                            <div class="comment-avatar reply-avatar">
+                                <div class="avatar-circle">${currentUserInitial}</div>
+                            </div>
+                            <div class="reply-box">
+                                <div class="reply-input-wrap">
+                                    <textarea placeholder="Viết bình luận..." class="reply-input"
+                                              maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>
+                                    <button class="btn-reply-send btn-inside-input btn-send-icon" aria-label="Gửi bình luận" title="Gửi">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="thread-meta">
-                        <button class="btn-resolve ${
-                            error.status === ConfigurationManager.ERROR_STATUS.RESOLVED
-                                ? 'resolved'
-                                : ''
-                        }" data-error-id="${error.id}">
-                            ${
-                                error.status === ConfigurationManager.ERROR_STATUS.RESOLVED
-                                    ? '✓ Đã giải quyết'
-                                    : 'Đánh dấu đã giải quyết'
-                            }
-                        </button>
-                        <button class="btn-delete" data-error-id="${error.id}">🗑 Xóa</button>
                     </div>
                 </div>
             </div>
@@ -228,6 +233,9 @@ export class CommentThreadManager {
                     : '';
 
                 const isOwnComment = comment.author?.id === userInfo?.id;
+                const replyButton = `
+                    <button class="btn-reply-comment" data-comment-id="${comment.id}">Trả lời</button>
+                `;
                 const editButtons = isOwnComment
                     ? `
                 <button class="btn-edit-comment" data-comment-id="${comment.id}">Chỉnh sửa</button>
@@ -235,23 +243,27 @@ export class CommentThreadManager {
             `
                     : '';
 
+                const safeOriginal = ValidationService.sanitizeHtml(comment.text);
+                const safeHtml = ValidationService.linkify(safeOriginal);
+
                 return `
                 <div class="comment-item" data-comment-id="${comment.id}">
                     <div class="comment-avatar">
                         <div class="avatar-circle">${authorInitial}</div>
                     </div>
                     <div class="comment-content">
-                        <div class="comment-header">
-                            <span class="comment-author">${ValidationService.sanitizeHtml(
-                                authorName,
-                            )}</span>
-                            <span class="comment-time">${timeText}</span>
-                            ${editedText}
+                        <div class="comment-bubble">
+                            <div class="comment-header">
+                                <span class="comment-author">${ValidationService.sanitizeHtml(
+                    authorName,
+                )}</span>
+                                <span class="comment-time">${timeText}</span>
+                                ${editedText}
+                            </div>
+                            <div class="comment-text" data-original="${safeOriginal}">${safeHtml}</div>
                         </div>
-                        <div class="comment-text" data-original="${ValidationService.sanitizeHtml(
-                            comment.text,
-                        )}">${ValidationService.sanitizeHtml(comment.text)}</div>
                         <div class="comment-actions">
+                            ${replyButton}
                             ${editButtons}
                         </div>
                     </div>
@@ -322,6 +334,22 @@ export class CommentThreadManager {
 
         // Edit/Delete comment buttons
         panel.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('btn-reply-comment')) {
+                const commentId = e.target.dataset.commentId;
+                const comment = error.comments.find((c) => c.id === commentId);
+                const authorName = comment?.author?.name || 'Unknown';
+
+                const input = panel.querySelector('.reply-input');
+                if (input) {
+                    const prefix = `@${authorName} `;
+                    if (!input.value.startsWith(prefix)) {
+                        input.value = `${prefix}${input.value.trimStart()}`;
+                    }
+                    input.focus();
+                    input.setSelectionRange(input.value.length, input.value.length);
+                }
+            }
+
             if (e.target.classList.contains('btn-edit-comment')) {
                 const commentId = e.target.dataset.commentId;
                 await this.editComment(panel, error, commentId);
@@ -349,22 +377,31 @@ export class CommentThreadManager {
 
         const commentElement = panel.querySelector(`[data-comment-id="${commentId}"]`);
         const textElement = commentElement.querySelector('.comment-text');
+        const actionsElement = commentElement.querySelector('.comment-actions');
         const originalText = textElement.dataset.original;
 
         // Create edit form
         const editForm = document.createElement('div');
         editForm.className = 'edit-form';
         editForm.innerHTML = `
-            <textarea class="edit-input" maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}">${originalText}</textarea>
+            <div class="edit-input-wrap">
+                <textarea class="edit-input" maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}">${originalText}</textarea>
+                <button class="btn-edit-save btn-inside-input btn-send-icon" aria-label="Lưu chỉnh sửa" title="Lưu">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                    </svg>
+                </button>
+            </div>
             <div class="edit-buttons">
                 <button class="btn-edit-cancel">Hủy</button>
-                <button class="btn-edit-save">Lưu</button>
             </div>
         `;
 
         // Replace text with edit form
         textElement.style.display = 'none';
-        commentElement.querySelector('.comment-actions').style.display = 'none';
+        if (actionsElement) {
+            actionsElement.style.display = 'none';
+        }
         textElement.parentNode.appendChild(editForm);
 
         const editInput = editForm.querySelector('.edit-input');
@@ -373,7 +410,7 @@ export class CommentThreadManager {
 
         // Cancel edit
         editForm.querySelector('.btn-edit-cancel').addEventListener('click', () => {
-            this.cancelEdit(textElement, editForm);
+            this.cancelEdit(textElement, editForm, actionsElement);
         });
 
         // Save edit
@@ -382,7 +419,7 @@ export class CommentThreadManager {
             const validation = ValidationService.validateComment(newText);
 
             if (!validation.valid || newText === originalText) {
-                this.cancelEdit(textElement, editForm);
+                this.cancelEdit(textElement, editForm, actionsElement);
                 return;
             }
 
@@ -397,9 +434,11 @@ export class CommentThreadManager {
      * Cancel comment edit
      * @private
      */
-    cancelEdit(textElement, editForm) {
+    cancelEdit(textElement, editForm, actionsElement) {
         textElement.style.display = 'block';
-        textElement.parentNode.querySelector('.comment-actions').style.display = 'block';
+        if (actionsElement) {
+            actionsElement.style.display = 'block';
+        }
         editForm.remove();
     }
 
