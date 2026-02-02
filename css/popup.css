@@ -222,7 +222,7 @@ body {
 
 .errors-section {
     border-top: none;
-    padding-top: 0;
+    /* padding-top: 0; */
     margin-top: 0;
 }
 
@@ -908,7 +908,7 @@ body[data-show-resolved='false'] .error-item.resolved {
     background: var(--color-gray-100);
     border-radius: var(--border-radius-md);
     align-items: center;
-    border-bottom: 1px solid var(--color-gray-200);
+    /* border-bottom: 1px solid var(--color-gray-200); */
 }
 
 .filters-container .form-group {
