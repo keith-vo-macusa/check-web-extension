@@ -57,24 +57,111 @@ class LoginManager {
             }
         });
 
+        emailInput.addEventListener('input', () => {
+            this.updateEmailState(emailInput);
+        });
+
+        emailInput.addEventListener('blur', () => {
+            this.updateEmailState(emailInput, { showEmptyAsInvalid: true });
+        });
+
+        passwordInput.addEventListener('input', () => {
+            this.updatePasswordState(passwordInput);
+        });
+
+        passwordInput.addEventListener('blur', () => {
+            this.updatePasswordState(passwordInput, { showEmptyAsInvalid: true });
+        });
+
         // Password visibility toggle
         if (togglePassword) {
-            togglePassword.addEventListener('click', () => {
-                const type = passwordInput.type === 'password' ? 'text' : 'password';
-                passwordInput.type = type;
+            const updatePasswordToggleState = () => {
+                const isVisible = passwordInput.type === 'text';
+                togglePassword.setAttribute(
+                    'aria-label',
+                    isVisible ? 'Hide password' : 'Show password'
+                );
 
                 const icon = togglePassword.querySelector('.eye-icon i');
                 if (icon) {
-                    if (type === 'password') {
-                        icon.classList.remove('fa-eye');
-                        icon.classList.add('fa-eye-slash');
-                    } else {
-                        icon.classList.remove('fa-eye-slash');
-                        icon.classList.add('fa-eye');
-                    }
+                    icon.classList.toggle('fa-eye', isVisible);
+                    icon.classList.toggle('fa-eye-slash', !isVisible);
                 }
+            };
+
+            updatePasswordToggleState();
+
+            togglePassword.addEventListener('click', () => {
+                passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+                updatePasswordToggleState();
             });
         }
+    }
+
+    /**
+     * Apply validation state to an input element
+     * @param {HTMLInputElement} input - Input element
+     * @param {string|null} state - "valid", "invalid", or null to clear
+     */
+    setInputState(input, state) {
+        if (!input) {
+            return;
+        }
+
+        if (!state) {
+            input.removeAttribute('data-state');
+            return;
+        }
+
+        input.setAttribute('data-state', state);
+    }
+
+    /**
+     * Update email input validation state
+     * @param {HTMLInputElement} input - Email input
+     * @param {Object} options - Validation options
+     * @param {boolean} options.showEmptyAsInvalid - Mark empty as invalid
+     * @returns {boolean} True if valid
+     */
+    updateEmailState(input, { showEmptyAsInvalid = false } = {}) {
+        if (!input) {
+            return false;
+        }
+
+        const value = input.value.trim();
+
+        if (value.length === 0) {
+            this.setInputState(input, showEmptyAsInvalid ? 'invalid' : null);
+            return false;
+        }
+
+        const isValid = ValidationService.isValidEmail(value);
+        this.setInputState(input, isValid ? 'valid' : 'invalid');
+        return isValid;
+    }
+
+    /**
+     * Update password input validation state
+     * @param {HTMLInputElement} input - Password input
+     * @param {Object} options - Validation options
+     * @param {boolean} options.showEmptyAsInvalid - Mark empty as invalid
+     * @returns {boolean} True if valid
+     */
+    updatePasswordState(input, { showEmptyAsInvalid = false } = {}) {
+        if (!input) {
+            return false;
+        }
+
+        const value = input.value.trim();
+
+        if (value.length === 0) {
+            this.setInputState(input, showEmptyAsInvalid ? 'invalid' : null);
+            return false;
+        }
+
+        const isValid = ValidationService.isNonEmptyString(value, 1);
+        this.setInputState(input, isValid ? 'valid' : 'invalid');
+        return isValid;
     }
 
     /**
@@ -107,13 +194,16 @@ class LoginManager {
         const password = passwordInput.value.trim();
 
         // Validate input
-        if (!ValidationService.isValidEmail(email)) {
-            this.showError('Email không hợp lệ');
+        const emailIsValid = this.updateEmailState(emailInput, { showEmptyAsInvalid: true });
+        const passwordIsValid = this.updatePasswordState(passwordInput, { showEmptyAsInvalid: true });
+
+        if (!emailIsValid) {
+            this.showError('Invalid email address');
             return;
         }
 
-        if (!ValidationService.isNonEmptyString(password, 1)) {
-            this.showError('Vui lòng nhập mật khẩu');
+        if (!passwordIsValid) {
+            this.showError('Please enter your password');
             return;
         }
 
@@ -136,7 +226,7 @@ class LoginManager {
             const result = await response.json();
 
             if (result.success) {
-                this.showSuccess(result.message || 'Đăng nhập thành công');
+                this.showSuccess(result.message || 'Login successful');
                 await this.saveAuthState(result.data);
                 this.redirectToMain();
 
@@ -144,11 +234,11 @@ class LoginManager {
                 await TabsService.reloadTab();
                 window.close();
             } else {
-                this.showError(result.message || 'Đăng nhập thất bại');
+                this.showError(result.message || 'Login failed');
             }
         } catch (error) {
             ErrorLogger.error('Login error', { error });
-            this.showError('Có lỗi xảy ra, vui lòng thử lại');
+            this.showError('An error occurred, please try again');
         } finally {
             this.showLoading(false);
         }
@@ -207,7 +297,7 @@ class LoginManager {
 
         if (loginBtn) {
             loginBtn.disabled = show;
-            loginBtn.textContent = show ? 'Đang xác thực...' : 'Đăng nhập';
+            loginBtn.textContent = show ? 'Verifying...' : 'Sign In';
         }
     }
 
@@ -222,10 +312,12 @@ class LoginManager {
         if (errorEl) {
             errorEl.textContent = message;
             errorEl.style.display = 'block';
+            errorEl.setAttribute('aria-hidden', 'false');
         }
 
         if (successEl) {
             successEl.style.display = 'none';
+            successEl.setAttribute('aria-hidden', 'true');
         }
     }
 
@@ -240,10 +332,12 @@ class LoginManager {
         if (successEl) {
             successEl.textContent = message;
             successEl.style.display = 'block';
+            successEl.setAttribute('aria-hidden', 'false');
         }
 
         if (errorEl) {
             errorEl.style.display = 'none';
+            errorEl.setAttribute('aria-hidden', 'true');
         }
     }
 
@@ -256,10 +350,12 @@ class LoginManager {
 
         if (errorEl) {
             errorEl.style.display = 'none';
+            errorEl.setAttribute('aria-hidden', 'true');
         }
 
         if (successEl) {
             successEl.style.display = 'none';
+            successEl.setAttribute('aria-hidden', 'true');
         }
     }
 }
