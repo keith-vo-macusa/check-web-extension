@@ -57,6 +57,22 @@ class LoginManager {
             }
         });
 
+        emailInput.addEventListener('input', () => {
+            this.updateEmailState(emailInput);
+        });
+
+        emailInput.addEventListener('blur', () => {
+            this.updateEmailState(emailInput, { showEmptyAsInvalid: true });
+        });
+
+        passwordInput.addEventListener('input', () => {
+            this.updatePasswordState(passwordInput);
+        });
+
+        passwordInput.addEventListener('blur', () => {
+            this.updatePasswordState(passwordInput, { showEmptyAsInvalid: true });
+        });
+
         // Password visibility toggle
         if (togglePassword) {
             togglePassword.addEventListener('click', () => {
@@ -79,6 +95,72 @@ class LoginManager {
                 }
             });
         }
+    }
+
+    /**
+     * Apply validation state to an input element
+     * @param {HTMLInputElement} input - Input element
+     * @param {string|null} state - "valid", "invalid", or null to clear
+     */
+    setInputState(input, state) {
+        if (!input) {
+            return;
+        }
+
+        if (!state) {
+            input.removeAttribute('data-state');
+            return;
+        }
+
+        input.setAttribute('data-state', state);
+    }
+
+    /**
+     * Update email input validation state
+     * @param {HTMLInputElement} input - Email input
+     * @param {Object} options - Validation options
+     * @param {boolean} options.showEmptyAsInvalid - Mark empty as invalid
+     * @returns {boolean} True if valid
+     */
+    updateEmailState(input, { showEmptyAsInvalid = false } = {}) {
+        if (!input) {
+            return false;
+        }
+
+        const value = input.value.trim();
+
+        if (value.length === 0) {
+            this.setInputState(input, showEmptyAsInvalid ? 'invalid' : null);
+            return false;
+        }
+
+        const isValid = ValidationService.isValidEmail(value);
+        this.setInputState(input, isValid ? 'valid' : 'invalid');
+        return isValid;
+    }
+
+    /**
+     * Update password input validation state
+     * @param {HTMLInputElement} input - Password input
+     * @param {Object} options - Validation options
+     * @param {boolean} options.showEmptyAsInvalid - Mark empty as invalid
+     * @returns {boolean} True if valid
+     */
+    updatePasswordState(input, { showEmptyAsInvalid = false } = {}) {
+        if (!input) {
+            return false;
+        }
+
+        const value = input.value.trim();
+
+        if (value.length === 0) {
+            this.setInputState(input, showEmptyAsInvalid ? 'invalid' : null);
+            return false;
+        }
+
+        const isValid = ValidationService.isNonEmptyString(value, 1);
+        this.setInputState(input, isValid ? 'valid' : 'invalid');
+        return isValid;
     }
 
     /**
@@ -111,12 +193,15 @@ class LoginManager {
         const password = passwordInput.value.trim();
 
         // Validate input
-        if (!ValidationService.isValidEmail(email)) {
+        const emailIsValid = this.updateEmailState(emailInput, { showEmptyAsInvalid: true });
+        const passwordIsValid = this.updatePasswordState(passwordInput, { showEmptyAsInvalid: true });
+
+        if (!emailIsValid) {
             this.showError('Invalid email address');
             return;
         }
 
-        if (!ValidationService.isNonEmptyString(password, 1)) {
+        if (!passwordIsValid) {
             this.showError('Please enter your password');
             return;
         }
