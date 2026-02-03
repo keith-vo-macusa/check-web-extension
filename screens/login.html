@@ -16,8 +16,10 @@
             <p class="subtitle">Sign in to continue</p>
         </header>
 
-        <div id="errorMessage" class="error-message" aria-hidden="true"></div>
-        <div id="successMessage" class="success-message" aria-hidden="true"></div>
+        <div id="errorMessage" class="error-message" aria-hidden="true" role="alert"
+            aria-live="assertive" aria-atomic="true"></div>
+        <div id="successMessage" class="success-message" aria-hidden="true" role="status"
+            aria-live="polite" aria-atomic="true"></div>
 
         <form id="loginForm" class="form" novalidate>
             <div class="form-group">

@@ -226,10 +226,12 @@ class LoginManager {
         if (errorEl) {
             errorEl.textContent = message;
             errorEl.style.display = 'block';
+            errorEl.setAttribute('aria-hidden', 'false');
         }
 
         if (successEl) {
             successEl.style.display = 'none';
+            successEl.setAttribute('aria-hidden', 'true');
         }
     }
 
@@ -244,10 +246,12 @@ class LoginManager {
         if (successEl) {
             successEl.textContent = message;
             successEl.style.display = 'block';
+            successEl.setAttribute('aria-hidden', 'false');
         }
 
         if (errorEl) {
             errorEl.style.display = 'none';
+            errorEl.setAttribute('aria-hidden', 'true');
         }
     }
 
@@ -260,10 +264,12 @@ class LoginManager {
 
         if (errorEl) {
             errorEl.style.display = 'none';
+            errorEl.setAttribute('aria-hidden', 'true');
         }
 
         if (successEl) {
             successEl.style.display = 'none';
+            successEl.setAttribute('aria-hidden', 'true');
         }
     }
 }
