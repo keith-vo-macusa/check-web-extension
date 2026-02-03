@@ -75,24 +75,25 @@ class LoginManager {
 
         // Password visibility toggle
         if (togglePassword) {
-            togglePassword.addEventListener('click', () => {
-                const type = passwordInput.type === 'password' ? 'text' : 'password';
-                passwordInput.type = type;
+            const updatePasswordToggleState = () => {
+                const isVisible = passwordInput.type === 'text';
                 togglePassword.setAttribute(
                     'aria-label',
-                    type === 'text' ? 'Hide password' : 'Show password'
+                    isVisible ? 'Hide password' : 'Show password'
                 );
 
                 const icon = togglePassword.querySelector('.eye-icon i');
                 if (icon) {
-                    if (type === 'password') {
-                        icon.classList.remove('fa-eye');
-                        icon.classList.add('fa-eye-slash');
-                    } else {
-                        icon.classList.remove('fa-eye-slash');
-                        icon.classList.add('fa-eye');
-                    }
+                    icon.classList.toggle('fa-eye', isVisible);
+                    icon.classList.toggle('fa-eye-slash', !isVisible);
                 }
+            };
+
+            updatePasswordToggleState();
+
+            togglePassword.addEventListener('click', () => {
+                passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+                updatePasswordToggleState();
             });
         }
     }
