@@ -108,12 +108,12 @@ class LoginManager {
 
         // Validate input
         if (!ValidationService.isValidEmail(email)) {
-            this.showError('Email không hợp lệ');
+            this.showError('Invalid email address');
             return;
         }
 
         if (!ValidationService.isNonEmptyString(password, 1)) {
-            this.showError('Vui lòng nhập mật khẩu');
+            this.showError('Please enter your password');
             return;
         }
 
@@ -136,7 +136,7 @@ class LoginManager {
             const result = await response.json();
 
             if (result.success) {
-                this.showSuccess(result.message || 'Đăng nhập thành công');
+                this.showSuccess(result.message || 'Login successful');
                 await this.saveAuthState(result.data);
                 this.redirectToMain();
 
@@ -144,11 +144,11 @@ class LoginManager {
                 await TabsService.reloadTab();
                 window.close();
             } else {
-                this.showError(result.message || 'Đăng nhập thất bại');
+                this.showError(result.message || 'Login failed');
             }
         } catch (error) {
             ErrorLogger.error('Login error', { error });
-            this.showError('Có lỗi xảy ra, vui lòng thử lại');
+            this.showError('An error occurred, please try again');
         } finally {
             this.showLoading(false);
         }
@@ -207,7 +207,7 @@ class LoginManager {
 
         if (loginBtn) {
             loginBtn.disabled = show;
-            loginBtn.textContent = show ? 'Đang xác thực...' : 'Đăng nhập';
+            loginBtn.textContent = show ? 'Verifying...' : 'Sign In';
         }
     }
 
