@@ -62,6 +62,10 @@ class LoginManager {
             togglePassword.addEventListener('click', () => {
                 const type = passwordInput.type === 'password' ? 'text' : 'password';
                 passwordInput.type = type;
+                togglePassword.setAttribute(
+                    'aria-label',
+                    type === 'text' ? 'Hide password' : 'Show password'
+                );
 
                 const icon = togglePassword.querySelector('.eye-icon i');
                 if (icon) {
