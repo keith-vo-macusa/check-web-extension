@@ -391,6 +391,45 @@ npm run build:clean
 
 ---
 
+## Release Workflow (GitHub Actions)
+
+Repository được cấu hình workflow release tự động tại `.github/workflows/build-and-release.yml`.
+
+### Cách phát hành bản mới
+
+1. Cập nhật version trong `manifest.json` (ví dụ: `1.2.0`)
+2. Commit và push code lên `main`
+3. Tạo tag đúng format `v<version>`
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+### Workflow sẽ tự động
+
+- chạy `npm ci`
+- chạy `npm run build`
+- đóng gói `dist` thành file zip
+- tạo GitHub Release và upload file zip
+
+### Lưu ý quan trọng
+
+- Workflow chỉ chạy release khi push tag `v*`
+- Tag phải khớp với version trong `manifest.json`
+    - Ví dụ hợp lệ: tag `v1.2.0` và `manifest.json.version = 1.2.0`
+    - Nếu không khớp, workflow sẽ fail để tránh phát hành sai version
+
+### Pre-release checklist
+
+- [ ] Bump version trong `manifest.json`
+- [ ] Chạy build local: `npm run build`
+- [ ] Smoke test nhanh extension (login, popup, chọn lỗi, gửi message background/content)
+- [ ] Commit + push code lên `main`
+- [ ] Tạo và push tag phát hành: `v<version>`
+
+---
+
 ## Installation
 
 1. **Clone repository**
