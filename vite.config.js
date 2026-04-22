@@ -1,6 +1,15 @@
 import { defineConfig } from 'vite';
 import { resolve, dirname, join } from 'path';
-import { copyFileSync, existsSync, mkdirSync, cpSync, readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import {
+    copyFileSync,
+    existsSync,
+    mkdirSync,
+    cpSync,
+    readFileSync,
+    writeFileSync,
+    readdirSync,
+    statSync,
+} from 'fs';
 import { fileURLToPath } from 'url';
 import { minify } from 'terser';
 import CleanCSS from 'clean-css';
@@ -129,11 +138,7 @@ export default defineConfig({
                 copyFileSync('manifest.json', 'dist/manifest.json');
 
                 // Copy JavaScript files (không bundle)
-                const jsFiles = [
-                    'background.js',
-                    'content.js',
-                    'content-loader.js',
-                ];
+                const jsFiles = ['background.js', 'content.js', 'content-loader.js'];
                 jsFiles.forEach((file) => {
                     if (existsSync(file)) {
                         copyFileSync(file, join('dist', file));

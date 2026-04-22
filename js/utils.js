@@ -1,97 +1,72 @@
 function getElementXPath(element) {
-    // Kiểm tra phần tử hợp lệ
     if (!element || element.nodeType !== 1) return '';
+    if (element.id) return `//*[@id="${CSS.escape(element.id)}"]`;
 
-    // Trả về XPath dựa trên ID nếu có
-    if (element.id) {
-        return `//*[@id="${CSS.escape(element.id)}"]`;
-    }
+    const segments = [];
+    let currentNode = element;
 
-    const parts = [];
-    let current = element;
-
-    while (current && current !== document.documentElement) {
-        const tagName = current.tagName.toLowerCase();
-
-        // Nếu phần tử hiện tại hoặc cha có ID, sử dụng nó và dừng
-        if (current.id) {
-            parts.unshift(`*[@id="${CSS.escape(current.id)}"]`);
+    while (currentNode && currentNode !== document.documentElement) {
+        const tagName = currentNode.tagName.toLowerCase();
+        if (currentNode.id) {
+            segments.unshift(`*[@id="${CSS.escape(currentNode.id)}"]`);
             break;
         }
 
-        // Lấy tất cả anh em cùng tên thẻ
-        const siblings = Array.from(current.parentElement?.children || [])
-            .filter(sibling => sibling.tagName.toLowerCase() === tagName);
-        const index = siblings.indexOf(current) + 1;
+        const sameTagSiblings = Array.from(currentNode.parentElement?.children || []).filter(
+                (sibling) => sibling.tagName.toLowerCase() === tagName,
+            ),
+            indexInSiblings = sameTagSiblings.indexOf(currentNode) + 1,
+            segment = sameTagSiblings.length > 1 ? `${tagName}[${indexInSiblings}]` : tagName;
 
-        // Chỉ thêm chỉ số nếu có nhiều anh em cùng tên thẻ
-        const selector = siblings.length > 1 ? `${tagName}[${index}]` : tagName;
-        parts.unshift(selector);
-
-        current = current.parentElement;
+        segments.unshift(segment);
+        currentNode = currentNode.parentElement;
     }
 
-    return parts.length > 0 ? '//' + parts.join('/') : '/';
+    return segments.length > 0 ? '//' + segments.join('/') : '/';
 }
 
 function getElementCSSSelector(element) {
-    // Kiểm tra phần tử hợp lệ
     if (!element || element.nodeType !== 1) return '';
-
-    // Trả về bộ chọn ID nếu có
-    if (element.id) {
-        return `#${CSS.escape(element.id)}`;
-    }
+    if (element.id) return `#${CSS.escape(element.id)}`;
 
     let selector = '';
-
-    // Thêm các lớp hợp lệ
     if (element.className) {
-        const classes = element.className.split(' ')
-            .filter(c => c.trim() && !c.startsWith('testing-'));
-        if (classes.length > 0) {
-            selector = '.' + classes.map(c => CSS.escape(c)).join('.');
-        }
+        const classNames = element.className
+            .split(' ')
+            .filter((className) => className.trim() && !className.startsWith('testing-'));
+        if (classNames.length > 0) selector = `.${classNames.map((className) => CSS.escape(className)).join('.')}`;
     }
 
-    // Nếu không có lớp, sử dụng tên thẻ
-    if (!selector) {
-        selector = element.tagName.toLowerCase();
-    }
+    if (!selector) selector = element.tagName.toLowerCase();
 
-    // Thêm :nth-child nếu cần
     try {
-        const parent = element.parentElement;
-        if (parent && document.querySelectorAll(selector).length > 1) {
-            const siblings = Array.from(parent.children)
-                .filter(child => child.tagName.toLowerCase() === element.tagName.toLowerCase());
-            const index = siblings.indexOf(element) + 1;
-            if (siblings.length > 1) {
-                selector += `:nth-child(${index})`;
-            }
+        const parentElement = element.parentElement;
+        if (parentElement && document.querySelectorAll(selector).length > 1) {
+            const siblingsOfSameTag = Array.from(parentElement.children).filter(
+                    (child) => child.tagName.toLowerCase() === element.tagName.toLowerCase(),
+                ),
+                siblingIndex = siblingsOfSameTag.indexOf(element) + 1;
+
+            if (siblingsOfSameTag.length > 1) selector += `:nth-child(${siblingIndex})`;
         }
-    } catch (e) {
-        console.warn('Error checking :nth-child:', e);
+    } catch (error) {
+        console.warn('Error checking :nth-child:', error);
     }
 
-    // Kiểm tra tính duy nhất và thêm ngữ cảnh cha
     try {
         if (document.querySelectorAll(selector).length > 1 && element.parentElement) {
             const parentSelector = getElementCSSSelector(element.parentElement);
-            if (parentSelector) {
-                selector = `${parentSelector} > ${selector}`;
-            }
+            if (parentSelector) selector = `${parentSelector} > ${selector}`;
         }
-    } catch (e) {
-        console.warn('Error checking selector uniqueness:', e);
+    } catch (error) {
+        console.warn('Error checking selector uniqueness:', error);
     }
 
-    // Thêm thuộc tính nếu vẫn không duy nhất
     if (document.querySelectorAll(selector).length > 1) {
-        const importantAttrs = ['data-testid', 'data-id', 'name', 'type', 'role'];
-        for (const attr of importantAttrs) {
-            if (element.hasAttribute(attr)) {
-                selector += `[${attr}="${CSS.escape(element.getAttribute(attr))}"]`;
+        const attributeKeys = ['data-testid', 'data-id', 'name', 'type', 'role'];
+        for (const key of attributeKeys) {
+            if (element.hasAttribute(key)) {
+                selector += `[${key}="${CSS.escape(element.getAttribute(key))}"]`;
                 break;
             }
         }
@@ -101,181 +76,140 @@ function getElementCSSSelector(element) {
 }
 
 function getJsPath(element) {
-    // Kiểm tra phần tử hợp lệ
     if (!element || element.nodeType !== 1) return '';
-
-    // Trả về document.getElementById nếu có ID
-    if (element.id) {
-        return `document.getElementById('${CSS.escape(element.id)}')`;
-    }
+    if (element.id) return `document.getElementById('${CSS.escape(element.id)}')`;
 
     let selector = '';
-
-    // Thêm lớp nếu có
     if (element.className) {
-        const classes = element.className.split(' ')
-            .filter(c => c.trim() && !c.startsWith('testing-'));
-        if (classes.length > 0) {
-            selector = '.' + classes.map(c => CSS.escape(c)).join('.');
-        }
+        const classNames = element.className
+            .split(' ')
+            .filter((className) => className.trim() && !className.startsWith('testing-'));
+        if (classNames.length > 0) selector = `.${classNames.map((className) => CSS.escape(className)).join('.')}`;
     }
 
-    // Nếu không có lớp, sử dụng tên thẻ
-    if (!selector) {
-        selector = element.tagName.toLowerCase();
-    }
+    if (!selector) selector = element.tagName.toLowerCase();
 
-    // Thêm :nth-child nếu cần
     try {
-        const parent = element.parentElement;
-        if (parent) {
-            const siblings = Array.from(parent.children);
-            const index = siblings.indexOf(element) + 1;
+        const parentElement = element.parentElement;
+        if (parentElement) {
+            const siblings = Array.from(parentElement.children);
+            const indexInSiblings = siblings.indexOf(element) + 1;
             if (document.querySelectorAll(selector).length > 1 && siblings.length > 1) {
-                selector += `:nth-child(${index})`;
+                selector += `:nth-child(${indexInSiblings})`;
             }
         }
-    } catch (e) {
-        console.warn('Error checking :nth-child:', e);
+    } catch (error) {
+        console.warn('Error checking :nth-child:', error);
     }
 
-    // Kiểm tra tính duy nhất và thêm ngữ cảnh cha
     try {
         if (document.querySelectorAll(selector).length > 1 && element.parentElement) {
             const parentSelector = getElementCSSSelector(element.parentElement);
-            if (parentSelector) {
-                selector = `${parentSelector} > ${selector}`;
-            }
+            if (parentSelector) selector = `${parentSelector} > ${selector}`;
         }
-    } catch (e) {
-        console.warn('Error checking selector uniqueness:', e);
+    } catch (error) {
+        console.warn('Error checking selector uniqueness:', error);
     }
 
     return `document.querySelector('${selector}')`;
 }
 
 function getElementAttributes(element) {
-    const attrs = {};
-    const importantAttrs = ['id', 'class', 'data-testid', 'data-id', 'name', 'type', 'role', 'href'];
-    
-    importantAttrs.forEach(attr => {
-        if (element.hasAttribute(attr)) {
-            attrs[attr] = element.getAttribute(attr);
-        }
+    const attributes = {};
+    ['id', 'class', 'data-testid', 'data-id', 'name', 'type', 'role', 'href'].forEach((attribute) => {
+        if (element.hasAttribute(attribute)) attributes[attribute] = element.getAttribute(attribute);
     });
-    
-    return attrs;
+    return attributes;
 }
 
 function findElementByIdentifiers(identifiers) {
-    // Thử CSS selector
     try {
-        const elements = document.querySelectorAll(identifiers.cssSelector);
-        if (elements.length === 1) return elements[0];
-        if (elements.length > 1) {
+        const matches = document.querySelectorAll(identifiers.cssSelector);
+        if (matches.length === 1) return matches[0];
+        if (matches.length > 1) {
             console.warn('CSS selector matches multiple elements:', identifiers.cssSelector);
         }
-    } catch (e) {
-        // console.warn('CSS selector failed:', e);
-    }
+    } catch {}
 
-    // Thử XPath
     try {
-        const xpathResult = document.evaluate(
+        const result = document.evaluate(
             identifiers.xpath,
             document,
             null,
             XPathResult.FIRST_ORDERED_NODE_TYPE,
-            null
+            null,
         );
-        if (xpathResult.singleNodeValue) return xpathResult.singleNodeValue;
-    } catch (e) {
-        console.warn('XPath failed:', e);
+        if (result.singleNodeValue) return result.singleNodeValue;
+    } catch (error) {
+        console.warn('XPath failed:', error);
     }
 
-    // Thử thuộc tính ID
     if (identifiers.attributes?.id) {
-        const element = document.getElementById(identifiers.attributes.id);
-        if (element) return element;
+        const byId = document.getElementById(identifiers.attributes.id);
+        if (byId) return byId;
     }
 
-    // Cảnh báo nếu không tìm thấy
     console.warn('No unique element found for identifiers:', identifiers);
     return null;
 }
 
-function findElementByAttributes(identifiers) {
-    const elements = document.getElementsByTagName(identifiers.tagName);
-    let bestElement = null;
+function findElementByAttributes(targetInfo) {
+    const candidates = document.getElementsByTagName(targetInfo.tagName);
+    let bestMatch = null;
     let highestScore = 0;
 
-    for (let element of elements) {
+    for (const candidate of candidates) {
         let score = 0;
-        for (const [attr, value] of Object.entries(identifiers.attributes || {})) {
-            if (element.getAttribute(attr) === value) {
-                score += attr === 'id' ? 10 : (attr === 'class' ? 5 : 3);
+
+        for (const [attributeName, attributeValue] of Object.entries(targetInfo.attributes || {})) {
+            if (candidate.getAttribute(attributeName) === attributeValue) {
+                score += attributeName === 'id' ? 10 : attributeName === 'class' ? 5 : 3;
             }
         }
 
-        if (identifiers.textContent && element.textContent) {
-            const elementText = element.textContent.trim().substring(0, 50);
-            if (elementText === identifiers.textContent.trim().substring(0, 50)) {
+        if (targetInfo.textContent && candidate.textContent) {
+            const preview = candidate.textContent.trim().substring(0, 50);
+            const targetPreview = targetInfo.textContent.trim().substring(0, 50);
+            if (preview === targetPreview) {
                 score += 5;
-            } else if (
-                elementText.includes(identifiers.textContent) ||
-                identifiers.textContent.includes(elementText)
-            ) {
+            } else if (preview.includes(targetInfo.textContent) || targetInfo.textContent.includes(preview)) {
                 score += 2;
             }
         }
 
         if (score >= 8 && score > highestScore) {
-            bestElement = element;
+            bestMatch = candidate;
             highestScore = score;
         }
     }
 
-    if (!bestElement) {
-        console.warn('No element found with sufficient score for:', identifiers);
-    }
-
-    return bestElement;
+    if (!bestMatch) console.warn('No element found with sufficient score for:', targetInfo);
+    return bestMatch;
 }
 
 function getCurrentBreakpoint(width) {
-    if (width >= 1024) {
-        return 'desktop';
-    } else if (width >= 768 && width < 1024) {
-        return 'tablet';
-    } else {
-        return 'mobile';
-    }
+    return width >= 1024 ? 'desktop' : width >= 768 && width < 1024 ? 'tablet' : 'mobile';
 }
 
 function formatTime(timestamp) {
-    const now = Date.now();
-    const diff = now - timestamp;
-    
-    if (diff < 60000) return 'Vừa xong';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
-    return `${Math.floor(diff / 86400000)} ngày trước`;
+    const elapsedMs = Date.now() - timestamp;
+    return elapsedMs < 60000
+        ? 'Vừa xong'
+        : elapsedMs < 3600000
+          ? `${Math.floor(elapsedMs / 60000)} phút trước`
+          : elapsedMs < 86400000
+            ? `${Math.floor(elapsedMs / 3600000)} giờ trước`
+            : `${Math.floor(elapsedMs / 86400000)} ngày trước`;
 }
 
 function getStatusText(status) {
-    const statusMap = {
-        'open': 'Mở',
-        'resolved': 'Đã giải quyết',
-        'closed': 'Đã đóng'
-    };
-    return statusMap[status] || 'Mở';
+    return { open: 'Mở', resolved: 'Đã giải quyết', closed: 'Đã đóng' }[status] || 'Mở';
 }
 
 function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+        const randomValue = (16 * Math.random()) | 0;
+        return (char === 'x' ? randomValue : (randomValue & 3) | 8).toString(16);
     });
 }
 
@@ -289,10 +223,3 @@ window.getCurrentBreakpoint = getCurrentBreakpoint;
 window.formatTime = formatTime;
 window.getStatusText = getStatusText;
 window.generateUUID = generateUUID;
-
-
-
-
-
-
-

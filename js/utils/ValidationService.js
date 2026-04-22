@@ -1,36 +1,13 @@
-/**
- * ValidationService - Input validation utility
- * Provides validation functions for various data types
- * @module ValidationService
- */
-
 import { ErrorLogger } from './ErrorLogger.js';
 
 export class ValidationService {
-    /**
-     * Validate email format
-     * @param {string} email - Email to validate
-     * @returns {boolean} True if valid
-     */
     static isValidEmail(email) {
-        if (!email || typeof email !== 'string') {
-            return false;
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email.trim());
+        if (!email || typeof email !== 'string') return false;
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     }
 
-    /**
-     * Validate URL format
-     * @param {string} url - URL to validate
-     * @returns {boolean} True if valid
-     */
     static isValidUrl(url) {
-        if (!url || typeof url !== 'string') {
-            return false;
-        }
-
+        if (!url || typeof url !== 'string') return false;
         try {
             new URL(url);
             return true;
@@ -39,201 +16,103 @@ export class ValidationService {
         }
     }
 
-    /**
-     * Validate domain format
-     * @param {string} domain - Domain to validate
-     * @returns {boolean} True if valid
-     */
     static isValidDomain(domain) {
-        if (!domain || typeof domain !== 'string') {
-            return false;
-        }
-
-        const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?(\.[a-zA-Z]{2,})+$/;
-        return domainRegex.test(domain.trim());
+        if (!domain || typeof domain !== 'string') return false;
+        return /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?(\.[a-zA-Z]{2,})+$/.test(domain.trim());
     }
 
-    /**
-     * Validate string is not empty
-     * @param {string} str - String to validate
-     * @param {number} minLength - Minimum length (default: 1)
-     * @param {number} maxLength - Maximum length (default: Infinity)
-     * @returns {boolean} True if valid
-     */
-    static isNonEmptyString(str, minLength = 1, maxLength = Infinity) {
-        if (!str || typeof str !== 'string') {
-            return false;
-        }
-
-        const trimmed = str.trim();
-        return trimmed.length >= minLength && trimmed.length <= maxLength;
+    static isNonEmptyString(value, minLength = 1, maxLength = Infinity) {
+        if (!value || typeof value !== 'string') return false;
+        const trimmedValue = value.trim();
+        return trimmedValue.length >= minLength && trimmedValue.length <= maxLength;
     }
 
-    /**
-     * Validate number is within range
-     * @param {number} num - Number to validate
-     * @param {number} min - Minimum value (default: -Infinity)
-     * @param {number} max - Maximum value (default: Infinity)
-     * @returns {boolean} True if valid
-     */
-    static isNumberInRange(num, min = -Infinity, max = Infinity) {
-        if (typeof num !== 'number' || isNaN(num)) {
-            return false;
-        }
-
-        return num >= min && num <= max;
+    static isNumberInRange(value, min = -Infinity, max = Infinity) {
+        return typeof value === 'number' && !isNaN(value) && value >= min && value <= max;
     }
 
-    /**
-     * Validate object has required properties
-     * @param {Object} obj - Object to validate
-     * @param {string[]} requiredProps - Required property names
-     * @returns {boolean} True if valid
-     */
-    static hasRequiredProperties(obj, requiredProps) {
-        if (!obj || typeof obj !== 'object') {
-            return false;
-        }
-
-        return requiredProps.every((prop) => obj.hasOwnProperty(prop));
+    static hasRequiredProperties(target, requiredProperties) {
+        return !(!target || typeof target !== 'object') &&
+            requiredProperties.every((property) => target.hasOwnProperty(property));
     }
 
-    /**
-     * Validate UUID format
-     * @param {string} uuid - UUID to validate
-     * @returns {boolean} True if valid
-     */
     static isValidUUID(uuid) {
-        if (!uuid || typeof uuid !== 'string') {
-            return false;
-        }
-
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-        return uuidRegex.test(uuid);
+        if (!uuid || typeof uuid !== 'string') return false;
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
     }
 
-    /**
-     * Validate comment text
-     * @param {string} text - Comment text
-     * @param {number} maxLength - Maximum length (default: 500)
-     * @returns {Object} { valid: boolean, error: string|null }
-     */
-    static validateComment(text, maxLength = 500) {
-        if (!text || typeof text !== 'string') {
+    static validateComment(comment, maxLength = 500) {
+        if (!comment || typeof comment !== 'string')
             return { valid: false, error: 'Comment cannot be empty' };
-        }
 
-        const trimmed = text.trim();
-
-        if (trimmed.length === 0) {
-            return { valid: false, error: 'Comment cannot be empty' };
-        }
-
-        if (trimmed.length > maxLength) {
+        const trimmedComment = comment.trim();
+        if (trimmedComment.length === 0) return { valid: false, error: 'Comment cannot be empty' };
+        if (trimmedComment.length > maxLength) {
             return { valid: false, error: `Comment cannot exceed ${maxLength} characters` };
         }
-
         return { valid: true, error: null };
     }
 
-    /**
-     * Validate error data structure
-     * @param {Object} error - Error object to validate
-     * @returns {Object} { valid: boolean, error: string|null }
-     */
-    static validateErrorData(error) {
-        if (!error || typeof error !== 'object') {
+    static validateErrorData(errorData) {
+        if (!errorData || typeof errorData !== 'object') {
             return { valid: false, error: 'Error data must be an object' };
         }
 
-        const requiredFields = ['id', 'type', 'timestamp', 'status', 'comments'];
-        const missingFields = requiredFields.filter((field) => !error.hasOwnProperty(field));
+        const missingFields = ['id', 'type', 'timestamp', 'status', 'comments'].filter(
+            (field) => !errorData.hasOwnProperty(field),
+        );
 
         if (missingFields.length > 0) {
-            return {
-                valid: false,
-                error: `Missing required fields: ${missingFields.join(', ')}`,
-            };
+            return { valid: false, error: `Missing required fields: ${missingFields.join(', ')}` };
         }
-
-        if (!this.isValidUUID(error.id)) {
-            return { valid: false, error: 'Invalid error ID format' };
-        }
-
-        if (!['border', 'rect'].includes(error.type)) {
+        if (!this.isValidUUID(errorData.id)) return { valid: false, error: 'Invalid error ID format' };
+        if (!['border', 'rect'].includes(errorData.type)) {
             return { valid: false, error: 'Invalid error type' };
         }
-
-        if (!['open', 'resolved', 'closed'].includes(error.status)) {
+        if (!['open', 'resolved', 'closed'].includes(errorData.status)) {
             return { valid: false, error: 'Invalid error status' };
         }
-
-        if (!Array.isArray(error.comments)) {
+        if (!Array.isArray(errorData.comments)) {
             return { valid: false, error: 'Comments must be an array' };
         }
 
         return { valid: true, error: null };
     }
 
-    /**
-     * Sanitize HTML string to prevent XSS
-     * @param {string} str - String to sanitize
-     * @returns {string} Sanitized string
-     */
-    static sanitizeHtml(str) {
-        if (!str || typeof str !== 'string') {
-            return '';
-        }
-
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+    static sanitizeHtml(input) {
+        if (!input || typeof input !== 'string') return '';
+        const tempElement = document.createElement('div');
+        tempElement.textContent = input;
+        return tempElement.innerHTML;
     }
 
-    /**
-     * Validate and sanitize user input
-     * @param {string} input - User input
-     * @param {Object} options - Validation options
-     * @returns {Object} { valid: boolean, sanitized: string, error: string|null }
-     */
     static validateAndSanitize(input, options = {}) {
-        const { required = true, minLength = 0, maxLength = Infinity, allowHtml = false } = options;
+        const {
+            required = true,
+            minLength = 0,
+            maxLength = Infinity,
+            allowHtml = false,
+        } = options;
 
-        if (required && !this.isNonEmptyString(input, minLength, maxLength)) {
+        if (required && !this.isNonEmptyString(input, minLength, maxLength))
             return {
                 valid: false,
                 sanitized: '',
                 error: `Input must be between ${minLength} and ${maxLength} characters`,
             };
-        }
-
-        const sanitized = allowHtml ? input.trim() : this.sanitizeHtml(input);
 
         return {
             valid: true,
-            sanitized,
+            sanitized: allowHtml ? input.trim() : this.sanitizeHtml(input),
             error: null,
         };
     }
 
-    /**
-     * Convert URLs in text to clickable links
-     * @param {string} text - Text to linkify
-     * @returns {string} Text with clickable links
-     */
-    static linkify(text) {
-        if (!text || typeof text !== 'string') {
-            return '';
-        }
-
-        // Regex for URLs starting with http, https, or ftp
-        const urlRegex = /(https?:\/\/[^\s<]+)/g;
-
-        return text.replace(urlRegex, (url) => {
-            // Trim trailing punctuation that might be part of the sentence but not the URL
-            const cleanUrl = url.replace(/[.,!?;:]+$/, '');
-            const trailing = url.substring(cleanUrl.length);
-            return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`;
+    static linkify(input) {
+        if (!input || typeof input !== 'string') return '';
+        return input.replace(/(https?:\/\/[^\s<]+)/g, (match) => {
+            const cleanUrl = match.replace(/[.,!?;:]+$/, '');
+            return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${match.substring(cleanUrl.length)}`;
         });
     }
 }

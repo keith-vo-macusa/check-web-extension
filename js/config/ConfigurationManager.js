@@ -1,58 +1,14 @@
-/**
- * ConfigurationManager - Centralized configuration management
- * Provides access to application constants and configuration
- * @module ConfigurationManager
- */
-
 export class ConfigurationManager {
-    /**
-     * Breakpoint types for responsive design
-     */
-    static BREAKPOINTS = {
-        ALL: 'all',
-        DESKTOP: 'desktop',
-        TABLET: 'tablet',
-        MOBILE: 'mobile',
-    };
-
-    /**
-     * Breakpoint thresholds in pixels
-     */
+    static BREAKPOINTS = { ALL: 'all', DESKTOP: 'desktop', TABLET: 'tablet', MOBILE: 'mobile' };
     static BREAKPOINT_THRESHOLDS = {
         DESKTOP_MIN: 1024,
         TABLET_MIN: 768,
         TABLET_MAX: 1023,
         MOBILE_MAX: 767,
     };
-
-    /**
-     * Error status types
-     */
-    static ERROR_STATUS = {
-        OPEN: 'open',
-        RESOLVED: 'resolved',
-        CLOSED: 'closed',
-    };
-
-    /**
-     * Error types
-     */
-    static ERROR_TYPES = {
-        BORDER: 'border',
-        RECT: 'rect',
-    };
-
-    /**
-     * Notification types
-     */
-    static NOTIFICATION_TYPES = {
-        BUG_FOUND: 'bug_found',
-        BUG_FIXED: 'bug_fixed',
-    };
-
-    /**
-     * User-facing messages
-     */
+    static ERROR_STATUS = { OPEN: 'open', RESOLVED: 'resolved', CLOSED: 'closed' };
+    static ERROR_TYPES = { BORDER: 'border', RECT: 'rect' };
+    static NOTIFICATION_TYPES = { BUG_FOUND: 'bug_found', BUG_FIXED: 'bug_fixed' };
     static MESSAGES = {
         bug_found: 'Bạn có chắc muốn gửi thông báo lỗi không?',
         bug_fixed: 'Bạn có chắc muốn gửi thông báo đã sửa tất cả lỗi không?',
@@ -65,10 +21,6 @@ export class ConfigurationManager {
         content_script_unavailable: 'Content script không khả dụng',
         login_required: 'Vui lòng đăng nhập để tiếp tục',
     };
-
-    /**
-     * API configuration
-     */
     static API = {
         BASE_URL: 'https://wpm.macusaone.com/',
         ENDPOINTS: {
@@ -77,22 +29,14 @@ export class ConfigurationManager {
             GET_DOMAIN_DATA: 'api/v1/websites/check-wise/ext/',
             SET_DOMAIN_DATA: 'api/v1/websites/check-wise/ext/',
         },
-        TIMEOUT: 10000, // 10 seconds
+        TIMEOUT: 10000,
     };
-
-    /**
-     * Update checker configuration
-     */
     static UPDATE_CONFIG = {
         VERSION_CHECK_URL:
             'https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/main/manifest.json',
         CHECK_INTERVAL_MINUTES: 1,
         RELEASE_URL: 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
     };
-
-    /**
-     * Action message types for inter-component communication
-     */
     static ACTIONS = {
         ACTIVATE: 'activate',
         DEACTIVATE: 'deactivate',
@@ -117,17 +61,7 @@ export class ConfigurationManager {
         CHECK_FOR_UPDATES: 'checkForUpdates',
         OPEN_OR_RESIZE_ERROR_WINDOW: 'openOrResizeErrorWindow',
     };
-
-    /**
-     * Admin configuration
-     */
-    static ADMIN = {
-        PERMISSON: 'SITE_CHECK_ADMIN',
-    };
-
-    /**
-     * UI Configuration
-     */
+    static ADMIN = { PERMISSON: 'SITE_CHECK_ADMIN' };
     static UI = {
         COMMENT_MAX_LENGTH: 500,
         DRAG_THRESHOLD_PX: 5,
@@ -139,19 +73,11 @@ export class ConfigurationManager {
         DESKTOP_BREAKPOINT_PX: 1140,
         ERROR_CONTAINER_ID: 'testing-error-container',
     };
-
-    /**
-     * Window decoration sizes for different platforms
-     */
     static WINDOW_DECORATIONS = {
         win32: { titleBar: 32, borderHorizontal: 16, borderVertical: 8 },
         darwin: { titleBar: 28, borderHorizontal: 0, borderVertical: 0 },
         linux: { titleBar: 35, borderHorizontal: 8, borderVertical: 8 },
     };
-
-    /**
-     * Storage keys
-     */
     static STORAGE_KEYS = {
         USER_INFO: 'userInfo',
         IS_AUTHENTICATED: 'isAuthenticated',
@@ -166,10 +92,6 @@ export class ConfigurationManager {
         FEEDBACK: 'feedback',
         ERROR_LOGS: 'errorLogs',
     };
-
-    /**
-     * CSS class names
-     */
     static CSS_CLASSES = {
         SELECTION_MODE: 'testing-selection-mode',
         HIGHLIGHT: 'testing-highlight',
@@ -183,46 +105,35 @@ export class ConfigurationManager {
         DRAW_RESOLVED_ERRORS: 'draw-resolved-errors',
         IS_POPUP: 'ext-is-popup',
     };
-
     /**
-     * Get full API endpoint URL
-     * @param {string} endpoint - Endpoint name from API.ENDPOINTS
-     * @returns {string} Full URL
+     * Build full API URL from a known endpoint key.
      */
-    static getApiUrl(endpoint) {
-        const endpointPath = this.API.ENDPOINTS[endpoint];
-        if (!endpointPath) {
-            throw new Error(`Unknown API endpoint: ${endpoint}`);
-        }
+    static getApiUrl(endpointKey) {
+        const endpointPath = this.API.ENDPOINTS[endpointKey];
+        if (!endpointPath) throw new Error(`Unknown API endpoint: ${endpointKey}`);
         return this.API.BASE_URL + endpointPath;
     }
 
     /**
-     * Get breakpoint type from width
-     * @param {number} width - Window width in pixels
-     * @returns {string} Breakpoint type
+     * Resolve breakpoint type for a given viewport width.
      */
-    static getBreakpointType(width) {
-        if (width >= this.BREAKPOINT_THRESHOLDS.DESKTOP_MIN) {
-            return this.BREAKPOINTS.DESKTOP;
-        }
-        if (width >= this.BREAKPOINT_THRESHOLDS.TABLET_MIN) {
-            return this.BREAKPOINTS.TABLET;
-        }
-        return this.BREAKPOINTS.MOBILE;
+    static getBreakpointType(viewportWidth) {
+        return viewportWidth >= this.BREAKPOINT_THRESHOLDS.DESKTOP_MIN
+            ? this.BREAKPOINTS.DESKTOP
+            : viewportWidth >= this.BREAKPOINT_THRESHOLDS.TABLET_MIN
+              ? this.BREAKPOINTS.TABLET
+              : this.BREAKPOINTS.MOBILE;
     }
 
     /**
-     * Get current extension version
-     * @returns {string} Version string
+     * Read extension version from manifest.
      */
     static getCurrentVersion() {
         return chrome?.runtime?.getManifest()?.version || '0.0.0';
     }
 
     /**
-     * Get default storage values
-     * @returns {Object} Default storage object
+     * Return default storage values used by the extension.
      */
     static getDefaultStorage() {
         return {
@@ -233,11 +144,9 @@ export class ConfigurationManager {
     }
 
     /**
-     * Check if user is admin
-     * @param {Object} userInfo - User info
-     * @returns {boolean} True if admin
+     * Check whether the user has extension admin permission.
      */
     static isCheckwiseAdmin(userInfo) {
-        return userInfo.permissions.some((per) => per.name == this.ADMIN.PERMISSON);
+        return userInfo.permissions.some((permission) => permission.name == this.ADMIN.PERMISSON);
     }
 }

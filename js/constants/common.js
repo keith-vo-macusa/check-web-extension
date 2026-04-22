@@ -1,4 +1,3 @@
-// Constants
 const BREAKPOINTS = {
     ALL: 'all',
     DESKTOP: 'desktop',
@@ -21,10 +20,11 @@ const messages = {
 };
 
 const API_ENDPOINT = 'https://wpm.macusaone.com/';
+
 const API_ACTION = {
-    SEND_NOTIFICATION_TELEGRAM: API_ENDPOINT + 'api/v1/websites/check-wise/ext/notification',
-    GET_DOMAIN_DATA: API_ENDPOINT + 'api/v1/websites/check-wise/ext/',
-    SET_DOMAIN_DATA: API_ENDPOINT + 'api/v1/websites/check-wise/ext/',
+    SEND_NOTIFICATION_TELEGRAM: `${API_ENDPOINT}api/v1/websites/check-wise/ext/notification`,
+    GET_DOMAIN_DATA: `${API_ENDPOINT}api/v1/websites/check-wise/ext/`,
+    SET_DOMAIN_DATA: `${API_ENDPOINT}api/v1/websites/check-wise/ext/`,
 };
 
 const ACTION_MESSAGE = {
@@ -42,7 +42,6 @@ const ACTION_MESSAGE = {
 };
 
 const ADMIN_EMAIL = 'hana.web@macusaone.com';
-
 const CURRENT_VERSION = chrome.runtime.getManifest().version;
 const DEFAULT_STORAGE = {
     updateAvailable: false,

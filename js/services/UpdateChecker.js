@@ -1,46 +1,55 @@
-const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/main/manifest.json';
-const CHECK_INTERVAL = 1; // 1 minute
+const VERSION_CHECK_URL =
+    'https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/main/manifest.json';
+const CHECK_INTERVAL = 1;
 
+/**
+ * Fetch latest manifest and update extension version metadata in storage.
+ */
 export async function checkForUpdates() {
-  try {
-    const response = await fetch(`${VERSION_CHECK_URL}?t=${Date.now()}`);
-    if (!response.ok) throw new Error('Failed to fetch version');
+    try {
+        const response = await fetch(`${VERSION_CHECK_URL}?t=${Date.now()}`);
+        if (!response.ok) throw new Error('Failed to fetch version');
 
-    const data = await response.json();
-    const latestVersion = data.version;
-    const currentVersion = chrome.runtime.getManifest().version;
+        const manifestData = await response.json();
+        const latestVersion = manifestData.version;
+        const updateData = {
+            updateAvailable: isNewerVersion(latestVersion, chrome.runtime.getManifest().version),
+            latestVersion,
+            updateUrl:
+                manifestData.updateUrl ||
+                'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
+        };
 
-    const dataUpdated = {
-      updateAvailable: isNewerVersion(latestVersion, currentVersion),
-      latestVersion: latestVersion,
-      updateUrl: data.updateUrl || 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
-    };
-    await chrome.storage.local.set(dataUpdated);
-    console.log(`Update available: ${latestVersion}`);
-  } catch (error) {
-    console.error('Error checking for updates:', error);
-  }
-}
-
-export function setupUpdateCheck() {
-  chrome.alarms.create('versionCheck', { periodInMinutes: CHECK_INTERVAL });
-  chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'versionCheck') {
-      checkForUpdates();
+        await chrome.storage.local.set(updateData);
+        console.log(`Update available: ${latestVersion}`);
+    } catch (error) {
+        console.error('Error checking for updates:', error);
     }
-  });
 }
 
-function isNewerVersion(latest, current) {
-  const latestParts = latest.split('.').map(Number);
-  const currentParts = current.split('.').map(Number);
+/**
+ * Configure periodic version checks via Chrome alarms.
+ */
+export function setupUpdateCheck() {
+    chrome.alarms.create('versionCheck', { periodInMinutes: CHECK_INTERVAL });
+    chrome.alarms.onAlarm.addListener((alarm) => {
+        if (alarm.name === 'versionCheck') checkForUpdates();
+    });
+}
 
-  for (let i = 0; i < Math.max(latestParts.length, currentParts.length); i++) {
-    const latestPart = latestParts[i] || 0;
-    const currentPart = currentParts[i] || 0;
+/**
+ * Compare semantic-like versions.
+ */
+function isNewerVersion(latestVersion, currentVersion) {
+    const latestParts = latestVersion.split('.').map(Number);
+    const currentParts = currentVersion.split('.').map(Number);
 
-    if (latestPart > currentPart) return true;
-    if (latestPart < currentPart) return false;
-  }
-  return false;
+    for (let index = 0; index < Math.max(latestParts.length, currentParts.length); index++) {
+        const latestPart = latestParts[index] || 0;
+        const currentPart = currentParts[index] || 0;
+        if (latestPart > currentPart) return true;
+        if (latestPart < currentPart) return false;
+    }
+
+    return false;
 }

@@ -1,9 +1,3 @@
-/**
- * LoginManager - Login functionality (Refactored)
- * Modern ES6+, no jQuery, uses fetch API
- * @module LoginManager
- */
-
 import { StorageService } from './core/StorageService.js';
 import { ConfigurationManager } from './config/ConfigurationManager.js';
 import { ValidationService } from './utils/ValidationService.js';
@@ -12,15 +6,12 @@ import { TabsService } from './core/TabsService.js';
 import AuthManager from './auth.js';
 
 class LoginManager {
-    /**
-     * Constructor
-     */
     constructor() {
         this.init();
     }
 
     /**
-     * Initialize login manager
+     * Initialize page events and initial auth check.
      */
     init() {
         this.bindEvents();
@@ -28,339 +19,198 @@ class LoginManager {
     }
 
     /**
-     * Bind event listeners
+     * Wire login form and password toggle events.
      */
     bindEvents() {
         const form = document.getElementById('loginForm');
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
-        const togglePassword = document.getElementById('togglePassword');
+        const togglePasswordButton = document.getElementById('togglePassword');
 
-        if (!form || !emailInput || !passwordInput) {
+        if (!(form && emailInput && passwordInput)) {
             ErrorLogger.error('Login form elements not found');
             return;
         }
 
-        // Form submission
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
             this.handleLogin();
         });
 
-        // Auto-focus email field
         emailInput.focus();
 
-        // Enter key on password
-        passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.handleLogin();
+        passwordInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') this.handleLogin();
+        });
+
+        if (!togglePasswordButton) return;
+        togglePasswordButton.addEventListener('click', () => {
+            const nextInputType = passwordInput.type === 'password' ? 'text' : 'password';
+            passwordInput.type = nextInputType;
+            const eyeIcon = togglePasswordButton.querySelector('.eye-icon i');
+
+            if (!eyeIcon) return;
+            if (nextInputType === 'password') {
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
             }
         });
-
-        emailInput.addEventListener('input', () => {
-            this.updateEmailState(emailInput);
-        });
-
-        emailInput.addEventListener('blur', () => {
-            this.updateEmailState(emailInput, { showEmptyAsInvalid: true });
-        });
-
-        passwordInput.addEventListener('input', () => {
-            this.updatePasswordState(passwordInput);
-        });
-
-        passwordInput.addEventListener('blur', () => {
-            this.updatePasswordState(passwordInput, { showEmptyAsInvalid: true });
-        });
-
-        // Password visibility toggle
-        if (togglePassword) {
-            const updatePasswordToggleState = () => {
-                const isVisible = passwordInput.type === 'text';
-                togglePassword.setAttribute(
-                    'aria-label',
-                    isVisible ? 'Hide password' : 'Show password'
-                );
-
-                const icon = togglePassword.querySelector('.eye-icon i');
-                if (icon) {
-                    icon.classList.toggle('fa-eye', isVisible);
-                    icon.classList.toggle('fa-eye-slash', !isVisible);
-                }
-            };
-
-            updatePasswordToggleState();
-
-            togglePassword.addEventListener('click', () => {
-                passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
-                updatePasswordToggleState();
-            });
-        }
     }
 
     /**
-     * Apply validation state to an input element
-     * @param {HTMLInputElement} input - Input element
-     * @param {string|null} state - "valid", "invalid", or null to clear
-     */
-    setInputState(input, state) {
-        if (!input) {
-            return;
-        }
-
-        if (!state) {
-            input.removeAttribute('data-state');
-            return;
-        }
-
-        input.setAttribute('data-state', state);
-    }
-
-    /**
-     * Update email input validation state
-     * @param {HTMLInputElement} input - Email input
-     * @param {Object} options - Validation options
-     * @param {boolean} options.showEmptyAsInvalid - Mark empty as invalid
-     * @returns {boolean} True if valid
-     */
-    updateEmailState(input, { showEmptyAsInvalid = false } = {}) {
-        if (!input) {
-            return false;
-        }
-
-        const value = input.value.trim();
-
-        if (value.length === 0) {
-            this.setInputState(input, showEmptyAsInvalid ? 'invalid' : null);
-            return false;
-        }
-
-        const isValid = ValidationService.isValidEmail(value);
-        this.setInputState(input, isValid ? 'valid' : 'invalid');
-        return isValid;
-    }
-
-    /**
-     * Update password input validation state
-     * @param {HTMLInputElement} input - Password input
-     * @param {Object} options - Validation options
-     * @param {boolean} options.showEmptyAsInvalid - Mark empty as invalid
-     * @returns {boolean} True if valid
-     */
-    updatePasswordState(input, { showEmptyAsInvalid = false } = {}) {
-        if (!input) {
-            return false;
-        }
-
-        const value = input.value.trim();
-
-        if (value.length === 0) {
-            this.setInputState(input, showEmptyAsInvalid ? 'invalid' : null);
-            return false;
-        }
-
-        const isValid = ValidationService.isNonEmptyString(value, 1);
-        this.setInputState(input, isValid ? 'valid' : 'invalid');
-        return isValid;
-    }
-
-    /**
-     * Check authentication status
+     * Redirect to main popup when user is already authenticated.
      */
     async checkAuthStatus() {
         try {
-            const isAuth = await AuthManager.isAuthenticated();
-
-            if (isAuth) {
-                this.redirectToMain();
-            }
+            (await AuthManager.isAuthenticated()) && this.redirectToMain();
         } catch (error) {
             ErrorLogger.error('Error checking auth status', { error });
         }
     }
 
     /**
-     * Handle login
+     * Validate form and request login API.
      */
     async handleLogin() {
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
-
-        if (!emailInput || !passwordInput) {
-            return;
-        }
+        if (!emailInput || !passwordInput) return;
 
         const email = emailInput.value.trim();
         const password = passwordInput.value.trim();
 
-        // Validate input
-        const emailIsValid = this.updateEmailState(emailInput, { showEmptyAsInvalid: true });
-        const passwordIsValid = this.updatePasswordState(passwordInput, { showEmptyAsInvalid: true });
-
-        if (!emailIsValid) {
-            this.showError('Invalid email address');
+        if (!ValidationService.isValidEmail(email)) {
+            this.showError('Email không hợp lệ');
             return;
         }
 
-        if (!passwordIsValid) {
-            this.showError('Please enter your password');
+        if (!ValidationService.isNonEmptyString(password, 1)) {
+            this.showError('Vui lòng nhập mật khẩu');
             return;
         }
 
-        // Show loading
         this.showLoading(true);
         this.hideMessages();
-
         try {
-            const loginUrl =
+            const loginApiUrl =
                 ConfigurationManager.API.BASE_URL + ConfigurationManager.API.ENDPOINTS.LOGIN;
-
-            const response = await fetch(loginUrl, {
+            const response = await fetch(loginApiUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
             });
+            const responseData = await response.json();
 
-            const result = await response.json();
-
-            if (result.success) {
-                this.showSuccess(result.message || 'Login successful');
-                await this.saveAuthState(result.data);
+            if (responseData.success) {
+                this.showSuccess(responseData.message || 'Đăng nhập thành công');
+                await this.saveAuthState(responseData.data);
                 this.redirectToMain();
-
-                // Refresh current tab
                 await TabsService.reloadTab();
                 window.close();
             } else {
-                this.showError(result.message || 'Login failed');
+                this.showError(responseData.message || 'Đăng nhập thất bại');
             }
         } catch (error) {
             ErrorLogger.error('Login error', { error });
-            this.showError('An error occurred, please try again');
+            this.showError('Có lỗi xảy ra, vui lòng thử lại');
         } finally {
             this.showLoading(false);
         }
     }
 
     /**
-     * Save authentication state
-     * @param {Object} data - User data from API
+     * Persist authenticated user information in extension storage.
      */
-    async saveAuthState(data) {
+    async saveAuthState(authData) {
         try {
             const userInfo = {
-                id: data.id,
-                name: data.name,
-                email: data.email || null,
-                accessToken: data.token || data.accessToken || null,
-                roles: data.roles || [],
-                permissions: data.permissions || [],
+                id: authData.id,
+                name: authData.name,
+                email: authData.email || null,
+                accessToken: authData.token || authData.accessToken || null,
+                roles: authData.roles || [],
+                permissions: authData.permissions || [],
                 loginTime: new Date().toISOString(),
             };
-
             await StorageService.set({
                 [ConfigurationManager.STORAGE_KEYS.IS_AUTHENTICATED]: true,
                 [ConfigurationManager.STORAGE_KEYS.USER_INFO]: userInfo,
             });
-
             ErrorLogger.info('Auth state saved', {
                 userId: userInfo.id,
                 roles: userInfo.roles,
                 permissions: userInfo.permissions,
             });
         } catch (error) {
-            ErrorLogger.error('Error saving auth state', { error });
-            throw error;
+            throw (ErrorLogger.error('Error saving auth state', { error }), error);
         }
     }
 
     /**
-     * Redirect to main popup
+     * Redirect to the main popup page.
      */
     redirectToMain() {
         window.location.href = 'popup.html';
     }
 
     /**
-     * Show loading state
-     * @param {boolean} show - Whether to show loading
+     * Toggle loading state on login form.
      */
-    showLoading(show) {
-        const loading = document.getElementById('loading');
-        const loginBtn = document.getElementById('loginBtn');
+    showLoading(isLoading) {
+        const loadingElement = document.getElementById('loading');
+        const loginButton = document.getElementById('loginBtn');
 
-        if (loading) {
-            loading.style.display = show ? 'block' : 'none';
-        }
-
-        if (loginBtn) {
-            loginBtn.disabled = show;
-            loginBtn.textContent = show ? 'Verifying...' : 'Sign In';
+        if (loadingElement) loadingElement.style.display = isLoading ? 'block' : 'none';
+        if (loginButton) {
+            loginButton.disabled = isLoading;
+            loginButton.textContent = isLoading ? 'Đang xác thực...' : 'Đăng nhập';
         }
     }
 
     /**
-     * Show error message
-     * @param {string} message - Error message
+     * Show error message and hide success state.
      */
     showError(message) {
-        const errorEl = document.getElementById('errorMessage');
-        const successEl = document.getElementById('successMessage');
+        const errorElement = document.getElementById('errorMessage');
+        const successElement = document.getElementById('successMessage');
 
-        if (errorEl) {
-            errorEl.textContent = message;
-            errorEl.style.display = 'block';
-            errorEl.setAttribute('aria-hidden', 'false');
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
         }
 
-        if (successEl) {
-            successEl.style.display = 'none';
-            successEl.setAttribute('aria-hidden', 'true');
-        }
+        if (successElement) successElement.style.display = 'none';
     }
 
     /**
-     * Show success message
-     * @param {string} message - Success message
+     * Show success message and hide error state.
      */
     showSuccess(message) {
-        const errorEl = document.getElementById('errorMessage');
-        const successEl = document.getElementById('successMessage');
+        const errorElement = document.getElementById('errorMessage');
+        const successElement = document.getElementById('successMessage');
 
-        if (successEl) {
-            successEl.textContent = message;
-            successEl.style.display = 'block';
-            successEl.setAttribute('aria-hidden', 'false');
+        if (successElement) {
+            successElement.textContent = message;
+            successElement.style.display = 'block';
         }
 
-        if (errorEl) {
-            errorEl.style.display = 'none';
-            errorEl.setAttribute('aria-hidden', 'true');
-        }
+        if (errorElement) errorElement.style.display = 'none';
     }
 
     /**
-     * Hide all messages
+     * Hide both error and success messages.
      */
     hideMessages() {
-        const errorEl = document.getElementById('errorMessage');
-        const successEl = document.getElementById('successMessage');
-
-        if (errorEl) {
-            errorEl.style.display = 'none';
-            errorEl.setAttribute('aria-hidden', 'true');
-        }
-
-        if (successEl) {
-            successEl.style.display = 'none';
-            successEl.setAttribute('aria-hidden', 'true');
-        }
+        const errorElement = document.getElementById('errorMessage');
+        const successElement = document.getElementById('successMessage');
+        if (errorElement) errorElement.style.display = 'none';
+        if (successElement) successElement.style.display = 'none';
     }
 }
 
-// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         new LoginManager();

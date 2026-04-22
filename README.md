@@ -2,25 +2,29 @@
 
 ## Mô tả
 
-Chrome Extension (Manifest V3) hỗ trợ tester kiểm tra website. Cho phép chọn vùng lỗi trực tiếp trên giao diện, thêm comment, quản lý trạng thái lỗi và đồng bộ với server.
+Chrome Extension (Manifest V3) hỗ trợ tester kiểm tra website. Cho phép chọn vùng lỗi trực tiếp trên
+giao diện, thêm comment, quản lý trạng thái lỗi và đồng bộ với server.
 
 ---
 
 ## Tính năng chính
 
 ### Chọn vùng lỗi
+
 - **Border Mode**: Click vào element để đánh dấu lỗi theo vùng element
 - **Rect Mode**: Kéo thả để vẽ vùng lỗi tự do
 - Hỗ trợ **responsive breakpoints** (Desktop, Tablet, Mobile)
 - **Smart Hover**: Di chuột vào vùng chồng lấp → error nhỏ nhất tự động nổi lên trên
 
 ### Comment System
+
 - Thread comments (nhiều người có thể comment)
 - Chỉnh sửa/xóa comment của mình
 - Tooltip preview khi hover
 - Ctrl+Enter để lưu nhanh
 
 ### Quản lý lỗi
+
 - Danh sách lỗi theo trang
 - Lọc theo trạng thái: **Open** / **Resolved**
 - Lọc theo breakpoint: Desktop / Tablet / Mobile
@@ -28,6 +32,7 @@ Chrome Extension (Manifest V3) hỗ trợ tester kiểm tra website. Cho phép c
 - Xóa đơn lẻ hoặc xóa tất cả
 
 ### Thông báo & Updates
+
 - Gửi thông báo lỗi đến team
 - Tự động check update phiên bản mới
 - Badge hiển thị số lỗi
@@ -36,15 +41,15 @@ Chrome Extension (Manifest V3) hỗ trợ tester kiểm tra website. Cho phép c
 
 ## Công nghệ sử dụng
 
-| Công nghệ | Mục đích |
-|-----------|----------|
-| **Manifest V3** | Chrome Extension API mới nhất |
-| **ES6 Modules** | Modern JavaScript architecture |
-| **Vite** | Build tool |
-| **jQuery 3.7.1** | DOM manipulation (popup) |
-| **SweetAlert2** | Beautiful modals |
-| **Chrome Storage API** | Lưu trữ local |
-| **Chrome Messaging API** | Giao tiếp giữa components |
+| Công nghệ                | Mục đích                       |
+| ------------------------ | ------------------------------ |
+| **Manifest V3**          | Chrome Extension API mới nhất  |
+| **ES6 Modules**          | Modern JavaScript architecture |
+| **Vite**                 | Build tool                     |
+| **jQuery 3.7.1**         | DOM manipulation (popup)       |
+| **SweetAlert2**          | Beautiful modals               |
+| **Chrome Storage API**   | Lưu trữ local                  |
+| **Chrome Messaging API** | Giao tiếp giữa components      |
 
 ---
 
@@ -273,12 +278,12 @@ check-web-extension/
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/loginForExt` | Đăng nhập |
-| `GET` | `/api/v1/websites/check-wise/ext/{domain}` | Lấy errors theo domain |
-| `PUT` | `/api/v1/websites/check-wise/ext/{domain}` | Cập nhật errors |
-| `POST` | `/api/v1/websites/check-wise/ext/notification` | Gửi thông báo lỗi |
+| Method | Endpoint                                       | Description            |
+| ------ | ---------------------------------------------- | ---------------------- |
+| `POST` | `/api/loginForExt`                             | Đăng nhập              |
+| `GET`  | `/api/v1/websites/check-wise/ext/{domain}`     | Lấy errors theo domain |
+| `PUT`  | `/api/v1/websites/check-wise/ext/{domain}`     | Cập nhật errors        |
+| `POST` | `/api/v1/websites/check-wise/ext/notification` | Gửi thông báo lỗi      |
 
 **Base URL**: `https://wpm.macusaone.com/`
 
@@ -286,18 +291,19 @@ check-web-extension/
 
 ## Phím tắt
 
-| Phím tắt | Chức năng |
-|----------|-----------|
-| `Shift + W` | Toggle chế độ chọn lỗi |
-| `Shift + E` | Toggle hiển thị tất cả lỗi |
-| `Ctrl + Enter` | Lưu comment nhanh |
-| `Escape` | Thoát chế độ chọn / đóng modal |
+| Phím tắt       | Chức năng                      |
+| -------------- | ------------------------------ |
+| `Shift + W`    | Toggle chế độ chọn lỗi         |
+| `Shift + E`    | Toggle hiển thị tất cả lỗi     |
+| `Ctrl + Enter` | Lưu comment nhanh              |
+| `Escape`       | Thoát chế độ chọn / đóng modal |
 
 ---
 
 ## Core Services
 
 ### StorageService
+
 Wrapper cho Chrome Storage API với Promise-based interface.
 
 ```javascript
@@ -315,6 +321,7 @@ await StorageService.remove('key');
 ```
 
 ### MessagingService
+
 Giao tiếp giữa popup, background, và content script.
 
 ```javascript
@@ -328,20 +335,21 @@ await MessagingService.sendToContentScript({ action: 'activate' });
 
 // Add listener
 const cleanup = MessagingService.addListener((message, sender) => {
-  // Handle message
+    // Handle message
 });
 ```
 
 ### ConfigurationManager
+
 Centralized configuration và constants.
 
 ```javascript
 import { ConfigurationManager } from './config/ConfigurationManager.js';
 
 // Constants
-ConfigurationManager.ERROR_STATUS.OPEN  // 'open'
-ConfigurationManager.ACTIONS.ACTIVATE   // 'activate'
-ConfigurationManager.API.BASE_URL       // 'https://wpm.macusaone.com/'
+ConfigurationManager.ERROR_STATUS.OPEN; // 'open'
+ConfigurationManager.ACTIONS.ACTIVATE; // 'activate'
+ConfigurationManager.API.BASE_URL; // 'https://wpm.macusaone.com/'
 
 // Helper methods
 ConfigurationManager.getApiUrl('LOGIN');
@@ -361,8 +369,8 @@ Xử lý trường hợp nhiều errors lồng nhau:
 ```javascript
 // Throttled mousemove listener
 document.addEventListener('mousemove', (e) => {
-  // Find all errors containing mouse position
-  // Boost z-index of smallest one
+    // Find all errors containing mouse position
+    // Boost z-index of smallest one
 });
 ```
 
@@ -386,33 +394,38 @@ npm run build:clean
 ## Installation
 
 1. **Clone repository**
-   ```bash
-   git clone https://github.com/keith-vo-macusa/check-web-extension.git
-   cd check-web-extension
-   ```
+
+    ```bash
+    git clone https://github.com/keith-vo-macusa/check-web-extension.git
+    cd check-web-extension
+    ```
 
 2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+
+    ```bash
+    npm install
+    ```
 
 3. **Build**
-   ```bash
-   npm run build
-   ```
+
+    ```bash
+    npm run build
+    ```
 
 4. **Load in Chrome**
-   - Open `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked"
-   - Select the project folder
+    - Open `chrome://extensions/`
+    - Enable "Developer mode"
+    - Click "Load unpacked"
+    - Select the project folder
 
 ---
 
 ## Debugging
 
 ### Console Logs
+
 Extension sử dụng `ErrorLogger` với các log levels:
+
 - `[INFO]` - Thông tin operation thành công
 - `[WARN]` - Cảnh báo non-critical
 - `[ERROR]` - Lỗi cần xử lý
@@ -420,12 +433,12 @@ Extension sử dụng `ErrorLogger` với các log levels:
 
 ### Common Issues
 
-| Vấn đề | Nguyên nhân | Giải pháp |
-|--------|-------------|-----------|
-| "Extension context invalidated" | Extension bị reload | Refresh trang web |
-| "Content script not available" | Content script chưa inject | Refresh trang web |
-| Errors không hiển thị | Toggle visibility tắt | Bật toggle trong popup |
-| API call failed | Token hết hạn | Đăng nhập lại |
+| Vấn đề                          | Nguyên nhân                | Giải pháp              |
+| ------------------------------- | -------------------------- | ---------------------- |
+| "Extension context invalidated" | Extension bị reload        | Refresh trang web      |
+| "Content script not available"  | Content script chưa inject | Refresh trang web      |
+| Errors không hiển thị           | Toggle visibility tắt      | Bật toggle trong popup |
+| API call failed                 | Token hết hạn              | Đăng nhập lại          |
 
 ---
 

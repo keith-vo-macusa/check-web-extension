@@ -1,251 +1,189 @@
-/**
- * CoordinatesCalculator - Handles coordinate calculations for error markers
- * Converts between px and responsive units, handles viewport compensation
- * @module CoordinatesCalculator
- */
-
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 
 export class CoordinatesCalculator {
     /**
-     * Constructor
-     * @param {number} adminBarHeight - Height of admin bar (if present)
+     * @param {number} adminBarHeight Height offset to subtract from top coordinates.
      */
     constructor(adminBarHeight = 0) {
         this.adminBarHeight = adminBarHeight;
     }
 
     /**
-     * Convert pixel coordinates to responsive units
-     * @param {Object} pxCoords - Pixel coordinates {left, top, width, height}
-     * @returns {Object} Responsive coordinates with % and viewport units
+     * Convert absolute pixel coordinates to responsive percentages/viewport units.
      */
-    convertPxToResponsive(pxCoords) {
-        const docWidth = document.documentElement.scrollWidth;
-        const docHeight = document.documentElement.scrollHeight;
+    convertPxToResponsive(coordinates) {
+        const documentWidth = document.documentElement.scrollWidth;
+        const documentHeight = document.documentElement.scrollHeight;
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
         return {
-            left: (pxCoords.left / docWidth) * 100, // % of document width
-            top: (pxCoords.top / docHeight) * 100, // % of document height
-            width: (pxCoords.width / viewportWidth) * 100, // vw
-            height: (pxCoords.height / viewportHeight) * 100, // vh
-            units: {
-                left: '%',
-                top: '%',
-                width: 'vw',
-                height: 'vh',
-            },
+            left: (coordinates.left / documentWidth) * 100,
+            top: (coordinates.top / documentHeight) * 100,
+            width: (coordinates.width / viewportWidth) * 100,
+            height: (coordinates.height / viewportHeight) * 100,
+            units: { left: '%', top: '%', width: 'vw', height: 'vh' },
         };
     }
 
     /**
-     * Convert responsive coordinates to pixels
-     * @param {Object} responsiveCoords - Responsive coordinates
-     * @returns {Object} Pixel coordinates
+     * Convert responsive coordinates back to pixel values.
      */
-    convertResponsiveToPx(responsiveCoords) {
-        const docWidth = document.documentElement.scrollWidth;
-        const docHeight = document.documentElement.scrollHeight;
+    convertResponsiveToPx(coordinates) {
+        const documentWidth = document.documentElement.scrollWidth;
+        const documentHeight = document.documentElement.scrollHeight;
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
         return {
-            left: (responsiveCoords.left / 100) * docWidth,
-            top: (responsiveCoords.top / 100) * docHeight,
-            width: (responsiveCoords.width / 100) * viewportWidth,
-            height: (responsiveCoords.height / 100) * viewportHeight,
+            left: (coordinates.left / 100) * documentWidth,
+            top: (coordinates.top / 100) * documentHeight,
+            width: (coordinates.width / 100) * viewportWidth,
+            height: (coordinates.height / 100) * viewportHeight,
         };
     }
 
     /**
-     * Get element position relative to document
-     * @param {HTMLElement} element - Target element
-     * @returns {Object} Position {top, left, width, height}
+     * Get document-relative element bounds, adjusted by admin bar offset.
      */
     getElementPosition(element) {
         const rect = element.getBoundingClientRect();
-        const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-        const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
 
         return {
-            top: rect.top + scrollY - this.adminBarHeight,
-            left: rect.left + scrollX,
+            top: rect.top + scrollTop - this.adminBarHeight,
+            left: rect.left + scrollLeft,
             width: rect.width,
             height: rect.height,
         };
     }
 
     /**
-     * Clamp coordinates within viewport bounds
-     * @param {number} x - X coordinate
-     * @param {number} y - Y coordinate
-     * @returns {Object} Clamped {x, y}
+     * Clamp coordinates to visible viewport bounds.
      */
     clampToViewport(x, y) {
-        const doc = document.documentElement;
-        const scrollLeft = window.pageXOffset || doc.scrollLeft;
-        const scrollTop = window.pageYOffset || doc.scrollTop;
-
-        const maxX = scrollLeft + doc.clientWidth - 2;
-        const maxY = scrollTop + doc.clientHeight - 2;
-        const minX = scrollLeft;
-        const minY = scrollTop;
+        const documentElement = document.documentElement;
+        const viewportLeft = window.pageXOffset || documentElement.scrollLeft;
+        const viewportTop = window.pageYOffset || documentElement.scrollTop;
+        const viewportRight = viewportLeft + documentElement.clientWidth - 2;
+        const viewportBottom = viewportTop + documentElement.clientHeight - 2;
 
         return {
-            x: Math.max(minX, Math.min(x, maxX)),
-            y: Math.max(minY, Math.min(y, maxY)),
+            x: Math.max(viewportLeft, Math.min(x, viewportRight)),
+            y: Math.max(viewportTop, Math.min(y, viewportBottom)),
         };
     }
 
     /**
-     * Calculate drag rectangle coordinates
-     * @param {number} startX - Start X coordinate
-     * @param {number} startY - Start Y coordinate
-     * @param {number} currentX - Current X coordinate
-     * @param {number} currentY - Current Y coordinate
-     * @returns {Object} Rectangle {left, top, width, height}
+     * Build rectangle from drag start and end coordinates.
      */
-    calculateDragRect(startX, startY, currentX, currentY) {
+    calculateDragRect(startX, startY, endX, endY) {
         return {
-            left: Math.min(startX, currentX),
-            top: Math.min(startY, currentY),
-            width: Math.abs(currentX - startX),
-            height: Math.abs(currentY - startY),
+            left: Math.min(startX, endX),
+            top: Math.min(startY, endY),
+            width: Math.abs(endX - startX),
+            height: Math.abs(endY - startY),
         };
     }
 
     /**
-     * Create combined coordinate object with px and responsive values
-     * @param {Object} dragRect - Drag rectangle from DOM
-     * @returns {Object} Combined coordinates
+     * Build merged coordinate payload containing absolute and responsive fields.
      */
-    createCombinedCoordinates(dragRect) {
+    createCombinedCoordinates(rect) {
         const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
         const scrollY = window.pageYOffset || document.documentElement.scrollTop;
-
-        const pxRect = {
-            left: dragRect.left + scrollX,
-            top: dragRect.top + scrollY,
-            width: dragRect.width,
-            height: dragRect.height,
-            viewportWidth: window.innerWidth,
-            viewportHeight: window.innerHeight,
-            scrollX: scrollX,
-            scrollY: scrollY,
-        };
-
-        const responsiveRect = this.convertPxToResponsive(pxRect);
-
-        return {
-            ...pxRect,
-            responsive: responsiveRect,
-        };
+        const absoluteCoordinates = {
+                left: rect.left + scrollX,
+                top: rect.top + scrollY,
+                width: rect.width,
+                height: rect.height,
+                viewportWidth: window.innerWidth,
+                viewportHeight: window.innerHeight,
+                scrollX,
+                scrollY,
+            };
+        const responsiveCoordinates = this.convertPxToResponsive(absoluteCoordinates);
+        return { ...absoluteCoordinates, responsive: responsiveCoordinates };
     }
 
     /**
-     * Check if popup window based on viewport characteristics
-     * @returns {boolean} True if likely a popup window
+     * Detect if current document is likely a popup window.
      */
     isPopupWindow() {
         try {
             const hasOpener = window.opener !== null;
-            const isSmallWindow =
-                window.outerWidth < screen.availWidth * 0.8 ||
-                window.outerHeight < screen.availHeight * 0.8;
-            const hasLimitedToolbar = !window.menubar?.visible || !window.toolbar?.visible;
-
-            return hasOpener || isSmallWindow || hasLimitedToolbar;
+            const hasSmallWindowSize =
+                    window.outerWidth < 0.8 * screen.availWidth ||
+                    window.outerHeight < 0.8 * screen.availHeight;
+            const hasHiddenBrowserChrome = !window.menubar?.visible || !window.toolbar?.visible;
+            return hasOpener || hasSmallWindowSize || hasHiddenBrowserChrome;
         } catch (error) {
-            ErrorLogger.warn('Failed to detect popup window', { error });
-            return false;
+            return (ErrorLogger.warn('Failed to detect popup window', { error }), false);
         }
     }
 
     /**
-     * Check if coordinates were saved in popup window
-     * @param {Object} coords - Coordinate object
-     * @returns {boolean} True if likely saved in popup
+     * Check if stored coordinates were likely captured inside popup-sized viewport.
      */
-    wasCoordinateSavedInPopup(coords) {
-        if (!coords.viewportWidth || !coords.viewportHeight) {
-            return false;
-        }
-
-        const isSmallViewport = coords.viewportWidth < 1200 || coords.viewportHeight < 600;
-        const isTypicalPopupSize = coords.viewportWidth <= 500 && coords.viewportHeight <= 700;
-
-        return isSmallViewport || isTypicalPopupSize;
+    wasCoordinateSavedInPopup(coordinates) {
+        if (!coordinates.viewportWidth || !coordinates.viewportHeight) return false;
+        const isSmallViewport =
+            coordinates.viewportWidth < 1200 || coordinates.viewportHeight < 600;
+        const isTypicalPopupViewport =
+            coordinates.viewportWidth <= 500 && coordinates.viewportHeight <= 700;
+        return isSmallViewport || isTypicalPopupViewport;
     }
 
     /**
-     * Check if error should be shown based on breakpoint
-     * @param {Object} error - Error object with breakpoint info
-     * @returns {boolean} True if should show
+     * Check whether error should appear for current viewport breakpoint.
      */
-    shouldShowErrorAtCurrentBreakpoint(error) {
-        if (!error.breakpoint) {
-            return false;
-        }
+    shouldShowErrorAtCurrentBreakpoint(errorData) {
+        if (!errorData.breakpoint) return false;
+        const currentViewportWidth = window.innerWidth;
+        const savedBreakpointWidth = errorData.breakpoint.width;
+        const savedBreakpointType = errorData.breakpoint.type;
+        const isWithinBreakpointRange =
+            Math.abs(savedBreakpointWidth - currentViewportWidth) <=
+            ConfigurationManager.UI.RANGE_BREAKPOINT_PX;
+        const isDesktopFallbackMatch =
+            savedBreakpointType === ConfigurationManager.BREAKPOINTS.DESKTOP &&
+            currentViewportWidth >= ConfigurationManager.UI.DESKTOP_BREAKPOINT_PX;
 
-        const currentWidth = window.innerWidth;
-        const savedWidth = error.breakpoint.width;
-        const breakpointType = error.breakpoint.type;
-
-        const isMatchingWidth =
-            Math.abs(savedWidth - currentWidth) <= ConfigurationManager.UI.RANGE_BREAKPOINT_PX;
-        const isDesktopMatch =
-            breakpointType === ConfigurationManager.BREAKPOINTS.DESKTOP &&
-            currentWidth >= ConfigurationManager.UI.DESKTOP_BREAKPOINT_PX;
-
-        return isMatchingWidth || isDesktopMatch;
+        return isWithinBreakpointRange || isDesktopFallbackMatch;
     }
 
     /**
-     * Calculate z-index based on DOM depth
-     * @param {HTMLElement} element - Target element
-     * @returns {number} Calculated z-index
+     * Calculate z-index based on DOM depth.
      */
     calculateZIndex(element) {
         let depth = 0;
-        let parent = element.parentElement;
+        let parentElement = element.parentElement;
 
-        while (parent) {
+        while (parentElement) {
             depth++;
-            parent = parent.parentElement;
+            parentElement = parentElement.parentElement;
         }
 
-        const baseZIndex = 251001;
-        return baseZIndex + depth;
+        return 251001 + depth;
     }
 
     /**
-     * Calculate z-index based on area (smaller = higher z-index)
-     * This ensures smaller/inner errors appear on top of larger/outer errors
-     * @param {Object} error - Error object with type and coordinates/elementIdentifiers
-     * @param {HTMLElement|null} element - DOM element (for border type)
-     * @returns {number} Calculated z-index
+     * Calculate z-index by area so smaller items render above larger ones.
      */
-    calculateZIndexByArea(error, element = null) {
-        const BASE_Z_INDEX = 251001;
-        const MAX_Z_OFFSET = 1000;
-        const MAX_AREA = 2073600; // ~1920x1080
+    calculateZIndexByArea(errorData, element = null) {
+        const maxArea = 2073600;
+        let area = maxArea;
 
-        let area = MAX_AREA;
-
-        if (error.type === 'rect' && error.coordinates) {
-            area = (error.coordinates.width || 0) * (error.coordinates.height || 0);
-        } else if (error.type === 'border' && element) {
+        if (errorData.type === 'rect' && errorData.coordinates) {
+            area = (errorData.coordinates.width || 0) * (errorData.coordinates.height || 0);
+        } else if (errorData.type === 'border' && element) {
             const rect = element.getBoundingClientRect();
             area = rect.width * rect.height;
         }
 
-        // Normalize: smaller area = higher z-index offset
-        const normalizedArea = Math.min(Math.max(area, 1), MAX_AREA);
-        const zOffset = Math.floor((1 - normalizedArea / MAX_AREA) * MAX_Z_OFFSET);
-
-        return BASE_Z_INDEX + zOffset;
+        const normalizedArea = Math.min(Math.max(area, 1), maxArea);
+        return 251001 + Math.floor(1000 * (1 - normalizedArea / maxArea));
     }
 }

@@ -1,9 +1,3 @@
-/**
- * ErrorDataManager - Manages error data and API synchronization
- * Handles CRUD operations on errors, API communication, and local storage
- * @module ErrorDataManager
- */
-
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { ValidationService } from '../utils/ValidationService.js';
@@ -12,19 +6,17 @@ import AuthManager from '../auth.js';
 
 export class ErrorDataManager {
     /**
-     * Constructor
-     * @param {string} currentUrl - Current page URL
-     * @param {string} domainName - Current domain name
+     * @param {string} currentUrl
+     * @param {string} domainName
      */
     constructor(currentUrl, domainName) {
         this.currentUrl = currentUrl;
         this.domainName = domainName;
-        this.currentTabErrors = []; // Errors for current page
+        this.currentTabErrors = [];
     }
 
     /**
-     * Fetch errors from API via background script
-     * @returns {Promise<Object>} Error data
+     * Fetch all errors for domain and cache current tab errors.
      */
     async fetchErrors() {
         try {
@@ -34,8 +26,8 @@ export class ErrorDataManager {
             });
 
             if (response?.path) {
-                const pathItem = response.path.find((p) => p.full_url === this.currentUrl);
-                this.currentTabErrors = pathItem ? pathItem.data : [];
+                const currentPathData = response.path.find((pathItem) => pathItem.full_url === this.currentUrl);
+                this.currentTabErrors = currentPathData ? currentPathData.data : [];
                 ErrorLogger.info('Errors fetched successfully', {
                     count: this.currentTabErrors.length,
                 });
@@ -49,39 +41,26 @@ export class ErrorDataManager {
     }
 
     /**
-     * Update errors to API via background script
-     * @param {Object} errorsData - Complete error data structure
-     * @returns {Promise<boolean>} True if successful
+     * Persist full error payload to API and sync local/background state.
      */
-    async updateErrors(errorsData) {
+    async updateErrors(errorsPayload) {
         try {
-            // Get access token for authentication
             const accessToken = await AuthManager.getAccessToken();
-            const headers = {
-                'Content-Type': 'application/json',
-            };
-
-            if (accessToken) {
-                headers['Authorization'] = `Bearer ${accessToken}`;
-            }
+            const headers = { 'Content-Type': 'application/json' };
+            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
             const response = await fetch(ConfigurationManager.getApiUrl('SET_DOMAIN_DATA'), {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(errorsData),
+                body: JSON.stringify(errorsPayload),
             });
+            if (!response.ok) throw new Error(`API returned ${response.status}`);
 
-            if (!response.ok) {
-                throw new Error(`API returned ${response.status}`);
-            }
-
-            // Notify background script
             await MessagingService.sendToBackground({
                 action: ConfigurationManager.ACTIONS.SET_ERRORS,
-                errors: errorsData,
+                errors: errorsPayload,
                 domainName: this.domainName,
             });
-
             ErrorLogger.info('Errors updated successfully');
             return true;
         } catch (error) {
@@ -91,12 +70,9 @@ export class ErrorDataManager {
     }
 
     /**
-     * Add new error
-     * @param {Object} errorData - Error object to add
-     * @returns {Promise<boolean>} True if successful
+     * Add a new error to current URL and persist.
      */
     async addError(errorData) {
-        // Validate error data
         const validation = ValidationService.validateErrorData(errorData);
         if (!validation.valid) {
             ErrorLogger.error('Invalid error data', { error: validation.error });
@@ -104,30 +80,21 @@ export class ErrorDataManager {
         }
 
         try {
-            // Get current errors
-            const errorsData = await this.getErrorsData();
-
-            // Find or create path entry
-            let pathIndex = errorsData.path.findIndex((p) => p.full_url === this.currentUrl);
+            const errorsPayload = await this.getErrorsData();
+            const pathIndex = errorsPayload.path.findIndex((pathItem) => pathItem.full_url === this.currentUrl);
 
             if (pathIndex === -1) {
-                errorsData.path.push({
-                    full_url: this.currentUrl,
-                    data: [errorData],
-                });
+                errorsPayload.path.push({ full_url: this.currentUrl, data: [errorData] });
             } else {
-                errorsData.path[pathIndex].data.push(errorData);
+                errorsPayload.path[pathIndex].data.push(errorData);
             }
 
-            // Update API
-            const success = await this.updateErrors(errorsData);
-
-            if (success) {
+            const isUpdated = await this.updateErrors(errorsPayload);
+            if (isUpdated) {
                 this.currentTabErrors.push(errorData);
                 ErrorLogger.info('Error added successfully', { errorId: errorData.id });
             }
-
-            return success;
+            return isUpdated;
         } catch (error) {
             ErrorLogger.error('Failed to add error', { error });
             return false;
@@ -135,43 +102,36 @@ export class ErrorDataManager {
     }
 
     /**
-     * Update existing error
-     * @param {Object} updatedError - Updated error object
-     * @returns {Promise<boolean>} True if successful
+     * Update existing error and persist.
      */
-    async updateError(updatedError) {
+    async updateError(errorData) {
         try {
-            const errorsData = await this.getErrorsData();
+            const errorsPayload = await this.getErrorsData();
+            let isFound = false;
 
-            // Find and update error
-            let found = false;
-            for (const pathItem of errorsData.path) {
-                const errorIndex = pathItem.data.findIndex((e) => e.id === updatedError.id);
-                if (errorIndex !== -1) {
-                    pathItem.data[errorIndex] = updatedError;
-                    found = true;
+            for (const pathItem of errorsPayload.path) {
+                const index = pathItem.data.findIndex((currentError) => currentError.id === errorData.id);
+                if (index !== -1) {
+                    pathItem.data[index] = errorData;
+                    isFound = true;
                     break;
                 }
             }
 
-            if (!found) {
-                ErrorLogger.warn('Error not found for update', { errorId: updatedError.id });
+            if (!isFound) {
+                ErrorLogger.warn('Error not found for update', { errorId: errorData.id });
                 return false;
             }
 
-            // Update API
-            const success = await this.updateErrors(errorsData);
-
-            if (success) {
-                // Update local cache
-                const localIndex = this.currentTabErrors.findIndex((e) => e.id === updatedError.id);
-                if (localIndex !== -1) {
-                    this.currentTabErrors[localIndex] = updatedError;
-                }
-                ErrorLogger.info('Error updated successfully', { errorId: updatedError.id });
+            const isUpdated = await this.updateErrors(errorsPayload);
+            if (isUpdated) {
+                const currentTabIndex = this.currentTabErrors.findIndex(
+                    (currentError) => currentError.id === errorData.id,
+                );
+                if (currentTabIndex !== -1) this.currentTabErrors[currentTabIndex] = errorData;
+                ErrorLogger.info('Error updated successfully', { errorId: errorData.id });
             }
-
-            return success;
+            return isUpdated;
         } catch (error) {
             ErrorLogger.error('Failed to update error', { error });
             return false;
@@ -179,46 +139,39 @@ export class ErrorDataManager {
     }
 
     /**
-     * Delete error by ID
-     * @param {string} errorId - Error ID to delete
-     * @returns {Promise<boolean>} True if successful
+     * Delete an error by id and persist.
      */
     async deleteError(errorId) {
         try {
-            const errorsData = await this.getErrorsData();
+            const errorsPayload = await this.getErrorsData();
+            let isFound = false;
 
-            // Find and remove error
-            let found = false;
-            for (const pathItem of errorsData.path) {
-                const errorIndex = pathItem.data.findIndex((e) => e.id === errorId);
-                if (errorIndex !== -1) {
-                    pathItem.data.splice(errorIndex, 1);
-                    found = true;
-
-                    // Remove empty path entries
+            for (const pathItem of errorsPayload.path) {
+                const index = pathItem.data.findIndex((currentError) => currentError.id === errorId);
+                if (index !== -1) {
+                    pathItem.data.splice(index, 1);
+                    isFound = true;
                     if (pathItem.data.length === 0) {
-                        const pathIndex = errorsData.path.indexOf(pathItem);
-                        errorsData.path.splice(pathIndex, 1);
+                        const emptyPathIndex = errorsPayload.path.indexOf(pathItem);
+                        errorsPayload.path.splice(emptyPathIndex, 1);
                     }
                     break;
                 }
             }
 
-            if (!found) {
+            if (!isFound) {
                 ErrorLogger.warn('Error not found for deletion', { errorId });
                 return false;
             }
 
-            // Update API
-            const success = await this.updateErrors(errorsData);
-
-            if (success) {
-                // Update local cache
-                this.currentTabErrors = this.currentTabErrors.filter((e) => e.id !== errorId);
+            const isUpdated = await this.updateErrors(errorsPayload);
+            if (isUpdated) {
+                this.currentTabErrors = this.currentTabErrors.filter(
+                    (currentError) => currentError.id !== errorId,
+                );
                 ErrorLogger.info('Error deleted successfully', { errorId });
             }
-
-            return success;
+            return isUpdated;
         } catch (error) {
             ErrorLogger.error('Failed to delete error', { error });
             return false;
@@ -226,12 +179,9 @@ export class ErrorDataManager {
     }
 
     /**
-     * Add comment to error
-     * @param {Object} error - Error object
-     * @param {string} commentText - Comment text
-     * @returns {Promise<boolean>} True if successful
+     * Append a comment to an error.
      */
-    async addComment(error, commentText) {
+    async addComment(errorData, commentText) {
         const validation = ValidationService.validateComment(commentText);
         if (!validation.valid) {
             ErrorLogger.error('Invalid comment', { error: validation.error });
@@ -239,7 +189,7 @@ export class ErrorDataManager {
         }
 
         try {
-            const comment = {
+            const newComment = {
                 id: this.generateUUID(),
                 text: commentText,
                 author: await this.getUserInfo(),
@@ -247,19 +197,16 @@ export class ErrorDataManager {
                 edited: false,
                 editedAt: null,
             };
+            errorData.comments.push(newComment);
 
-            error.comments.push(comment);
-
-            const success = await this.updateError(error);
-
-            if (success) {
+            const isUpdated = await this.updateError(errorData);
+            if (isUpdated) {
                 ErrorLogger.info('Comment added successfully', {
-                    errorId: error.id,
-                    commentId: comment.id,
+                    errorId: errorData.id,
+                    commentId: newComment.id,
                 });
             }
-
-            return success;
+            return isUpdated;
         } catch (error) {
             ErrorLogger.error('Failed to add comment', { error });
             return false;
@@ -267,37 +214,34 @@ export class ErrorDataManager {
     }
 
     /**
-     * Edit comment
-     * @param {Object} error - Error object
-     * @param {string} commentId - Comment ID
-     * @param {string} newText - New comment text
-     * @returns {Promise<boolean>} True if successful
+     * Edit an existing comment by id.
      */
-    async editComment(error, commentId, newText) {
-        const validation = ValidationService.validateComment(newText);
+    async editComment(errorData, commentId, commentText) {
+        const validation = ValidationService.validateComment(commentText);
         if (!validation.valid) {
             ErrorLogger.error('Invalid comment', { error: validation.error });
             return false;
         }
 
         try {
-            const comment = error.comments.find((c) => c.id === commentId);
+            const comment = errorData.comments.find((item) => item.id === commentId);
             if (!comment) {
                 ErrorLogger.warn('Comment not found', { commentId });
                 return false;
             }
 
-            comment.text = newText;
+            comment.text = commentText;
             comment.edited = true;
             comment.editedAt = Date.now();
 
-            const success = await this.updateError(error);
-
-            if (success) {
-                ErrorLogger.info('Comment edited successfully', { errorId: error.id, commentId });
+            const isUpdated = await this.updateError(errorData);
+            if (isUpdated) {
+                ErrorLogger.info('Comment edited successfully', {
+                    errorId: errorData.id,
+                    commentId,
+                });
             }
-
-            return success;
+            return isUpdated;
         } catch (error) {
             ErrorLogger.error('Failed to edit comment', { error });
             return false;
@@ -305,28 +249,25 @@ export class ErrorDataManager {
     }
 
     /**
-     * Delete comment
-     * @param {Object} error - Error object
-     * @param {string} commentId - Comment ID
-     * @returns {Promise<boolean>} True if successful
+     * Delete a comment from an error.
      */
-    async deleteComment(error, commentId) {
+    async deleteComment(errorData, commentId) {
         try {
-            const initialLength = error.comments.length;
-            error.comments = error.comments.filter((c) => c.id !== commentId);
-
-            if (error.comments.length === initialLength) {
+            const originalLength = errorData.comments.length;
+            errorData.comments = errorData.comments.filter((item) => item.id !== commentId);
+            if (errorData.comments.length === originalLength) {
                 ErrorLogger.warn('Comment not found', { commentId });
                 return false;
             }
 
-            const success = await this.updateError(error);
-
-            if (success) {
-                ErrorLogger.info('Comment deleted successfully', { errorId: error.id, commentId });
+            const isUpdated = await this.updateError(errorData);
+            if (isUpdated) {
+                ErrorLogger.info('Comment deleted successfully', {
+                    errorId: errorData.id,
+                    commentId,
+                });
             }
-
-            return success;
+            return isUpdated;
         } catch (error) {
             ErrorLogger.error('Failed to delete comment', { error });
             return false;
@@ -334,29 +275,25 @@ export class ErrorDataManager {
     }
 
     /**
-     * Toggle error resolved status
-     * @param {Object} error - Error object
-     * @returns {Promise<boolean>} True if successful
+     * Toggle error status between OPEN and RESOLVED.
      */
-    async toggleErrorStatus(error) {
+    async toggleErrorStatus(errorData) {
         try {
-            const oldStatus = error.status;
-            error.status =
-                error.status === ConfigurationManager.ERROR_STATUS.OPEN
+            const previousStatus = errorData.status;
+            errorData.status =
+                errorData.status === ConfigurationManager.ERROR_STATUS.OPEN
                     ? ConfigurationManager.ERROR_STATUS.RESOLVED
                     : ConfigurationManager.ERROR_STATUS.OPEN;
 
-            const success = await this.updateError(error);
-
-            if (success) {
+            const isUpdated = await this.updateError(errorData);
+            if (isUpdated) {
                 ErrorLogger.info('Error status toggled', {
-                    errorId: error.id,
-                    oldStatus,
-                    newStatus: error.status,
+                    errorId: errorData.id,
+                    oldStatus: previousStatus,
+                    newStatus: errorData.status,
                 });
             }
-
-            return success;
+            return isUpdated;
         } catch (error) {
             ErrorLogger.error('Failed to toggle error status', { error });
             return false;
@@ -364,24 +301,17 @@ export class ErrorDataManager {
     }
 
     /**
-     * Clear all errors for current domain
-     * @returns {Promise<boolean>} True if successful
+     * Remove all errors for current domain.
      */
     async clearAllErrors() {
         try {
-            const emptyErrorsData = {
-                domain: this.domainName,
-                path: [],
-            };
-
-            const success = await this.updateErrors(emptyErrorsData);
-
-            if (success) {
+            const errorsPayload = { domain: this.domainName, path: [] };
+            const isUpdated = await this.updateErrors(errorsPayload);
+            if (isUpdated) {
                 this.currentTabErrors = [];
                 ErrorLogger.info('All errors cleared');
             }
-
-            return success;
+            return isUpdated;
         } catch (error) {
             ErrorLogger.error('Failed to clear all errors', { error });
             return false;
@@ -389,8 +319,7 @@ export class ErrorDataManager {
     }
 
     /**
-     * Get full errors data structure
-     * @returns {Promise<Object>} Errors data
+     * Read current domain errors from background service.
      */
     async getErrorsData() {
         try {
@@ -398,55 +327,39 @@ export class ErrorDataManager {
                 action: ConfigurationManager.ACTIONS.GET_ERRORS,
                 domainName: this.domainName,
             });
-
-            return {
-                domain: this.domainName,
-                path: response?.path || [],
-            };
+            return { domain: this.domainName, path: response?.path || [] };
         } catch (error) {
             ErrorLogger.error('Failed to get errors data', { error });
-            return {
-                domain: this.domainName,
-                path: [],
-            };
+            return { domain: this.domainName, path: [] };
         }
     }
 
     /**
-     * Get current tab errors
-     * @returns {Array} Array of errors
+     * Get cached errors for current tab URL.
      */
     getCurrentTabErrors() {
         return this.currentTabErrors;
     }
 
     /**
-     * Generate UUID v4
-     * @private
-     * @returns {string} UUID
+     * Generate UUID v4-like identifier.
      */
     generateUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+            const randomValue = (16 * Math.random()) | 0;
+            return (char === 'x' ? randomValue : (randomValue & 3) | 8).toString(16);
         });
     }
 
     /**
-     * Get current user info (placeholder - should be injected)
-     * @private
-     * @returns {Promise<Object|null>} User info
+     * Get authenticated user info from storage.
      */
     async getUserInfo() {
         try {
-            const result = await chrome.storage.local.get([
-                ConfigurationManager.STORAGE_KEYS.USER_INFO,
-            ]);
-            return result[ConfigurationManager.STORAGE_KEYS.USER_INFO] || null;
+            const storage = await chrome.storage.local.get([ConfigurationManager.STORAGE_KEYS.USER_INFO]);
+            return storage[ConfigurationManager.STORAGE_KEYS.USER_INFO] || null;
         } catch (error) {
-            ErrorLogger.error('Failed to get user info', { error });
-            return null;
+            return (ErrorLogger.error('Failed to get user info', { error }), null);
         }
     }
 }

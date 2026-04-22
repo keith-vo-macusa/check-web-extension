@@ -1,53 +1,67 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <link rel="stylesheet" href="../css/login.css" />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        />
+    </head>
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Testing Assistant - Sign In</title>
-    <link rel="stylesheet" href="../css/login.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-</head>
-
-<body>
-    <main class="login-container" role="main">
-        <header class="header">
-            <h1>Testing Assistant</h1>
-            <p class="subtitle">Sign in to continue</p>
-        </header>
-
-        <div id="errorMessage" class="error-message" aria-hidden="true" role="alert"
-            aria-live="assertive" aria-atomic="true"></div>
-        <div id="successMessage" class="success-message" aria-hidden="true" role="status"
-            aria-live="polite" aria-atomic="true"></div>
-
-        <form id="loginForm" class="form" novalidate>
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="name@company.com" autocomplete="email"
-                    inputmode="email" spellcheck="false" required>
+    <body>
+        <div class="login-container">
+            <div class="header">
+                <h1>Testing Assistant</h1>
             </div>
 
-            <div class="form-group">
-                <label for="password">Password</label>
-                <div class="password-input-container">
-                    <input type="password" id="password" name="password" placeholder="Your password"
-                        autocomplete="current-password" required>
-                    <button type="button" id="togglePassword" class="password-toggle" aria-label="Show password">
-                        <span class="eye-icon"><i class="fa-solid fa-eye-slash"></i></span>
-                    </button>
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input
+                        type="text"
+                        id="email"
+                        name="email"
+                        placeholder="Enter your email"
+                        required
+                    />
                 </div>
-            </div>
 
-            <button type="submit" id="loginBtn" class="login-btn">Sign In</button>
-        </form>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="password-input-container" style="position: relative">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Enter your password"
+                            required
+                        />
+                        <button
+                            type="button"
+                            id="togglePassword"
+                            class="password-toggle"
+                            style="
+                                position: absolute;
+                                right: 10px;
+                                top: 50%;
+                                transform: translateY(-50%);
+                            "
+                        >
+                            <span class="eye-icon"><i class="fa-solid fa-eye-slash"></i></span>
+                        </button>
+                    </div>
+                </div>
 
-        <footer class="footer">
-            <span class="footer-text">© Testing Assistant</span>
-        </footer>
-    </main>
+                <div class="loading" id="loading">Authenticating...</div>
 
-    <script type="module" src="../js/login.js"></script>
-</body>
+                <button type="submit" id="loginBtn" class="login-btn">Sign In</button>
+            </form>
+        </div>
 
+        <script type="module" src="../js/login.js"></script>
+    </body>
 </html>

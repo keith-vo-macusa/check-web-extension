@@ -11,7 +11,6 @@ import AlertManager from './services/AlertManager.js';
 import NotificationManager from './services/NotificationManager.js';
 import { ConfigurationManager } from './config/ConfigurationManager.js';
 
-// State Management
 class PopupState {
     constructor() {
         this.isActive = false;
@@ -19,77 +18,64 @@ class PopupState {
         this.resolvedErrorsVisible = false;
         this.selectedBreakpoint = BREAKPOINTS.ALL;
         this.isRectMode = false;
-
         this.drawOpenErrors = false;
         this.drawResolvedErrors = false;
-
-        // Set initial state
         document.body.setAttribute('data-show-resolved', this.resolvedErrorsVisible);
     }
 
-    setActive(value) {
-        this.isActive = value;
+    setActive(isActive) {
+        this.isActive = isActive;
     }
 
-    setErrorsVisible(value) {
-        this.errorsVisible = value;
-        chrome.storage.local.set({
-            errorsVisible: value,
-        });
+    setErrorsVisible(isVisible) {
+        this.errorsVisible = isVisible;
+        chrome.storage.local.set({ errorsVisible: isVisible });
     }
 
-    setSelectedBreakpoint(value) {
-        this.selectedBreakpoint = value;
+    setSelectedBreakpoint(breakpoint) {
+        this.selectedBreakpoint = breakpoint;
     }
 
-    setResolvedErrorsVisible(value) {
-        this.resolvedErrorsVisible = value;
-        document.body.setAttribute('data-show-resolved', value);
-        chrome.storage.local.set({
-            resolvedErrorsVisible: value,
-        });
+    setResolvedErrorsVisible(isVisible) {
+        this.resolvedErrorsVisible = isVisible;
+        document.body.setAttribute('data-show-resolved', isVisible);
+        chrome.storage.local.set({ resolvedErrorsVisible: isVisible });
     }
 
-    setRectMode(value) {
-        this.isRectMode = value;
+    setRectMode(isRectMode) {
+        this.isRectMode = isRectMode;
     }
 
-    setDrawOpenErrors(value) {
-        this.drawOpenErrors = value;
+    setDrawOpenErrors(isEnabled) {
+        this.drawOpenErrors = isEnabled;
     }
 
-    setDrawResolvedErrors(value) {
-        this.drawResolvedErrors = value;
+    setDrawResolvedErrors(isEnabled) {
+        this.drawResolvedErrors = isEnabled;
     }
 }
 
-// Error Management
 class ErrorManager {
     static async loadErrors() {
-        const tabs = await TabManager.getCurrentTab();
-
-        if (!tabs || !tabs[0]) return [];
+        const currentTab = await TabManager.getCurrentTab();
+        if (!currentTab || !currentTab[0]) return [];
 
         const domainName = await TabManager.getCurrentTabDomain();
-
-        const result = await TabManager.sendMessageToBackground({
+        const response = await TabManager.sendMessageToBackground({
             action: 'getErrors',
-            domainName: domainName,
+            domainName,
         });
 
-        let errors = [];
-
-        if (result?.path) {
-            result.path?.forEach((path) => {
-                errors.push(...path.data);
-            });
-        }
-        return errors;
+        const allErrors = [];
+        response?.path?.forEach((pathItem) => {
+            allErrors.push(...pathItem.data);
+        });
+        return allErrors;
     }
 
     static async deleteError(errorId) {
-        const tabs = await TabManager.getCurrentTab();
-        if (!tabs || !tabs[0]) return;
+        const currentTab = await TabManager.getCurrentTab();
+        if (!currentTab || !currentTab[0]) return;
 
         const domainName = await TabManager.getCurrentTabDomain();
         return await TabManager.sendMessageToBackground({
@@ -100,8 +86,8 @@ class ErrorManager {
     }
 
     static async clearAllErrors() {
-        const tabs = await TabManager.getCurrentTab();
-        if (!tabs || !tabs[0]) return;
+        const currentTab = await TabManager.getCurrentTab();
+        if (!currentTab || !currentTab[0]) return;
 
         const domainName = await TabManager.getCurrentTabDomain();
         return await TabManager.sendMessageToBackground({
@@ -111,25 +97,17 @@ class ErrorManager {
     }
 
     static sortErrors(errors) {
-        const statusPriority = {
-            open: 1,
-            resolved: 2,
-            closed: 3,
-        };
-
-        return errors.sort((a, b) => {
-            // Sort by status priority first
+        const statusOrder = { open: 1, resolved: 2, closed: 3 };
+        return errors.sort((first, second) => {
             const statusDiff =
-                statusPriority[a.status || 'open'] - statusPriority[b.status || 'open'];
-            if (statusDiff !== 0) return statusDiff;
-
-            // If same status, sort by timestamp (newest first)
-            return new Date(b.timestamp) - new Date(a.timestamp);
+                statusOrder[first.status || 'open'] - statusOrder[second.status || 'open'];
+            return statusDiff !== 0
+                ? statusDiff
+                : new Date(second.timestamp) - new Date(first.timestamp);
         });
     }
 }
 
-// UI Management
 class UIManager {
     constructor(state) {
         this.state = state;
@@ -139,24 +117,21 @@ class UIManager {
         this.checkForUpdates();
     }
 
-    escapeHtml(str) {
-        if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+    escapeHtml(value) {
+        return value == null
+            ? ''
+            : String(value)
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;')
+                  .replace(/'/g, '&#039;');
     }
 
     async setupUI() {
         const { errorsVisible } = await chrome.storage.local.get('errorsVisible');
+        if (errorsVisible) $('#toggleErrors').prop('checked', true);
 
-        if (errorsVisible) {
-            $('#toggleErrors').prop('checked', true);
-        }
-
-        // thêm UI cho toggle hiển thị lỗi đã giải quyết
         const { resolvedErrorsVisible } = await chrome.storage.local.get('resolvedErrorsVisible');
         $('#toggleResolvedErrors').prop('checked', resolvedErrorsVisible).trigger('change');
 
@@ -171,13 +146,10 @@ class UIManager {
     }
 
     checkForUpdates() {
-        // check local storage xem có thể có update không updateAvailable = true
-        chrome.storage.local.get(['latestVersion'], (data) => {
-            if (data.latestVersion) {
+        chrome.storage.local.get(['latestVersion'], (storage) => {
+            if (storage.latestVersion) {
                 const currentVersion = chrome.runtime.getManifest().version;
-                if (data.latestVersion != currentVersion) {
-                    this.showUpdateNotification();
-                }
+                if (storage.latestVersion != currentVersion) this.showUpdateNotification();
             }
         });
     }
@@ -188,36 +160,21 @@ class UIManager {
             'Có phiên bản mới có sẵn. Nhấp để cập nhật.',
             'Cập nhật',
             'Hủy',
-            'info',
         ).then((result) => {
             if (result.isConfirmed) {
-                TabManager.createTab(
-                    'https://github.com/keith-vo-macusa/check-web-extension/releases',
-                );
+                TabManager.createTab('https://github.com/keith-vo-macusa/check-web-extension/releases');
             }
         });
     }
 
     setupEventListeners() {
-        // Toggle Mode
         $('#toggleMode').click(() => this.handleToggleMode());
-
-        // Toggle Errors
-        $('#toggleErrors').change((e) => this.handleToggleErrors(e));
-
-        // Toggle Resolved Errors
-        $('#toggleResolvedErrors').change((e) => this.handleToggleResolvedErrors(e));
-
-        // Clear All
+        $('#toggleErrors').change((event) => this.handleToggleErrors(event));
+        $('#toggleResolvedErrors').change((event) => this.handleToggleResolvedErrors(event));
         $('#clearAll').click(() => this.handleClearAll());
+        $('#drawOpenErrors').change((event) => this.handleDrawOpenErrors(event));
+        $('#drawResolvedErrors').change((event) => this.handleDrawResolvedErrors(event));
 
-        // Draw Open Errors
-        $('#drawOpenErrors').change((e) => this.handleDrawOpenErrors(e));
-
-        // Draw Resolved Errors
-        $('#drawResolvedErrors').change((e) => this.handleDrawResolvedErrors(e));
-
-        // Auto-refresh handlers
         window.addEventListener('focus', () => this.refreshErrorsList());
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) this.refreshErrorsList();
@@ -225,28 +182,22 @@ class UIManager {
     }
 
     setupBreakpointFilters() {
-        $('#controls').append(`
-            <div class="breakpoint-filters">
-                <button class="filter-btn active" data-breakpoint="${BREAKPOINTS.ALL}">Tất cả</button>
-                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.DESKTOP}">Desktop</button>
-                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.TABLET}">Tablet</button>
-                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.MOBILE}">Mobile</button>
-            </div>
-        `);
-
-        $('.filter-btn').click((e) => this.handleBreakpointFilter(e));
+        $('#controls').append(
+            `\n            <div class="breakpoint-filters">\n                <button class="filter-btn active" data-breakpoint="${BREAKPOINTS.ALL}">Tất cả</button>\n                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.DESKTOP}">Desktop</button>\n                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.TABLET}">Tablet</button>\n                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.MOBILE}">Mobile</button>\n            </div>\n        `,
+        );
+        $('.filter-btn').click((event) => this.handleBreakpointFilter(event));
     }
 
     async handleToggleMode() {
         this.state.setActive(!this.state.isActive);
         this.state.setErrorsVisible(this.state.isActive);
+
         try {
             await TabManager.sendMessage({
                 action: this.state.isActive ? ACTION_MESSAGE.ACTIVATE : ACTION_MESSAGE.DEACTIVATE,
             });
-        } catch (error) {
+        } catch {
             console.log('Cannot toggle mode - content script not available');
-            // Reset state if content script is not available
             this.state.setActive(false);
         }
         this.updateUI();
@@ -257,11 +208,12 @@ class UIManager {
         this.state.setErrorsVisible(isVisible);
         $('#drawOpenErrors').prop('disabled', !isVisible);
         $('#drawResolvedErrors').prop('disabled', !isVisible);
+
         try {
             await TabManager.sendMessage({
                 action: isVisible ? ACTION_MESSAGE.SHOW_ALL_ERRORS : ACTION_MESSAGE.HIDE_ALL_ERRORS,
             });
-        } catch (error) {
+        } catch {
             console.log('Cannot toggle errors visibility - content script not available');
         }
     }
@@ -274,59 +226,53 @@ class UIManager {
     async handleClearAll() {
         AlertManager.confirm(
             'Xóa tất cả lỗi',
-            messages['remove_all_errors'],
+            messages.remove_all_errors,
             'Xóa',
             'Hủy',
-            'warning',
         ).then(async (result) => {
-            if (result.isConfirmed) {
+            if (result.isConfirmed)
                 try {
-                    AlertManager.loading(messages['loading']);
-                    const result = await ErrorManager.clearAllErrors();
-                    if (result?.success) {
+                    AlertManager.loading(messages.loading);
+                    const response = await ErrorManager.clearAllErrors();
+                    if (response?.success) {
                         this.refreshErrorsList();
                     } else {
-                        console.error('Error clearing all errors:', result?.message);
+                        console.error('Error clearing all errors:', response?.message);
                     }
                     AlertManager.close();
-                } catch (error) {
+                } catch {
                     console.log('Cannot clear errors - content script not available');
                     AlertManager.close();
                 }
-            }
         });
     }
 
     async handleDrawOpenErrors(event) {
-        const isDraw = $(event.target).prop('checked');
-        await chrome.storage.local.set({
-            drawOpenErrors: isDraw,
-        });
-        this.state.setDrawOpenErrors(isDraw);
+        const drawOpenErrors = $(event.target).prop('checked');
+        await chrome.storage.local.set({ drawOpenErrors });
+        this.state.setDrawOpenErrors(drawOpenErrors);
 
         try {
             await TabManager.sendMessage({
                 action: ACTION_MESSAGE.DRAW_OPEN_ERRORS,
-                drawOpenErrors: isDraw,
+                drawOpenErrors,
             });
-        } catch (error) {
+        } catch {
             console.log('Cannot draw open errors - content script not available');
         }
     }
 
     async handleDrawResolvedErrors(event) {
-        const isDraw = $(event.target).prop('checked');
-        await chrome.storage.local.set({
-            drawResolvedErrors: isDraw,
-        });
-        this.state.setDrawResolvedErrors(isDraw);
+        const drawResolvedErrors = $(event.target).prop('checked');
+        await chrome.storage.local.set({ drawResolvedErrors });
+        this.state.setDrawResolvedErrors(drawResolvedErrors);
 
         try {
             await TabManager.sendMessage({
                 action: ACTION_MESSAGE.DRAW_RESOLVED_ERRORS,
-                drawResolvedErrors: isDraw,
+                drawResolvedErrors,
             });
-        } catch (error) {
+        } catch {
             console.log('Cannot draw resolved errors - content script not available');
         }
     }
@@ -339,24 +285,24 @@ class UIManager {
     }
 
     updateUI() {
-        const btn = $('#toggleMode');
-        const status = $('#status');
+        const toggleModeButton = $('#toggleMode');
+        const statusElement = $('#status');
 
         if (this.state.isActive) {
-            btn.html('<i class="fas fa-stop"></i> Dừng chọn lỗi')
+            toggleModeButton
+                .html('<i class="fas fa-stop"></i> Dừng chọn lỗi')
                 .removeClass('btn-primary')
                 .addClass('active');
-            status
-                .html(
-                    '<i class="fas fa-play-circle"></i> Chế độ: Đang hoạt động - Click vào vùng lỗi',
-                )
+            statusElement
+                .html('<i class="fas fa-play-circle"></i> Chế độ: Đang hoạt động - Click vào vùng lỗi')
                 .removeClass('inactive')
                 .addClass('active');
         } else {
-            btn.html('<i class="fas fa-crosshairs"></i> Bắt đầu chọn lỗi')
+            toggleModeButton
+                .html('<i class="fas fa-crosshairs"></i> Bắt đầu chọn lỗi')
                 .removeClass('active')
                 .addClass('btn-primary');
-            status
+            statusElement
                 .html('<i class="fas fa-pause-circle"></i> Chế độ: Không hoạt động')
                 .removeClass('active')
                 .addClass('inactive');
@@ -369,111 +315,54 @@ class UIManager {
     }
 
     displayErrors(errors) {
-        const container = $('#errorsList');
-        container.empty();
-
+        const errorsListElement = $('#errorsList');
+        errorsListElement.empty();
         const filteredErrors = this.filterErrorsByBreakpoint(errors);
-
-        // Sort errors before rendering
         const sortedErrors = ErrorManager.sortErrors(filteredErrors);
-        this.renderErrorsList(container, sortedErrors);
+        this.renderErrorsList(errorsListElement, sortedErrors);
     }
 
     filterErrorsByBreakpoint(errors) {
-        return errors.filter((error) => {
-            if (this.state.selectedBreakpoint === BREAKPOINTS.ALL) return true;
-            if (!error.breakpoint) return false;
-            return error.breakpoint.type === this.state.selectedBreakpoint;
-        });
+        return errors.filter(
+            (error) =>
+                this.state.selectedBreakpoint === BREAKPOINTS.ALL ||
+                (!!error.breakpoint && error.breakpoint.type === this.state.selectedBreakpoint),
+        );
     }
 
     renderErrorsList(container, errors) {
-        // Group errors by status
-        const errorGroups = {
-            open: errors.filter((e) => !e.status || e.status === 'open'),
-            resolved: errors.filter((e) => e.status === 'resolved'),
-            closed: errors.filter((e) => e.status === 'closed'),
-        };
+        const openErrors = errors.filter((error) => !error.status || error.status === 'open');
+        const resolvedErrors = errors.filter((error) => error.status === 'resolved');
 
-        // Render each group with a header
-        if (errorGroups.open.length >= 0) {
-            const errorsOpen = errorGroups.open?.length || 0;
-            const errorsResolved = errorGroups.resolved?.length || 0;
-            container.append(`
-                <div class="error-count">
-                    <span>Tổng số lỗi: ${errors.length}</span>
-                    <span class="breakpoint-label">
-                        ${
-                            this.state.selectedBreakpoint === BREAKPOINTS.ALL
-                                ? 'Tất cả breakpoint'
-                                : `Breakpoint ${this.state.selectedBreakpoint}`
-                        }
-                    </span>
-                </div>
-                <div class="error-group">
-                    <div class="error-group-header">
-                        <span>Errors: ${errorsOpen} - Resolved: ${errorsResolved}/${
-                errors.length
-            }</span>
-                    </div>
-                </div>
-            `);
-        }
+        const openCount = openErrors.length || 0;
+        const resolvedCount = resolvedErrors.length || 0;
+        container.append(
+            `\n                <div class="error-count">\n                    <span>Tổng số lỗi: ${errors.length}</span>\n                    <span class="breakpoint-label">\n                        ${this.state.selectedBreakpoint === BREAKPOINTS.ALL ? 'Tất cả breakpoint' : `Breakpoint ${this.state.selectedBreakpoint}`}\n                    </span>\n                </div>\n                <div class="error-group">\n                    <div class="error-group-header">\n                        <span>Errors: ${openCount} - Resolved: ${resolvedCount}/${errors.length}</span>\n                    </div>\n                </div>\n            `,
+        );
 
         errors.forEach((error, index) => this.renderErrorItem(container, error, index));
     }
 
     renderErrorItem(container, error, index) {
         const errorItem = $('<div>').addClass('error-item');
-        if (error.status === 'resolved') {
-            errorItem.addClass('resolved');
-        }
-        if (error.status === 'closed') {
-            errorItem.addClass('closed');
-        }
-        if (!error.status || error.status === 'open') {
-            errorItem.addClass('open');
-        }
-        const date = new Date(error.timestamp);
-        const timeString = date.toLocaleString('vi-VN');
-        const latestComment = error.comments[error.comments.length - 1];
+        if (error.status === 'resolved') errorItem.addClass('resolved');
+        if (error.status === 'closed') errorItem.addClass('closed');
+        if (!error.status || error.status === 'open') errorItem.addClass('open');
+
+        const timestamp = new Date(error.timestamp).toLocaleString('vi-VN');
+        const lastComment = error.comments[error.comments.length - 1];
         const statusBadge = this.createStatusBadge(error.status);
-        const fixed = error.status === 'resolved';
-        const bgBtnCheckFixed = fixed ? 'bg-success' : '';
-        const commentText = this.escapeHtml(latestComment?.text || '');
-        const commentCount = error.comments?.length || 0;
-        const bpType = error.breakpoint ? error.breakpoint.type : 'all';
-        const bpWidth = error.breakpoint ? `${error.breakpoint.width}px` : '';
-        const urlText = this.escapeHtml(error.url || '');
-        errorItem.html(`
-            <div class="error-row">
-                <div class="error-main">
-                    <div class="error-topline">
-                        <span class="error-number">#${index + 1}</span>
-                        ${statusBadge}
-                        <span class="error-meta-pill">${commentCount} comment</span>
-                        <span class="error-time">${timeString}</span>
-                    </div>
+        const isResolved = error.status === 'resolved';
+        const resolvedClass = isResolved ? 'bg-success' : '';
+        const commentText = this.escapeHtml(lastComment?.text || '');
+        const commentsCount = error.comments?.length || 0;
+        const breakpointType = error.breakpoint ? error.breakpoint.type : 'all';
+        const breakpointWidth = error.breakpoint ? `${error.breakpoint.width}px` : '';
+        const safeUrl = this.escapeHtml(error.url || '');
 
-                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>
-
-                    <div class="error-bottomline">
-                        <span class="breakpoint-type">${bpType}</span>
-                        ${bpWidth ? `<span class="breakpoint-width">${bpWidth}</span>` : ''}
-                        ${urlText ? `<span class="error-url" title="${urlText}">${urlText}</span>` : ''}
-                    </div>
-                </div>
-
-                <div class="error-actions">
-                    <button class="btn-toogle-check-fixed ${bgBtnCheckFixed}" data-fixed="${fixed}" title="${fixed ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${fixed ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">
-                        <i class="fa-solid ${fixed ? 'fa-x' : 'fa-check'}"></i>
-                    </button>
-                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `);
+        errorItem.html(
+            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        <span class="error-time">${timestamp}</span>\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-x' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash"></i>\n                    </button>\n                </div>\n            </div>\n        `,
+        );
 
         this.setupErrorItemEventHandlers(errorItem, error);
         container.append(errorItem);
@@ -492,69 +381,65 @@ class UIManager {
     }
 
     setupErrorItemEventHandlers(errorItem, error) {
-        errorItem.find('.delete-error-btn').click(async (e) => {
-            e.stopPropagation();
-            AlertManager.confirm('Xóa lỗi', messages['remove_error'], 'Xóa', 'Hủy', 'warning').then(
-                async (result) => {
-                    if (result.isConfirmed) {
-                        try {
-                            AlertManager.loading(messages['loading']);
-                            const result = await ErrorManager.deleteError(error.id);
-                            AlertManager.close();
-                            if (result?.success) {
-                                this.refreshErrorsList();
-                                return;
-                            }
-                            throw new Error(result?.message);
-                        } catch (error) {
-                            AlertManager.close();
-                            console.error('Error deleting error:', error);
-                            AlertManager.error('Error deleting error:', error);
+        errorItem.find('.delete-error-btn').click(async (event) => {
+            event.stopPropagation();
+            AlertManager.confirm(
+                'Xóa lỗi',
+                messages.remove_error,
+                'Xóa',
+                'Hủy',
+            ).then(async (result) => {
+                if (result.isConfirmed)
+                    try {
+                        AlertManager.loading(messages.loading);
+                        const response = await ErrorManager.deleteError(error.id);
+                        AlertManager.close();
+                        if (response?.success) {
+                            this.refreshErrorsList();
+                            return;
                         }
+                        throw new Error(response?.message);
+                    } catch (deleteError) {
+                        AlertManager.close();
+                        console.error('Error deleting error:', deleteError);
+                        AlertManager.error('Error deleting error:', deleteError);
                     }
-                },
-            );
+            });
         });
 
-        errorItem.find('.btn-toogle-check-fixed').click(async (e) => {
-            e.stopPropagation();
+        errorItem.find('.btn-toogle-check-fixed').click(async (event) => {
+            event.stopPropagation();
             AlertManager.confirm(
                 'Thay đổi trạng thái',
-                messages['change_status_error'],
+                messages.change_status_error,
                 'Check',
                 'Hủy',
-                'warning',
             ).then(async (result) => {
-                if (result.isConfirmed) {
+                if (result.isConfirmed)
                     try {
-                        AlertManager.loading(messages['loading']);
+                        AlertManager.loading(messages.loading);
                         const domainName = await TabManager.getCurrentTabDomain();
-                        const result = await TabManager.sendMessageToBackground({
+                        const response = await TabManager.sendMessageToBackground({
                             action: ACTION_MESSAGE.CHECK_FIXED,
                             errorId: error.id,
-                            domainName: domainName,
+                            domainName,
                         });
-                        if (result?.success) {
+                        if (response?.success) {
                             AlertManager.close();
                             this.refreshErrorsList();
                             return;
                         }
-                        throw new Error(result?.message);
-                    } catch (error) {
+                        throw new Error(response?.message);
+                    } catch (toggleError) {
                         AlertManager.close();
-                        console.error('Error checking fixed:', error);
-                        AlertManager.error('Error checking fixed:', error);
+                        console.error('Error checking fixed:', toggleError);
+                        AlertManager.error('Error checking fixed:', toggleError);
                     }
-                }
             });
         });
 
         errorItem.click(async () => {
             try {
-                // const result = await TabManager.sendMessage({
-                //     action: ACTION_MESSAGE.HIGHLIGHT_ERROR,
-                //     error: error,
-                // });
                 TabManager.sendMessageToBackground({
                     action: 'openOrResizeErrorWindow',
                     url: error.url,
@@ -563,7 +448,7 @@ class UIManager {
                     errorId: error.id,
                 });
                 AlertManager.close();
-            } catch (error) {
+            } catch {
                 console.log('Cannot highlight error - content script not available');
                 AlertManager.close();
             }
@@ -571,89 +456,48 @@ class UIManager {
     }
 }
 
-// Initialize Application
 $(document).ready(async function () {
-    if (!chrome || !chrome.tabs) {
-        $('#errorsList').html('<div class="no-errors">❌ Extension chỉ hỗ trợ Chrome/Edge</div>');
-        return;
-    }
+    let uiManager = null;
 
-    // const domainName = await TabManager.getCurrentTabDomain();
+    if (!chrome || !chrome.tabs)
+        return void $('#errorsList').html(
+            '<div class="no-errors">❌ Extension chỉ hỗ trợ Chrome/Edge</div>',
+        );
 
-    // TabManager.sendMessageToBackground({
-    //     action: 'updateBadge',
-    //     domainName: domainName,
-    // });
-
-    // Listen for messages from content script
-    chrome.runtime.onMessage.addListener((request) => {
-        if (request.action === 'errorAdded') {
-            ui.refreshErrorsList();
-        }
+    chrome.runtime.onMessage.addListener((message) => {
+        if (message.action === 'errorAdded' && uiManager) uiManager.refreshErrorsList();
     });
 
     const domainName = await TabManager.getCurrentTabDomain();
     const isAuthorized = await TabManager.sendMessageToBackground({
         action: 'checkAuthorized',
-        domainName: domainName,
+        domainName,
     });
 
-    if (!isAuthorized) {
-        AlertManager.errorWithOutClose(
-            'Lỗi',
-            `${domainName} chưa được khởi tạo trên Checkwise`,
-            false,
-        );
-        return;
-    }
+    if (!isAuthorized)
+        return void AlertManager.errorWithOutClose('Lỗi', `${domainName} chưa được khởi tạo trên Checkwise`);
 
-    const showConfirmSendNotification = async (userInfo, type) => {
+    const sendNotification = async (userInfo, notificationType) => {
         AlertManager.confirm(
             'Gửi thông báo',
-            messages[type] || 'Bạn có chắc muốn gửi thông báo không?',
+            messages[notificationType] || 'Bạn có chắc muốn gửi thông báo không?',
             'Gửi',
             'Hủy',
-            'warning',
         ).then(async (result) => {
             if (result.isConfirmed) {
-                await NotificationManager.sendMarkErrorsResolevedOrNewErrors(userInfo, type);
+                await NotificationManager.sendMarkErrorsResolevedOrNewErrors(userInfo, notificationType);
             }
         });
     };
 
     try {
-        const isAuth = await AuthManager.isAuthenticated();
-        if (!isAuth) {
-            window.location.href = 'login.html';
-            return;
-        }
+        if (!(await AuthManager.isAuthenticated())) return void (window.location.href = 'login.html');
 
         const userInfo = await AuthManager.getUserInfo();
         if (userInfo) {
-            const header = $('.header');
-            header.append(`
-                <div class="user-info">
-                    <span class="user-id">ID: ${userInfo.id}</span>
-                    <span class="user-name">Tên: ${userInfo.name}</span>
-                    <button id="logoutBtn" class="logout-btn" title="Đăng xuất" aria-label="Đăng xuất">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path
-                            d="M12 2v10"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            />
-                            <path
-                            d="M6 5a8 8 0 1 0 12 0"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            />
-                        </svg>
-                        <span class="visually-hidden">Đăng xuất</span>
-                        </button>
-                </div>
-            `);
+            $('.header').append(
+                `\n                <div class="user-info">\n                    <span class="user-id">ID: ${userInfo.id}</span>\n                    <span class="user-name">Tên: ${userInfo.name}</span>\n                    <button id="logoutBtn" class="logout-btn" title="Đăng xuất" aria-label="Đăng xuất">\n                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">\n                            <path\n                            d="M12 2v10"\n                            stroke="currentColor"\n                            stroke-width="2"\n                            stroke-linecap="round"\n                            />\n                            <path\n                            d="M6 5a8 8 0 1 0 12 0"\n                            stroke="currentColor"\n                            stroke-width="2"\n                            stroke-linecap="round"\n                            />\n                        </svg>\n                        <span class="visually-hidden">Đăng xuất</span>\n                    </button>\n                </div>\n            `,
+            );
 
             $('#logoutBtn').click(async () => {
                 AlertManager.confirm(
@@ -661,84 +505,68 @@ $(document).ready(async function () {
                     'Bạn có chắc muốn đăng xuất không?',
                     'Đăng xuất',
                     'Hủy',
-                    'warning',
                 ).then(async (result) => {
-                    if (result.isConfirmed) {
+                    if (result.isConfirmed)
                         try {
                             await chrome.storage.local.remove(['feedback']);
-                            const success = await AuthManager.logout();
-
+                            const didLogout = await AuthManager.logout();
                             await TabManager.sendMessage({
                                 action: ACTION_MESSAGE.DEACTIVATE,
                                 reason: 'logout',
                             });
-
                             await TabManager.sendMessage({
                                 action: ACTION_MESSAGE.HIDE_ALL_ERRORS,
                             });
-
                             await TabManager.reloadCurrentTab();
                             window.close();
-
-                            if (success) {
-                                window.location.href = 'login.html';
-                            }
+                            if (didLogout) window.location.href = 'login.html';
                         } catch (error) {
                             console.error('Error during logout:', error);
                         }
-                    }
                 });
             });
-            // ẩn/hiện toggleModeSection dựa vào quyền admin
-            const toggleModeSection = $('#toggleModeSection');
 
-            if(ConfigurationManager.isCheckwiseAdmin(userInfo)) {
-                toggleModeSection.show();
-            } else {
-                toggleModeSection.hide();
-            }
-            // sửa text của button và binding sự kiện theo type
+            const toggleModeSection = $('#toggleModeSection');
             if (ConfigurationManager.isCheckwiseAdmin(userInfo)) {
+                toggleModeSection.show();
                 $('#sendNotification')
                     .attr('aria-label', 'Gửi thông báo lỗi')
                     .attr('title', 'Gửi thông báo lỗi');
                 $('#sendNotificationLabel').text('Gửi thông báo lỗi');
                 $('#sendNotification').click(() => {
-                    showConfirmSendNotification(userInfo, typeNotification.BUG_FOUND);
+                    sendNotification(userInfo, typeNotification.BUG_FOUND);
                 });
             } else {
+                toggleModeSection.hide();
                 $('#sendNotification')
                     .attr('aria-label', 'Gửi thông báo đã sửa tất cả lỗi')
                     .attr('title', 'Gửi thông báo đã sửa tất cả lỗi');
                 $('#sendNotificationLabel').text('Gửi thông báo đã sửa tất cả lỗi');
                 $('#sendNotification').click(() => {
-                    showConfirmSendNotification(userInfo, typeNotification.BUG_FIXED);
+                    sendNotification(userInfo, typeNotification.BUG_FIXED);
                 });
             }
         }
 
-        const state = new PopupState();
-        const ui = new UIManager(state);
+        const popupState = new PopupState();
+        uiManager = new UIManager(popupState);
 
-        // Load initial state - handle case where content script is not available
         try {
-            const response = await TabManager.sendMessage({
-                action: ACTION_MESSAGE.GET_STATE,
-            });
-            if (response) {
-                state.setActive(response.isActive);
-                ui.updateUI();
+            const contentState = await TabManager.sendMessage({ action: ACTION_MESSAGE.GET_STATE });
+            if (contentState) {
+                popupState.setActive(contentState.isActive);
+                uiManager.updateUI();
             }
-        } catch (error) {
+        } catch {
             console.log('Content script not available, using default state');
-            // Use default state when content script is not available
-            state.setActive(false);
-            ui.updateUI();
+            popupState.setActive(false);
+            uiManager.updateUI();
         }
 
-        ui.refreshErrorsList();
+        uiManager.refreshErrorsList();
     } catch (error) {
         console.error('Error during initialization:', error);
         window.location.href = 'login.html';
     }
 });
+

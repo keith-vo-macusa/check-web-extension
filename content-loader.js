@@ -1,11 +1,9 @@
-// File này chỉ để load ES module
 (async () => {
     try {
-        const module = await import(chrome.runtime.getURL('content.js'));
-        const AppClass = module.default;
-        const appInstance = new AppClass();
+        const contentModule = await import(chrome.runtime.getURL('content.js'));
+        new contentModule.default();
         console.log('✅ content.js loaded via content-loader.js');
-    } catch (err) {
-        console.error('❌ Failed to load content.js as module:', err);
+    } catch (error) {
+        console.error('❌ Failed to load content.js as module:', error);
     }
 })();

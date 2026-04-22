@@ -1,38 +1,28 @@
-/**
- * ErrorRenderer - Handles rendering of error markers and borders on the page
- * Manages error overlay display, positioning, and visibility
- * @module ErrorRenderer
- */
-
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { CoordinatesCalculator } from './CoordinatesCalculator.js';
 
 export class ErrorRenderer {
     /**
-     * Constructor
-     * @param {CoordinatesCalculator} coordsCalculator - Coordinates calculator instance
-     * @param {Function} onErrorClick - Callback when error is clicked
+     * @param {CoordinatesCalculator} coordsCalculator
+     * @param {Function} onErrorClick
      */
     constructor(coordsCalculator, onErrorClick) {
         this.coordsCalculator = coordsCalculator;
         this.onErrorClick = onErrorClick;
-        this.errorBorders = []; // Array of error border elements
+        this.errorBorders = [];
         this.container = null;
-        this.errorsData = new Map(); // Map errorId -> {error, element}
-        this.currentHoveredId = null; // Currently boosted error ID
-
+        this.errorsData = new Map();
+        this.currentHoveredId = null;
         this.initializeContainer();
         this.setupMouseMoveHandler();
     }
 
     /**
-     * Initialize error container
-     * @private
+     * Ensure overlay container exists in document.
      */
     initializeContainer() {
         this.container = document.getElementById(ConfigurationManager.UI.ERROR_CONTAINER_ID);
-
         if (!this.container) {
             this.container = document.createElement('div');
             this.container.id = ConfigurationManager.UI.ERROR_CONTAINER_ID;
@@ -41,362 +31,283 @@ export class ErrorRenderer {
     }
 
     /**
-     * Create error overlay for an error
-     * @param {Object} error - Error object
-     * @returns {HTMLElement|null} Created overlay element or null
+     * Create visual overlay for one error entity.
      */
-    createErrorOverlay(error) {
-        const overlay = document.createElement('div');
-        overlay.className = ConfigurationManager.CSS_CLASSES.ERROR_BORDER;
-        overlay.dataset.errorId = error.id;
+    createErrorOverlay(errorData) {
+        const overlayElement = document.createElement('div');
+        overlayElement.className = ConfigurationManager.CSS_CLASSES.ERROR_BORDER;
+        overlayElement.dataset.errorId = errorData.id;
 
-        // Calculate z-index based on area (smaller = higher z-index)
         let zIndex = 251001;
-        let element = null;
+        let targetElement = null;
 
-        if (error.type === ConfigurationManager.ERROR_TYPES.BORDER) {
-            element = this.findErrorElement(error);
-            if (!element) {
-                ErrorLogger.warn('Cannot find element for error', { errorId: error.id });
+        if (errorData.type === ConfigurationManager.ERROR_TYPES.BORDER) {
+            targetElement = this.findErrorElement(errorData);
+            if (!targetElement) {
+                ErrorLogger.warn('Cannot find element for error', { errorId: errorData.id });
                 return null;
             }
         }
 
-        // Store error data for mousemove detection
-        this.errorsData.set(error.id, { error, element });
+        this.errorsData.set(errorData.id, { error: errorData, element: targetElement });
+        zIndex = this.coordsCalculator.calculateZIndexByArea(errorData, targetElement);
+        overlayElement.style.zIndex = zIndex.toString();
+        overlayElement.dataset.originalZIndex = zIndex.toString();
 
-        // Use area-based z-index for all error types
-        zIndex = this.coordsCalculator.calculateZIndexByArea(error, element);
-        overlay.style.zIndex = zIndex.toString();
-        overlay.dataset.originalZIndex = zIndex.toString(); // Store original z-index
-
-        // Add click handler
-        overlay.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (this.onErrorClick) {
-                this.onErrorClick(error, overlay);
-            }
+        overlayElement.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (this.onErrorClick) this.onErrorClick(errorData, overlayElement);
         });
 
-        this.container.appendChild(overlay);
-        this.errorBorders.push(overlay);
+        this.container.appendChild(overlayElement);
+        this.errorBorders.push(overlayElement);
+        this.positionErrorOverlay(overlayElement, errorData);
 
-        // Position the overlay
-        this.positionErrorOverlay(overlay, error);
+        ErrorLogger.debug('Error overlay created', {
+            errorId: errorData.id,
+            type: errorData.type,
+            zIndex,
+        });
 
-        ErrorLogger.debug('Error overlay created', { errorId: error.id, type: error.type, zIndex });
-
-        return overlay;
+        return overlayElement;
     }
 
     /**
-     * Position error overlay based on error type
-     * @param {HTMLElement} overlay - Overlay element
-     * @param {Object} error - Error object
+     * Position and style one overlay according to error data.
      */
-    positionErrorOverlay(overlay, error) {
-        const shouldShow = this.coordsCalculator.shouldShowErrorAtCurrentBreakpoint(error);
-
-        // Reset classes
-        overlay.classList.remove(
+    positionErrorOverlay(overlayElement, errorData) {
+        const isMatchingCurrentBreakpoint =
+            this.coordsCalculator.shouldShowErrorAtCurrentBreakpoint(errorData);
+        overlayElement.classList.remove(
             ConfigurationManager.ERROR_STATUS.OPEN,
             ConfigurationManager.ERROR_STATUS.RESOLVED,
             'match-breakpoint',
         );
 
-        // Set status class
-        if (error.status === ConfigurationManager.ERROR_STATUS.RESOLVED) {
-            overlay.classList.add(ConfigurationManager.ERROR_STATUS.RESOLVED);
+        if (errorData.status === ConfigurationManager.ERROR_STATUS.RESOLVED) {
+            overlayElement.classList.add(ConfigurationManager.ERROR_STATUS.RESOLVED);
         } else {
-            overlay.classList.add(ConfigurationManager.ERROR_STATUS.OPEN);
+            overlayElement.classList.add(ConfigurationManager.ERROR_STATUS.OPEN);
         }
 
-        if (!shouldShow) {
-            return;
-        }
-
-        overlay.classList.add('match-breakpoint');
-
-        if (error.type === ConfigurationManager.ERROR_TYPES.RECT) {
-            this.positionRectOverlay(overlay, error);
-        } else if (error.type === ConfigurationManager.ERROR_TYPES.BORDER) {
-            this.positionBorderOverlay(overlay, error);
+        if (!isMatchingCurrentBreakpoint) return;
+        overlayElement.classList.add('match-breakpoint');
+        if (errorData.type === ConfigurationManager.ERROR_TYPES.RECT) {
+            this.positionRectOverlay(overlayElement, errorData);
+        } else if (errorData.type === ConfigurationManager.ERROR_TYPES.BORDER) {
+            this.positionBorderOverlay(overlayElement, errorData);
         }
     }
 
     /**
-     * Position rectangle overlay
-     * @private
-     * @param {HTMLElement} overlay - Overlay element
-     * @param {Object} error - Error object
+     * Position overlay for rectangle-type errors.
      */
-    positionRectOverlay(overlay, error) {
-        if (!error.coordinates) {
-            ErrorLogger.warn('Error has no coordinates', { errorId: error.id });
+    positionRectOverlay(overlayElement, errorData) {
+        if (!errorData.coordinates) {
+            ErrorLogger.warn('Error has no coordinates', { errorId: errorData.id });
             return;
         }
 
-        const coords = error.coordinates;
-
-        // Prefer responsive coordinates if available
-        if (coords.responsive) {
-            const pxCoords = this.coordsCalculator.convertResponsiveToPx(coords.responsive);
-
-            overlay.style.left = `${pxCoords.left}px`;
-            overlay.style.top = `${pxCoords.top - this.coordsCalculator.adminBarHeight}px`;
-            overlay.style.width = `${pxCoords.width}px`;
-            overlay.style.height = `${pxCoords.height}px`;
+        const coordinates = errorData.coordinates;
+        if (coordinates.responsive) {
+            const pxCoordinates = this.coordsCalculator.convertResponsiveToPx(coordinates.responsive);
+            overlayElement.style.left = `${pxCoordinates.left}px`;
+            overlayElement.style.top = `${pxCoordinates.top - this.coordsCalculator.adminBarHeight}px`;
+            overlayElement.style.width = `${pxCoordinates.width}px`;
+            overlayElement.style.height = `${pxCoordinates.height}px`;
             return;
         }
 
-        // Fallback to legacy px coordinates
-        overlay.style.left = `${coords.left}px`;
-        overlay.style.top = `${coords.top}px`;
-        overlay.style.width = `${coords.width}px`;
-        overlay.style.height = `${coords.height}px`;
+        overlayElement.style.left = `${coordinates.left}px`;
+        overlayElement.style.top = `${coordinates.top}px`;
+        overlayElement.style.width = `${coordinates.width}px`;
+        overlayElement.style.height = `${coordinates.height}px`;
     }
 
     /**
-     * Position border overlay around element
-     * @private
-     * @param {HTMLElement} overlay - Overlay element
-     * @param {Object} error - Error object
+     * Position overlay for border-type errors by target element bounds.
      */
-    positionBorderOverlay(overlay, error) {
-        const element = this.findErrorElement(error);
-
-        if (!element) {
-            ErrorLogger.warn('Cannot find element for border overlay', { errorId: error.id });
+    positionBorderOverlay(overlayElement, errorData) {
+        const targetElement = this.findErrorElement(errorData);
+        if (!targetElement) {
+            ErrorLogger.warn('Cannot find element for border overlay', {
+                errorId: errorData.id,
+            });
             return;
         }
 
-        const position = this.coordsCalculator.getElementPosition(element);
-
-        overlay.style.top = `${position.top}px`;
-        overlay.style.left = `${position.left}px`;
-        overlay.style.width = `${position.width}px`;
-        overlay.style.height = `${position.height}px`;
+        const position = this.coordsCalculator.getElementPosition(targetElement);
+        overlayElement.style.top = `${position.top}px`;
+        overlayElement.style.left = `${position.left}px`;
+        overlayElement.style.width = `${position.width}px`;
+        overlayElement.style.height = `${position.height}px`;
     }
 
     /**
-     * Find DOM element for error using identifiers
-     * @private
-     * @param {Object} error - Error object
-     * @returns {HTMLElement|null} Found element or null
+     * Resolve target element using xpath or css selector identifiers.
      */
-    findErrorElement(error) {
-        if (!error.elementIdentifiers) {
-            return null;
-        }
+    findErrorElement(errorData) {
+        if (!errorData.elementIdentifiers) return null;
 
-        // Try XPath first
-        if (error.elementIdentifiers.xpath) {
+        if (errorData.elementIdentifiers.xpath)
             try {
-                const xpathResult = document.evaluate(
-                    error.elementIdentifiers.xpath,
+                const result = document.evaluate(
+                    errorData.elementIdentifiers.xpath,
                     document,
                     null,
                     XPathResult.FIRST_ORDERED_NODE_TYPE,
                     null,
                 );
-
-                if (xpathResult.singleNodeValue) {
-                    return xpathResult.singleNodeValue;
-                }
-            } catch (error) {
-                ErrorLogger.warn('XPath evaluation failed', {
-                    xpath: error.elementIdentifiers.xpath,
-                });
+                if (result.singleNodeValue) return result.singleNodeValue;
+            } catch {
+                ErrorLogger.warn('XPath evaluation failed', { xpath: errorData.elementIdentifiers.xpath });
             }
-        }
 
-        // Try CSS selector if available
-        if (error.elementIdentifiers.cssSelector) {
+        if (errorData.elementIdentifiers.cssSelector)
             try {
-                const element = document.querySelector(error.elementIdentifiers.cssSelector);
-                if (element) {
-                    return element;
-                }
-            } catch (error) {
+                const element = document.querySelector(errorData.elementIdentifiers.cssSelector);
+                if (element) return element;
+            } catch {
                 ErrorLogger.warn('CSS selector failed', {
-                    selector: error.elementIdentifiers.cssSelector,
+                    selector: errorData.elementIdentifiers.cssSelector,
                 });
             }
-        }
 
         return null;
     }
 
     /**
-     * Update all error borders (e.g., after resize/scroll)
+     * Reposition all overlays with latest errors list.
      */
     updateAllErrorBorders(errors) {
-        this.errorBorders.forEach((overlay) => {
-            const errorId = overlay.dataset.errorId;
-            const error = errors.find((e) => e.id === errorId);
-
-            if (error) {
-                this.positionErrorOverlay(overlay, error);
-            }
+        this.errorBorders.forEach((overlayElement) => {
+            const errorId = overlayElement.dataset.errorId;
+            const errorData = errors.find((item) => item.id === errorId);
+            if (errorData) this.positionErrorOverlay(overlayElement, errorData);
         });
-
         ErrorLogger.debug('All error borders updated', { count: this.errorBorders.length });
     }
 
     /**
-     * Remove error border by error ID
-     * @param {string} errorId - Error ID
+     * Remove one overlay by error id.
      */
     removeErrorBorder(errorId) {
-        const border = this.container.querySelector(`[data-error-id="${errorId}"]`);
-
-        if (border) {
-            border.remove();
-            this.errorBorders = this.errorBorders.filter((b) => b !== border);
-            ErrorLogger.debug('Error border removed', { errorId });
-        }
+        const overlayElement = this.container.querySelector(`[data-error-id="${errorId}"]`);
+        if (!overlayElement) return;
+        overlayElement.remove();
+        this.errorBorders = this.errorBorders.filter((item) => item !== overlayElement);
+        ErrorLogger.debug('Error border removed', { errorId });
     }
 
     /**
-     * Remove all error borders
+     * Remove all rendered overlays.
      */
     removeAllErrorBorders() {
-        this.errorBorders.forEach((border) => border.remove());
+        this.errorBorders.forEach((overlayElement) => overlayElement.remove());
         this.errorBorders = [];
         ErrorLogger.debug('All error borders removed');
     }
 
     /**
-     * Toggle visibility of open errors
-     * @param {boolean} isVisible - Whether to show open errors
+     * Toggle open errors visibility class.
      */
     toggleOpenErrorsVisibility(isVisible) {
-        if (this.container) {
-            this.container.classList.toggle(
-                ConfigurationManager.CSS_CLASSES.DRAW_OPEN_ERRORS,
-                isVisible,
-            );
-        }
+        if (!this.container) return;
+        this.container.classList.toggle(ConfigurationManager.CSS_CLASSES.DRAW_OPEN_ERRORS, isVisible);
     }
 
     /**
-     * Toggle visibility of resolved errors
-     * @param {boolean} isVisible - Whether to show resolved errors
+     * Toggle resolved errors visibility class.
      */
     toggleResolvedErrorsVisibility(isVisible) {
-        if (this.container) {
-            this.container.classList.toggle(
-                ConfigurationManager.CSS_CLASSES.DRAW_RESOLVED_ERRORS,
-                isVisible,
-            );
-        }
+        if (!this.container) return;
+        this.container.classList.toggle(
+            ConfigurationManager.CSS_CLASSES.DRAW_RESOLVED_ERRORS,
+            isVisible,
+        );
     }
 
     /**
-     * Toggle overall error visibility
-     * @param {boolean} isVisible - Whether to show errors
+     * Toggle global error-visibility class on body.
      */
     toggleErrorsVisibility(isVisible) {
         document.body.classList.toggle(ConfigurationManager.CSS_CLASSES.SHOW_ERROR, isVisible);
     }
 
-
     /**
-     * Get error border element by ID
-     * @param {string} errorId - Error ID
-     * @returns {HTMLElement|null} Border element or null
+     * Get overlay element by error id.
      */
     getErrorBorder(errorId) {
         return this.container.querySelector(`[data-error-id="${errorId}"]`);
     }
 
     /**
-     * Get container element
-     * @returns {HTMLElement} Container element
+     * Get overlays container element.
      */
     getContainer() {
         return this.container;
     }
 
     /**
-     * Setup document-level mousemove handler for smart hover detection
-     * @private
+     * Setup throttled mouse move handling for hover behavior.
      */
     setupMouseMoveHandler() {
-        // Throttle mousemove for performance
-        let lastCall = 0;
-        const throttleMs = 50;
-
-        document.addEventListener('mousemove', (e) => {
+        let lastExecutionAt = 0;
+        document.addEventListener('mousemove', (event) => {
             const now = Date.now();
-            if (now - lastCall < throttleMs) return;
-            lastCall = now;
-
-            this.handleMouseMove(e.pageX, e.pageY);
+            if (now - lastExecutionAt < 50) return;
+            lastExecutionAt = now;
+            this.handleMouseMove(event.pageX, event.pageY);
         });
     }
 
     /**
-     * Handle mouse move - find smallest error containing mouse and boost its z-index
-     * @param {number} x - Page X coordinate
-     * @param {number} y - Page Y coordinate
+     * Keep smallest matching overlay highlighted under cursor.
      */
-    handleMouseMove(x, y) {
-        let smallestError = null;
+    handleMouseMove(pointerX, pointerY) {
+        let nextHoveredId = null;
         let smallestArea = Infinity;
 
-        // Find all visible errors containing the mouse point
-        this.errorsData.forEach((data, errorId) => {
-            const overlay = this.getErrorBorder(errorId);
-            if (!overlay) return;
+        this.errorsData.forEach((_, errorId) => {
+            const overlayElement = this.getErrorBorder(errorId);
+            if (!overlayElement) return;
+            if (window.getComputedStyle(overlayElement).display === 'none') return;
 
-            // Check if overlay is visible
-            const computedStyle = window.getComputedStyle(overlay);
-            if (computedStyle.display === 'none') return;
+            const rect = overlayElement.getBoundingClientRect();
+            const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const left = rect.left + scrollLeft;
+            const top = rect.top + scrollTop;
+            const right = rect.left + scrollLeft + rect.width;
+            const bottom = rect.top + scrollTop + rect.height;
 
-            // Get overlay bounds
-            const rect = overlay.getBoundingClientRect();
-            const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-            const scrollY = window.pageYOffset || document.documentElement.scrollTop;
-
-            const bounds = {
-                left: rect.left + scrollX,
-                top: rect.top + scrollY,
-                right: rect.left + scrollX + rect.width,
-                bottom: rect.top + scrollY + rect.height,
-            };
-
-            // Check if mouse is inside this error
-            if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) {
+            if (pointerX >= left && pointerX <= right && pointerY >= top && pointerY <= bottom) {
                 const area = rect.width * rect.height;
                 if (area < smallestArea) {
                     smallestArea = area;
-                    smallestError = errorId;
+                    nextHoveredId = errorId;
                 }
             }
         });
 
-        // Update z-index boost
-        if (smallestError !== this.currentHoveredId) {
-            // Reset previous hovered error
-            if (this.currentHoveredId) {
-                const prevOverlay = this.getErrorBorder(this.currentHoveredId);
-                if (prevOverlay) {
-                    prevOverlay.style.zIndex = prevOverlay.dataset.originalZIndex || '251001';
-                    prevOverlay.classList.remove('testing-border-hover');
-                }
-            }
+        if (nextHoveredId === this.currentHoveredId) return;
 
-            // Boost new smallest error
-            if (smallestError) {
-                const overlay = this.getErrorBorder(smallestError);
-                if (overlay) {
-                    overlay.style.zIndex = '999999';
-                    overlay.classList.add('testing-border-hover');
-                }
+        if (this.currentHoveredId) {
+            const previousHovered = this.getErrorBorder(this.currentHoveredId);
+            if (previousHovered) {
+                previousHovered.style.zIndex = previousHovered.dataset.originalZIndex || '251001';
+                previousHovered.classList.remove('testing-border-hover');
             }
-
-            this.currentHoveredId = smallestError;
         }
+
+        if (nextHoveredId) {
+            const nextHovered = this.getErrorBorder(nextHoveredId);
+            if (nextHovered) {
+                nextHovered.style.zIndex = '999999';
+                nextHovered.classList.add('testing-border-hover');
+            }
+        }
+
+        this.currentHoveredId = nextHoveredId;
     }
 }

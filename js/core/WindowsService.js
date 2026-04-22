@@ -1,146 +1,143 @@
-/**
- * WindowsService - Abstraction layer for Chrome Windows API
- * Provides window management functionality with error handling
- * @module WindowsService
- */
-
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 
 export class WindowsService {
     /**
-     * Get window by ID
-     * @param {number} windowId - Window ID
-     * @param {Object} options - Additional options (populate, etc.)
-     * @returns {Promise<chrome.windows.Window|null>} Window or null
+     * Get a browser window by id.
      */
     static async getWindow(windowId, options = {}) {
-        if (!chrome?.windows?.get) {
-            ErrorLogger.error('Chrome windows API not available', {
-                context: 'WindowsService.getWindow',
-            });
-            return null;
-        }
+        if (!chrome?.windows?.get)
+            return (
+                ErrorLogger.error('Chrome windows API not available', {
+                    context: 'WindowsService.getWindow',
+                }),
+                null
+            );
 
         try {
-            const window = await chrome.windows.get(windowId, options);
-            return window;
+            return await chrome.windows.get(windowId, options);
         } catch (error) {
-            ErrorLogger.error('Failed to get window', { windowId, options, error });
-            return null;
+            return (
+                ErrorLogger.error('Failed to get window', { windowId, options, error }),
+                null
+            );
         }
     }
 
     /**
-     * Create a new window
-     * @param {Object} createData - Window creation data
-     * @returns {Promise<chrome.windows.Window|null>} Created window or null
+     * Create a new browser window.
      */
     static async createWindow(createData) {
-        if (!chrome?.windows?.create) {
-            ErrorLogger.error('Chrome windows API not available', {
-                context: 'WindowsService.createWindow',
-            });
-            return null;
-        }
+        if (!chrome?.windows?.create)
+            return (
+                ErrorLogger.error('Chrome windows API not available', {
+                    context: 'WindowsService.createWindow',
+                }),
+                null
+            );
 
         try {
-            const window = await chrome.windows.create(createData);
-            ErrorLogger.debug('Window created successfully', { windowId: window.id });
-            return window;
+            const createdWindow = await chrome.windows.create(createData);
+            return (
+                ErrorLogger.debug('Window created successfully', { windowId: createdWindow.id }),
+                createdWindow
+            );
         } catch (error) {
-            ErrorLogger.error('Failed to create window', { createData, error });
-            return null;
+            return (
+                ErrorLogger.error('Failed to create window', { createData, error }),
+                null
+            );
         }
     }
 
     /**
-     * Update a window
-     * @param {number} windowId - Window ID
-     * @param {Object} updateInfo - Update properties
-     * @returns {Promise<chrome.windows.Window|null>} Updated window or null
+     * Update an existing browser window.
      */
     static async updateWindow(windowId, updateInfo) {
-        if (!chrome?.windows?.update) {
-            ErrorLogger.error('Chrome windows API not available', {
-                context: 'WindowsService.updateWindow',
-            });
-            return null;
-        }
+        if (!chrome?.windows?.update)
+            return (
+                ErrorLogger.error('Chrome windows API not available', {
+                    context: 'WindowsService.updateWindow',
+                }),
+                null
+            );
 
         try {
-            const window = await chrome.windows.update(windowId, updateInfo);
-            ErrorLogger.debug('Window updated successfully', { windowId, updateInfo });
-            return window;
+            const updatedWindow = await chrome.windows.update(windowId, updateInfo);
+            return (
+                ErrorLogger.debug('Window updated successfully', { windowId, updateInfo }),
+                updatedWindow
+            );
         } catch (error) {
-            ErrorLogger.error('Failed to update window', { windowId, updateInfo, error });
-            return null;
+            return (
+                ErrorLogger.error('Failed to update window', {
+                    windowId,
+                    updateInfo,
+                    error,
+                }),
+                null
+            );
         }
     }
 
     /**
-     * Close a window
-     * @param {number} windowId - Window ID
-     * @returns {Promise<boolean>} True if successful
+     * Close a browser window by id.
      */
     static async closeWindow(windowId) {
-        if (!chrome?.windows?.remove) {
-            ErrorLogger.error('Chrome windows API not available', {
-                context: 'WindowsService.closeWindow',
-            });
-            return false;
-        }
+        if (!chrome?.windows?.remove)
+            return (
+                ErrorLogger.error('Chrome windows API not available', {
+                    context: 'WindowsService.closeWindow',
+                }),
+                false
+            );
 
         try {
             await chrome.windows.remove(windowId);
             ErrorLogger.debug('Window closed successfully', { windowId });
             return true;
         } catch (error) {
-            ErrorLogger.error('Failed to close window', { windowId, error });
-            return false;
+            return (ErrorLogger.error('Failed to close window', { windowId, error }), false);
         }
     }
 
     /**
-     * Get all windows
-     * @param {Object} options - Query options
-     * @returns {Promise<chrome.windows.Window[]>} Array of windows
+     * Get all browser windows.
      */
     static async getAllWindows(options = {}) {
-        if (!chrome?.windows?.getAll) {
-            ErrorLogger.error('Chrome windows API not available', {
-                context: 'WindowsService.getAllWindows',
-            });
-            return [];
-        }
+        if (!chrome?.windows?.getAll)
+            return (
+                ErrorLogger.error('Chrome windows API not available', {
+                    context: 'WindowsService.getAllWindows',
+                }),
+                []
+            );
 
         try {
-            const windows = await chrome.windows.getAll(options);
-            return windows || [];
+            return (await chrome.windows.getAll(options)) || [];
         } catch (error) {
-            ErrorLogger.error('Failed to get all windows', { options, error });
-            return [];
+            return (ErrorLogger.error('Failed to get all windows', { options, error }), []);
         }
     }
 
     /**
-     * Get current window
-     * @param {Object} options - Additional options
-     * @returns {Promise<chrome.windows.Window|null>} Current window or null
+     * Get the current browser window.
      */
     static async getCurrentWindow(options = {}) {
-        if (!chrome?.windows?.getCurrent) {
-            ErrorLogger.error('Chrome windows API not available', {
-                context: 'WindowsService.getCurrentWindow',
-            });
-            return null;
-        }
+        if (!chrome?.windows?.getCurrent)
+            return (
+                ErrorLogger.error('Chrome windows API not available', {
+                    context: 'WindowsService.getCurrentWindow',
+                }),
+                null
+            );
 
         try {
-            const window = await chrome.windows.getCurrent(options);
-            return window;
+            return await chrome.windows.getCurrent(options);
         } catch (error) {
-            ErrorLogger.error('Failed to get current window', { options, error });
-            return null;
+            return (
+                ErrorLogger.error('Failed to get current window', { options, error }),
+                null
+            );
         }
     }
 }

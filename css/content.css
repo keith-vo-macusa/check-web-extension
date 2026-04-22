@@ -1,14 +1,9 @@
-/* Content CSS for Website Testing Assistant */
-
-/* Testing selection mode cursor */
 body.testing-selection-mode .elementor-element {
     cursor: crosshair !important;
 }
-
 body {
     position: relative;
 }
-
 #testing-error-container {
     position: absolute;
     top: 0;
@@ -19,13 +14,9 @@ body {
     pointer-events: none;
     overflow: hidden;
 }
-
-/* Mặc định: ẩn hết lỗi nếu chưa bật hiển thị */
 #testing-error-container .testing-error-border {
     display: none;
 }
-
-/* Chỉ hiển thị khi body đang bật chế độ show lỗi */
 body.show-error
     #testing-error-container.draw-open-errors
     .testing-error-border.open.match-breakpoint,
@@ -34,26 +25,20 @@ body.show-error
     .testing-error-border.resolved.match-breakpoint {
     display: block;
 }
-
-/* Nếu body không có class `show-error`, ẩn hết luôn */
 body:not(.show-error) #testing-error-container .testing-error-border {
     display: none !important;
 }
-
-/* Override any specific cursor styles during selection */
-body.testing-selection-mode .elementor-element a,
-body.testing-selection-mode .elementor-element button,
-body.testing-selection-mode .elementor-element input,
-body.testing-selection-mode .elementor-element [role='button'],
-body.testing-selection-mode .elementor-element [class*='slider'],
 body.testing-selection-mode .elementor-element [class*='carousel'],
 body.testing-selection-mode .elementor-element [class*='gallery'],
-body.testing-selection-mode .elementor-element [class*='swiper'] {
+body.testing-selection-mode .elementor-element [class*='slider'],
+body.testing-selection-mode .elementor-element [class*='swiper'],
+body.testing-selection-mode .elementor-element [role='button'],
+body.testing-selection-mode .elementor-element a,
+body.testing-selection-mode .elementor-element button,
+body.testing-selection-mode .elementor-element input {
     cursor: crosshair !important;
     pointer-events: auto !important;
 }
-
-/* Modal styles */
 .testing-modal-backdrop {
     position: fixed !important;
     top: 0 !important;
@@ -67,30 +52,23 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     justify-content: center !important;
     cursor: default !important;
 }
-
-/* Highlighted element during selection */
 .testing-element-highlight {
-    outline: 3px dashed #007bff !important;
+    outline: #007bff dashed 3px !important;
     outline-offset: 2px !important;
     background: rgba(0, 123, 255, 0.1) !important;
 }
-
-/* Responsive adjustments */
 @media (max-width: 768px) {
     .testing-comment-modal {
         width: 90vw !important;
         padding: 16px !important;
     }
-
     .testing-comment-thread {
         width: 90vw !important;
         max-width: 320px !important;
         max-height: 70vh !important;
     }
-
-    /* Mobile: always center panels */
-    .testing-comment-thread.position-right,
-    .testing-comment-thread.position-left {
+    .testing-comment-thread.position-left,
+    .testing-comment-thread.position-right {
         left: 50vw !important;
         right: auto !important;
         top: 50vh !important;
@@ -98,7 +76,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
         position: fixed !important;
     }
 }
-
 @media (max-width: 480px) {
     .testing-comment-thread {
         width: 95vw !important;
@@ -107,14 +84,11 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
         right: 2.5vw !important;
         top: 10vh !important;
     }
-
     .testing-comment-tooltip {
         max-width: 200px !important;
         font-size: 11px !important;
     }
 }
-
-/* Error border overlay styles */
 .testing-error-border {
     position: absolute !important;
     border: 3px solid #ff4757 !important;
@@ -125,10 +99,10 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     cursor: pointer !important;
     background: rgba(255, 71, 87, 0.05) !important;
     border-radius: 2px !important;
+    transition: none !important;
 }
-
-.testing-error-border:hover,
-.testing-border-hover {
+.testing-border-hover,
+.testing-error-border:hover {
     border-color: #ff3742 !important;
     background: rgba(255, 71, 87, 0.1) !important;
     box-shadow:
@@ -136,7 +110,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
         inset 0 0 0 1px rgba(255, 71, 87, 0.3),
         0 0 12px rgba(255, 71, 87, 0.3) !important;
 }
-
 .testing-error-border.resolved {
     border-color: #2e7d32 !important;
     background: rgba(46, 125, 50, 0.05);
@@ -144,7 +117,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
         0 0 0 1px rgba(255, 255, 255, 0.5),
         inset 0 0 0 1px rgba(46, 125, 50, 0.2) !important;
 }
-
 .testing-error-border.resolved:hover {
     border-color: #1b5e20 !important;
     background: rgba(46, 125, 50, 0.1) !important;
@@ -153,7 +125,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
         inset 0 0 0 1px rgba(46, 125, 50, 0.3),
         0 0 12px rgba(46, 125, 50, 0.3) !important;
 }
-
 .testing-error-border.closed {
     border-color: #6c757d !important;
     background: rgba(108, 117, 125, 0.05) !important;
@@ -161,7 +132,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
         0 0 0 1px rgba(255, 255, 255, 0.5),
         inset 0 0 0 1px rgba(108, 117, 125, 0.2) !important;
 }
-
 .testing-error-border.closed:hover {
     border-color: #5a6268 !important;
     background: rgba(108, 117, 125, 0.1) !important;
@@ -170,99 +140,75 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
         inset 0 0 0 1px rgba(108, 117, 125, 0.3),
         0 0 12px rgba(108, 117, 125, 0.3) !important;
 }
-
-/* Animate border appearance */
-.testing-error-border {
-    transition: none !important;
-}
-
-/* Thread styles - Figma-like */
 .testing-comment-thread {
     position: fixed !important;
     width: 650px !important;
     max-height: min(82vh, 760px) !important;
-    max-width: 90vw !important; /* đồng bộ với testing-comment-modal */
-    background: #ffffff !important;
+    max-width: 90vw !important;
+    background: #fff !important;
     border-radius: 12px !important;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important; /* giống modal thêm lỗi */
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important;
     border: 1px solid rgba(0, 0, 0, 0.08) !important;
     font-family:
         -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
     z-index: 9999999 !important;
     display: flex !important;
     flex-direction: column !important;
-    animation: threadSlideIn 0.2s ease-out !important;
+    animation: 0.2s ease-out threadSlideIn !important;
     cursor: default !important;
 }
-
-/* Position variations */
 .testing-comment-thread.position-right {
     left: 30px !important;
     top: 0 !important;
 }
-
 .testing-comment-thread.position-left {
     right: 30px !important;
     left: auto !important;
     top: 0 !important;
 }
-
 .testing-comment-thread.position-center {
     left: 50vw !important;
     top: 50vh !important;
     transform: translate(-50%, -50%) !important;
     position: fixed !important;
 }
-
 .testing-comment-thread.position-above {
     bottom: 30px !important;
     top: auto !important;
 }
-
 .testing-comment-thread.position-center.position-above {
     top: 20px !important;
     bottom: auto !important;
     transform: translate(-50%, 0) !important;
 }
-
 .testing-comment-thread * {
     cursor: default !important;
 }
-
 .testing-comment-thread a {
     cursor: pointer !important;
 }
-
 .thread-header {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    padding: 12px 12px 10px 12px !important;
+    padding: 12px 12px 10px !important;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-    background: #ffffff !important;
+    background: #fff !important;
     border-top-left-radius: 12px !important;
     border-top-right-radius: 12px !important;
 }
-
+.thread-header-actions,
 .thread-title {
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
 }
-
-.thread-header-actions {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-}
-
 .thread-heading {
     font-weight: 700 !important;
     color: #050505 !important;
     font-size: 15px !important;
     letter-spacing: -0.2px !important;
 }
-
 .thread-status {
     padding: 4px 8px !important;
     border-radius: 12px !important;
@@ -271,92 +217,78 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
 }
-
 .status-open {
     background: #e3f2fd !important;
     color: #1976d2 !important;
 }
-
 .status-resolved {
     background: #e8f5e8 !important;
     color: #2e7d32 !important;
 }
-
 .status-closed {
     background: #fafafa !important;
     color: #616161 !important;
 }
-
 .thread-close {
-    background: none !important;
+    background: 0 0 !important;
     border: none !important;
     font-size: 20px !important;
     color: #9aa0a6 !important;
     cursor: pointer !important;
     padding: 4px !important;
     border-radius: 4px !important;
-    transition: all 0.2s ease !important;
+    transition: 0.2s !important;
 }
-
 .thread-close:hover {
     background: #f1f3f4 !important;
     color: #5f6368 !important;
 }
-
 .thread-content {
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
     min-height: 240px !important;
 }
-
 .comments-list {
     flex: 1 !important;
     overflow-y: auto !important;
-    padding: 12px 12px 8px 12px !important;
+    padding: 12px 12px 8px !important;
     background: #f0f2f5 !important;
 }
-
 .comment-item {
     display: flex !important;
     gap: 8px !important;
     padding: 6px 0 !important;
     border-bottom: none !important;
 }
-
 .comment-item:last-child {
     border-bottom: none !important;
 }
-
 .comment-avatar {
     flex-shrink: 0 !important;
 }
-
 .avatar-circle {
     width: 36px !important;
     height: 36px !important;
     border-radius: 50% !important;
     background: #1877f2 !important;
-    color: white !important;
+    color: #fff !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     font-size: 12px !important;
     font-weight: 600 !important;
 }
-
 .comment-content {
     flex: 1 !important;
     min-width: 0 !important;
 }
-
 .comment-bubble {
     background: #e4e6eb !important;
     border-radius: 18px !important;
     padding: 8px 10px !important;
     max-width: 100% !important;
 }
-
 .comment-header {
     display: flex !important;
     align-items: baseline !important;
@@ -365,27 +297,23 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     flex-wrap: wrap !important;
     justify-content: flex-start !important;
 }
-
 .comment-author {
     font-weight: 700 !important;
     font-size: 13px !important;
     color: #050505 !important;
     white-space: nowrap !important;
 }
-
 .comment-time {
     font-size: 11px !important;
     color: #65676b !important;
     white-space: nowrap !important;
 }
-
 .comment-edited {
     font-size: 11px !important;
     color: #65676b !important;
     font-style: italic !important;
     white-space: nowrap !important;
 }
-
 .comment-text {
     font-size: 13px !important;
     line-height: 1.5 !important;
@@ -395,7 +323,6 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     overflow-wrap: break-word !important;
     white-space: pre-wrap !important;
 }
-
 .comment-text a {
     font-size: 13px !important;
     font-weight: 500 !important;
@@ -407,95 +334,66 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     display: inline !important;
     line-height: 1.5 !important;
 }
-
 .comment-text a:hover {
     text-decoration: underline !important;
     color: #166fe5 !important;
 }
-
 .comment-actions {
     display: flex !important;
     gap: 8px !important;
     margin-top: 4px !important;
     opacity: 0 !important;
-    transition: opacity 0.15s ease !important;
+    transition: opacity 0.15s !important;
 }
-
-.comment-item:hover .comment-actions,
-.comment-item:focus-within .comment-actions {
+.comment-item:focus-within .comment-actions,
+.comment-item:hover .comment-actions {
     opacity: 1 !important;
 }
-
+.btn-delete-comment,
 .btn-edit-comment,
-.btn-delete-comment {
-    background: transparent !important;
-    border: none !important;
-    color: #65676b !important;
-    font-size: 12px !important;
-    cursor: pointer !important;
-    padding: 4px 8px !important;
-    border-radius: 999px !important;
-    transition: all 0.2s ease !important;
-    font-weight: 500 !important;
-}
-
 .btn-reply-comment {
-    background: transparent !important;
+    background: 0 0 !important;
     border: none !important;
     color: #65676b !important;
     font-size: 12px !important;
     cursor: pointer !important;
     padding: 4px 8px !important;
     border-radius: 999px !important;
-    transition: all 0.2s ease !important;
+    transition: 0.2s !important;
     font-weight: 500 !important;
 }
-
+.btn-edit-comment:hover,
 .btn-reply-comment:hover {
     background: rgba(0, 0, 0, 0.06) !important;
     color: #050505 !important;
 }
-
-.btn-edit-comment:hover {
-    background: rgba(0, 0, 0, 0.06) !important;
-    color: #050505 !important;
-}
-
 .btn-delete-comment:hover {
     background: rgba(242, 66, 54, 0.12) !important;
     color: #f02849 !important;
 }
-
-/* Remove duplicate comment-actions rule (handled above) */
-
 .thread-actions {
     border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
-    padding: 10px 12px 12px 12px !important;
-    background: #ffffff !important;
+    padding: 10px 12px 12px !important;
+    background: #fff !important;
     border-bottom-left-radius: 12px !important;
     border-bottom-right-radius: 12px !important;
 }
-
 .reply-form {
     margin-bottom: 10px !important;
 }
-
 .reply-composer {
     display: flex !important;
     gap: 8px !important;
     align-items: flex-start !important;
 }
-
 .reply-avatar .avatar-circle {
     width: 36px !important;
     height: 36px !important;
 }
-
 .reply-box {
     flex: 1 !important;
     min-width: 0 !important;
 }
-
 .reply-input-wrap {
     position: relative !important;
     margin-bottom: 6px !important;
@@ -504,33 +402,29 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     border-radius: 20px !important;
     padding: 0 !important;
 }
-
 .reply-input {
     width: 100% !important;
     min-height: 40px !important;
     max-height: 120px !important;
     border: 0 !important;
     border-radius: 20px !important;
-    padding: 10px 54px 10px 12px !important; /* leave room for inside button */
+    padding: 10px 54px 10px 12px !important;
     font-size: 13px !important;
     font-family: inherit !important;
-    resize: none !important; /* avoid resize-handle overlapping inside button */
-    background: transparent !important;
+    resize: none !important;
+    background: 0 0 !important;
     margin-bottom: 0 !important;
     cursor: text !important;
     overflow-y: auto !important;
 }
-
 .reply-input:focus {
-    outline: none !important;
+    outline: 0 !important;
 }
-
 .reply-input-wrap:focus-within {
     border-color: rgba(24, 119, 242, 0.55) !important;
     box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.15) !important;
-    background: #ffffff !important;
+    background: #fff !important;
 }
-
 .btn-inside-input {
     position: absolute !important;
     right: 8px !important;
@@ -549,32 +443,27 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     align-items: center !important;
     justify-content: center !important;
 }
-
 .btn-send-icon svg {
     width: 20px !important;
     height: 20px !important;
     fill: currentColor !important;
     display: block !important;
 }
-
 .is-loading {
     opacity: 0.85 !important;
     cursor: not-allowed !important;
 }
-
 @keyframes testing-spin {
     to {
         transform: rotate(360deg);
     }
 }
-
 .btn-loading-spinner {
     width: 20px !important;
     height: 20px !important;
     display: block !important;
-    animation: testing-spin 0.9s linear infinite !important;
+    animation: 0.9s linear infinite testing-spin !important;
 }
-
 .btn-loading-spinner circle {
     fill: none !important;
     stroke: currentColor !important;
@@ -583,44 +472,35 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     stroke-dasharray: 56 !important;
     stroke-dashoffset: 42 !important;
 }
-
 .reply-buttons {
     display: flex !important;
     gap: 8px !important;
     justify-content: flex-end !important;
 }
-
 .btn-reply-send {
     background: #1877f2 !important;
-    color: white !important;
+    color: #fff !important;
 }
-
 .btn-reply-send:hover {
     background: #166fe5 !important;
 }
-
 .btn-edit-save.btn-send-icon {
     background: #1877f2 !important;
-    color: #ffffff !important;
+    color: #fff !important;
 }
-
 .btn-edit-save.btn-send-icon:hover {
     background: #166fe5 !important;
 }
-
-/* Actions moved to header */
-
-.btn-resolve,
-.btn-delete {
+.btn-delete,
+.btn-resolve {
     padding: 6px 12px !important;
     border-radius: 6px !important;
     border: none !important;
     font-size: 11px !important;
     font-weight: 500 !important;
     cursor: pointer !important;
-    transition: all 0.2s ease !important;
+    transition: 0.2s !important;
 }
-
 .btn-resolve {
     background: #e8f5e8 !important;
     color: #2e7d32 !important;
@@ -629,73 +509,61 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
 }
-
 .btn-resolve.resolved {
     background: #2e7d32 !important;
-    color: white !important;
+    color: #fff !important;
 }
-
 .btn-resolve:hover {
     background: #c8e6c9 !important;
 }
-
 .btn-resolve.resolved:hover {
     background: #1b5e20 !important;
 }
-
 .btn-delete {
     background: #fce8e6 !important;
     color: #d93025 !important;
     padding: 6px 10px !important;
 }
-
 .btn-delete:hover {
     background: #f28b82 !important;
-    color: white !important;
+    color: #fff !important;
 }
-
 .edit-form {
     margin-top: 8px !important;
 }
-
 .edit-input-wrap {
     position: relative !important;
     margin-bottom: 8px !important;
-    background: #ffffff !important;
+    background: #fff !important;
     border: 1px solid #e1e5e9 !important;
     border-radius: 8px !important;
 }
-
 .edit-input {
     width: 100% !important;
     min-height: 60px !important;
     border: 0 !important;
     border-radius: 8px !important;
-    padding: 8px 54px 8px 8px !important; /* leave room for inside button */
+    padding: 8px 54px 8px 8px !important;
     font-size: 13px !important;
     font-family: inherit !important;
-    resize: none !important; /* avoid resize-handle overlapping inside button */
+    resize: none !important;
     margin-bottom: 0 !important;
     cursor: text !important;
     overflow-y: auto !important;
-    background: transparent !important;
+    background: 0 0 !important;
 }
-
 .edit-input:focus {
-    outline: none !important;
+    outline: 0 !important;
 }
-
 .edit-input-wrap:focus-within {
     border-color: rgba(24, 119, 242, 0.55) !important;
     box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.15) !important;
 }
-
 .edit-buttons {
     display: flex !important;
     gap: 8px !important;
     justify-content: flex-end !important;
 }
-
 .btn-edit-cancel,
 .btn-edit-save {
     padding: 4px 8px !important;
@@ -704,58 +572,47 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     font-size: 11px !important;
     font-weight: 500 !important;
     cursor: pointer !important;
-    transition: all 0.2s ease !important;
+    transition: 0.2s !important;
 }
-
 .btn-edit-save {
     background: #007aff !important;
-    color: white !important;
+    color: #fff !important;
 }
-
 .btn-edit-save:hover {
     background: #0056cc !important;
 }
-
 .btn-edit-cancel {
-    background: transparent !important;
+    background: 0 0 !important;
     color: #5f6368 !important;
 }
-
 .btn-edit-cancel:hover {
     background: #f1f3f4 !important;
 }
-
-/* Error marker resolved state */
 .testing-error-marker.resolved {
     background: #2e7d32 !important;
     border-color: #1b5e20 !important;
 }
-
-/* Tooltip improvements */
 .testing-comment-tooltip .tooltip-header {
     font-weight: 600 !important;
     margin-bottom: 4px !important;
-    color: #ffffff !important;
+    color: #fff !important;
 }
-
 .testing-comment-tooltip .tooltip-preview {
     color: #e0e0e0 !important;
     line-height: 1.3 !important;
 }
-
 .testing-highlight {
-    outline: 3px solid #007bff !important;
+    outline: #007bff solid 3px !important;
     outline-offset: 2px !important;
 }
-
 .testing-comment-modal {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
-    background: white !important;
-    padding: 16px 16px 16px 16px !important;
-    border-radius: 12px !important; /* đồng bộ với comment thread */
+    background: #fff !important;
+    padding: 16px !important;
+    border-radius: 12px !important;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2) !important;
     z-index: 2147483647 !important;
     width: 650px !important;
@@ -763,18 +620,15 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     font-family:
         -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
 }
-
 .testing-comment-modal h3 {
     margin: 0 !important;
     font-size: 17px !important;
     color: #050505 !important;
     font-weight: 700 !important;
 }
-
 .testing-comment-modal textarea {
     width: 100% !important;
     min-height: 80px !important;
-
     max-height: 200px !important;
     border: 0 !important;
     border-radius: 18px !important;
@@ -783,75 +637,63 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     resize: none !important;
     font-family: inherit !important;
     box-sizing: border-box !important;
-    background: transparent !important;
+    background: 0 0 !important;
 }
-
 .testing-comment-modal textarea:focus {
-    outline: none !important;
+    outline: 0 !important;
 }
-
 .testing-modal-header {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
     margin-bottom: 12px !important;
 }
-
 .testing-modal-close {
-    background: none !important;
+    background: 0 0 !important;
     border: none !important;
     font-size: 20px !important;
     color: #9aa0a6 !important;
     cursor: pointer !important;
     padding: 4px !important;
     border-radius: 4px !important;
-    transition: all 0.2s ease !important;
+    transition: 0.2s !important;
 }
-
 .testing-modal-close:hover {
     background: #f1f3f4 !important;
     color: #5f6368 !important;
 }
-
 .testing-modal-body {
     margin-top: 4px !important;
 }
-
 .testing-comment-input-wrap {
     position: relative !important;
     background: #f0f2f5 !important;
     border-radius: 18px !important;
     border: 1px solid transparent !important;
 }
-
 .testing-comment-input-wrap textarea {
     border: 0 !important;
-    background: transparent !important;
-    padding-right: 54px !important; /* chừa chỗ cho icon gửi */
+    background: 0 0 !important;
+    padding-right: 54px !important;
 }
-
 .testing-comment-input-wrap:focus-within {
     border-color: rgba(24, 119, 242, 0.55) !important;
     box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.15) !important;
-    background: #ffffff !important;
+    background: #fff !important;
 }
-
 .testing-modal-send {
     background: #1877f2 !important;
-    color: #ffffff !important;
+    color: #fff !important;
 }
-
 .testing-modal-send:hover {
     background: #166fe5 !important;
 }
-
 .testing-modal-buttons {
     display: flex !important;
     gap: 12px !important;
     margin-top: 16px !important;
     justify-content: flex-end !important;
 }
-
 .testing-modal-btn {
     padding: 8px 16px !important;
     border: none !important;
@@ -859,64 +701,49 @@ body.testing-selection-mode .elementor-element [class*='swiper'] {
     font-size: 14px !important;
     font-weight: 500 !important;
     cursor: pointer !important;
-    transition: all 0.2s ease !important;
+    transition: 0.2s !important;
     font-family: inherit !important;
 }
-
 .testing-modal-btn-primary {
     background: #1877f2 !important;
-    color: white !important;
+    color: #fff !important;
 }
-
 .testing-modal-btn-primary:hover:not(:disabled) {
     background: #166fe5 !important;
 }
-
 .testing-modal-btn-primary:disabled {
     background: #6c757d !important;
     cursor: not-allowed !important;
     opacity: 0.6 !important;
 }
-
 .testing-modal-btn-secondary {
     background: #e4e6eb !important;
     color: #050505 !important;
 }
-
 .testing-modal-btn-secondary:hover:not(:disabled) {
     background: #d8dadf !important;
 }
-
 .testing-modal-btn-secondary:disabled {
     opacity: 0.5 !important;
     cursor: not-allowed !important;
 }
-
 .testing-error-highlight {
-    outline: 3px solid #ff0000 !important;
+    outline: #ff0000 solid 3px !important;
     outline-offset: 2px !important;
     background: rgba(255, 0, 0, 0.3) !important;
-    animation: testing-pulse 2s ease-in-out !important;
+    animation: 2s ease-in-out testing-pulse !important;
 }
-
-/* Vùng kéo khi tạo rect */
 .testing-drag-overlay {
     position: absolute;
-    border: 2px dashed #ff0000;
+    border: 2px dashed red;
     background: rgba(255, 0, 0, 0.1);
     z-index: 251001;
     pointer-events: none;
 }
-
-/* Border lỗi quanh element */
 .testing-error-border {
-    position: absolute;
-    border: 2px solid red;
-    background: rgba(255, 0, 0, 0.1);
     z-index: 251001;
     pointer-events: auto;
 }
-
 div:where(.swal2-container) {
     z-index: 99999999999999 !important;
 }

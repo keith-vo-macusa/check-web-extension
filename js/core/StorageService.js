@@ -1,135 +1,115 @@
-/**
- * StorageService - Abstraction layer for Chrome Storage API
- * Provides type-safe, promise-based storage operations with error handling
- * @module StorageService
- */
-
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 
 export class StorageService {
     /**
-     * Get items from chrome.storage.local
-     * @param {string|string[]|Object} keys - Keys to retrieve
-     * @returns {Promise<Object>} Retrieved data
-     * @throws {Error} If chrome.storage is not available
+     * Read one or many keys from local extension storage.
      */
     static async get(keys) {
-        if (!chrome?.storage?.local) {
-            ErrorLogger.error('Chrome storage API not available', {
-                context: 'StorageService.get',
-            });
-            throw new Error('Chrome storage API not available');
-        }
+        if (!chrome?.storage?.local)
+            throw (
+                ErrorLogger.error('Chrome storage API not available', {
+                    context: 'StorageService.get',
+                }),
+                new Error('Chrome storage API not available')
+            );
 
         try {
-            const result = await chrome.storage.local.get(keys);
-            return result;
+            return await chrome.storage.local.get(keys);
         } catch (error) {
-            ErrorLogger.error('Failed to get storage data', { keys, error });
-            throw error;
+            throw (ErrorLogger.error('Failed to get storage data', { keys, error }), error);
         }
     }
 
     /**
-     * Set items in chrome.storage.local
-     * @param {Object} items - Items to store
-     * @returns {Promise<void>}
-     * @throws {Error} If chrome.storage is not available
+     * Persist key-value pairs to local extension storage.
      */
     static async set(items) {
-        if (!chrome?.storage?.local) {
-            ErrorLogger.error('Chrome storage API not available', {
-                context: 'StorageService.set',
-            });
-            throw new Error('Chrome storage API not available');
-        }
+        if (!chrome?.storage?.local)
+            throw (
+                ErrorLogger.error('Chrome storage API not available', {
+                    context: 'StorageService.set',
+                }),
+                new Error('Chrome storage API not available')
+            );
 
         try {
             await chrome.storage.local.set(items);
             ErrorLogger.debug('Storage data set successfully', { keys: Object.keys(items) });
         } catch (error) {
-            ErrorLogger.error('Failed to set storage data', { items, error });
-            throw error;
+            throw (ErrorLogger.error('Failed to set storage data', { items, error }), error);
         }
     }
 
     /**
-     * Remove items from chrome.storage.local
-     * @param {string|string[]} keys - Keys to remove
-     * @returns {Promise<void>}
-     * @throws {Error} If chrome.storage is not available
+     * Remove one or many keys from local extension storage.
      */
     static async remove(keys) {
-        if (!chrome?.storage?.local) {
-            ErrorLogger.error('Chrome storage API not available', {
-                context: 'StorageService.remove',
-            });
-            throw new Error('Chrome storage API not available');
-        }
+        if (!chrome?.storage?.local)
+            throw (
+                ErrorLogger.error('Chrome storage API not available', {
+                    context: 'StorageService.remove',
+                }),
+                new Error('Chrome storage API not available')
+            );
 
         try {
             await chrome.storage.local.remove(keys);
             ErrorLogger.debug('Storage data removed successfully', { keys });
         } catch (error) {
-            ErrorLogger.error('Failed to remove storage data', { keys, error });
-            throw error;
+            throw (ErrorLogger.error('Failed to remove storage data', { keys, error }), error);
         }
     }
 
     /**
-     * Clear all items from chrome.storage.local
-     * @returns {Promise<void>}
-     * @throws {Error} If chrome.storage is not available
+     * Clear all local extension storage data.
      */
     static async clear() {
-        if (!chrome?.storage?.local) {
-            ErrorLogger.error('Chrome storage API not available', {
-                context: 'StorageService.clear',
-            });
-            throw new Error('Chrome storage API not available');
-        }
+        if (!chrome?.storage?.local)
+            throw (
+                ErrorLogger.error('Chrome storage API not available', {
+                    context: 'StorageService.clear',
+                }),
+                new Error('Chrome storage API not available')
+            );
 
         try {
             await chrome.storage.local.clear();
             ErrorLogger.debug('Storage cleared successfully');
         } catch (error) {
-            ErrorLogger.error('Failed to clear storage', { error });
-            throw error;
+            throw (ErrorLogger.error('Failed to clear storage', { error }), error);
         }
     }
 
     /**
-     * Get a single item with default value if not found
-     * @param {string} key - Key to retrieve
-     * @param {*} defaultValue - Default value if key doesn't exist
-     * @returns {Promise<*>} Retrieved value or default
+     * Read a single key and return a fallback value when access fails or key is missing.
      */
     static async getSafe(key, defaultValue = null) {
         try {
-            const result = await this.get(key);
-            return result[key] !== undefined ? result[key] : defaultValue;
+            const storedValues = await this.get(key);
+            return storedValues[key] !== undefined ? storedValues[key] : defaultValue;
         } catch (error) {
-            ErrorLogger.warn('Failed to get storage data, returning default', {
-                key,
-                defaultValue,
-                error,
-            });
-            return defaultValue;
+            return (
+                ErrorLogger.warn('Failed to get storage data, returning default', {
+                    key,
+                    defaultValue,
+                    error,
+                }),
+                defaultValue
+            );
         }
     }
 
     /**
-     * Check if a key exists in storage
-     * @param {string} key - Key to check
-     * @returns {Promise<boolean>} True if key exists
+     * Check whether a key exists in local storage.
      */
     static async has(key) {
         try {
-            const result = await this.get(key);
-            return result[key] !== undefined;
+            return (await this.get(key))[key] !== undefined;
         } catch (error) {
-            ErrorLogger.warn('Failed to check storage key existence', { key, error });
-            return false;
+            return (
+                ErrorLogger.warn('Failed to check storage key existence', { key, error }),
+                false
+            );
         }
     }
 }

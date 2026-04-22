@@ -1,146 +1,133 @@
-/**
- * TabsService - Abstraction layer for Chrome Tabs API
- * Provides tab management functionality with error handling
- * @module TabsService
- */
-
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 
 export class TabsService {
     /**
-     * Get the currently active tab
-     * @returns {Promise<chrome.tabs.Tab|null>} Active tab or null
+     * Get the currently active tab in the current window.
      */
     static async getActiveTab() {
-        if (!chrome?.tabs?.query) {
-            ErrorLogger.error('Chrome tabs API not available', {
-                context: 'TabsService.getActiveTab',
-            });
-            return null;
-        }
+        if (!chrome?.tabs?.query)
+            return (
+                ErrorLogger.error('Chrome tabs API not available', {
+                    context: 'TabsService.getActiveTab',
+                }),
+                null
+            );
 
         try {
-            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-            return tabs && tabs.length > 0 ? tabs[0] : null;
+            const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            return activeTabs && activeTabs.length > 0 ? activeTabs[0] : null;
         } catch (error) {
-            ErrorLogger.error('Failed to get active tab', { error });
-            return null;
+            return (ErrorLogger.error('Failed to get active tab', { error }), null);
         }
     }
 
     /**
-     * Get tab by ID
-     * @param {number} tabId - Tab ID
-     * @returns {Promise<chrome.tabs.Tab|null>} Tab or null
+     * Get a tab by id.
      */
     static async getTab(tabId) {
-        if (!chrome?.tabs?.get) {
-            ErrorLogger.error('Chrome tabs API not available', {
-                context: 'TabsService.getTab',
-            });
-            return null;
-        }
+        if (!chrome?.tabs?.get)
+            return (
+                ErrorLogger.error('Chrome tabs API not available', {
+                    context: 'TabsService.getTab',
+                }),
+                null
+            );
 
         try {
-            const tab = await chrome.tabs.get(tabId);
-            return tab;
+            return await chrome.tabs.get(tabId);
         } catch (error) {
-            ErrorLogger.error('Failed to get tab', { tabId, error });
-            return null;
+            return (ErrorLogger.error('Failed to get tab', { tabId, error }), null);
         }
     }
 
     /**
-     * Get all tabs matching query
-     * @param {Object} queryInfo - Chrome tabs query info
-     * @returns {Promise<chrome.tabs.Tab[]>} Array of tabs
+     * Query tabs using Chrome query options.
      */
     static async queryTabs(queryInfo = {}) {
-        if (!chrome?.tabs?.query) {
-            ErrorLogger.error('Chrome tabs API not available', {
-                context: 'TabsService.queryTabs',
-            });
-            return [];
-        }
+        if (!chrome?.tabs?.query)
+            return (
+                ErrorLogger.error('Chrome tabs API not available', {
+                    context: 'TabsService.queryTabs',
+                }),
+                []
+            );
 
         try {
-            const tabs = await chrome.tabs.query(queryInfo);
-            return tabs || [];
+            return (await chrome.tabs.query(queryInfo)) || [];
         } catch (error) {
-            ErrorLogger.error('Failed to query tabs', { queryInfo, error });
-            return [];
+            return (ErrorLogger.error('Failed to query tabs', { queryInfo, error }), []);
         }
     }
 
     /**
-     * Create a new tab
-     * @param {string} url - URL to open
-     * @param {Object} options - Additional tab options
-     * @returns {Promise<chrome.tabs.Tab|null>} Created tab or null
+     * Create a new tab with a URL and optional tab options.
      */
     static async createTab(url, options = {}) {
-        if (!chrome?.tabs?.create) {
-            ErrorLogger.error('Chrome tabs API not available', {
-                context: 'TabsService.createTab',
-            });
-            return null;
-        }
+        if (!chrome?.tabs?.create)
+            return (
+                ErrorLogger.error('Chrome tabs API not available', {
+                    context: 'TabsService.createTab',
+                }),
+                null
+            );
 
         try {
-            const tab = await chrome.tabs.create({ url, ...options });
-            ErrorLogger.debug('Tab created successfully', { url, tabId: tab.id });
-            return tab;
+            const createdTab = await chrome.tabs.create({ url, ...options });
+            return (
+                ErrorLogger.debug('Tab created successfully', { url, tabId: createdTab.id }),
+                createdTab
+            );
         } catch (error) {
-            ErrorLogger.error('Failed to create tab', { url, options, error });
-            return null;
+            return (
+                ErrorLogger.error('Failed to create tab', { url, options, error }),
+                null
+            );
         }
     }
 
     /**
-     * Update a tab
-     * @param {number} tabId - Tab ID
-     * @param {Object} updateInfo - Update properties
-     * @returns {Promise<chrome.tabs.Tab|null>} Updated tab or null
+     * Update an existing tab.
      */
     static async updateTab(tabId, updateInfo) {
-        if (!chrome?.tabs?.update) {
-            ErrorLogger.error('Chrome tabs API not available', {
-                context: 'TabsService.updateTab',
-            });
-            return null;
-        }
+        if (!chrome?.tabs?.update)
+            return (
+                ErrorLogger.error('Chrome tabs API not available', {
+                    context: 'TabsService.updateTab',
+                }),
+                null
+            );
 
         try {
-            const tab = await chrome.tabs.update(tabId, updateInfo);
-            ErrorLogger.debug('Tab updated successfully', { tabId, updateInfo });
-            return tab;
+            const updatedTab = await chrome.tabs.update(tabId, updateInfo);
+            return (
+                ErrorLogger.debug('Tab updated successfully', { tabId, updateInfo }),
+                updatedTab
+            );
         } catch (error) {
-            ErrorLogger.error('Failed to update tab', { tabId, updateInfo, error });
-            return null;
+            return (
+                ErrorLogger.error('Failed to update tab', { tabId, updateInfo, error }),
+                null
+            );
         }
     }
 
     /**
-     * Reload a tab
-     * @param {number} tabId - Tab ID (defaults to active tab)
-     * @returns {Promise<boolean>} True if successful
+     * Reload a specific tab, or the active tab when tabId is omitted.
      */
     static async reloadTab(tabId = null) {
-        if (!chrome?.tabs?.reload) {
-            ErrorLogger.error('Chrome tabs API not available', {
-                context: 'TabsService.reloadTab',
-            });
-            return false;
-        }
+        if (!chrome?.tabs?.reload)
+            return (
+                ErrorLogger.error('Chrome tabs API not available', {
+                    context: 'TabsService.reloadTab',
+                }),
+                false
+            );
 
         try {
             let targetTabId = tabId;
-
             if (!targetTabId) {
                 const activeTab = await this.getActiveTab();
-                if (!activeTab) {
-                    throw new Error('No active tab found');
-                }
+                if (!activeTab) throw new Error('No active tab found');
                 targetTabId = activeTab.id;
             }
 
@@ -148,86 +135,79 @@ export class TabsService {
             ErrorLogger.debug('Tab reloaded successfully', { tabId: targetTabId });
             return true;
         } catch (error) {
-            ErrorLogger.error('Failed to reload tab', { tabId, error });
-            return false;
+            return (ErrorLogger.error('Failed to reload tab', { tabId, error }), false);
         }
     }
 
     /**
-     * Close a tab
-     * @param {number} tabId - Tab ID
-     * @returns {Promise<boolean>} True if successful
+     * Close a tab by id.
      */
     static async closeTab(tabId) {
-        if (!chrome?.tabs?.remove) {
-            ErrorLogger.error('Chrome tabs API not available', {
-                context: 'TabsService.closeTab',
-            });
-            return false;
-        }
+        if (!chrome?.tabs?.remove)
+            return (
+                ErrorLogger.error('Chrome tabs API not available', {
+                    context: 'TabsService.closeTab',
+                }),
+                false
+            );
 
         try {
             await chrome.tabs.remove(tabId);
             ErrorLogger.debug('Tab closed successfully', { tabId });
             return true;
         } catch (error) {
-            ErrorLogger.error('Failed to close tab', { tabId, error });
-            return false;
+            return (ErrorLogger.error('Failed to close tab', { tabId, error }), false);
         }
     }
 
     /**
-     * Get current tab URL
-     * @returns {Promise<string|null>} URL or null
+     * Return the URL of the active tab.
      */
     static async getCurrentUrl() {
-        const tab = await this.getActiveTab();
-        return tab?.url || null;
+        const activeTab = await this.getActiveTab();
+        return activeTab?.url || null;
     }
 
     /**
-     * Get current tab domain
-     * @returns {Promise<string|null>} Domain or null
+     * Return the domain of the active tab URL.
      */
     static async getCurrentDomain() {
-        const url = await this.getCurrentUrl();
-
-        if (!url) {
-            return null;
-        }
+        const currentUrl = await this.getCurrentUrl();
+        if (!currentUrl) return null;
 
         try {
-            const urlObj = new URL(url);
-            return urlObj.hostname;
+            return new URL(currentUrl).hostname;
         } catch (error) {
-            ErrorLogger.error('Failed to parse URL for domain', { url, error });
-            return null;
+            return (
+                ErrorLogger.error('Failed to parse URL for domain', { url: currentUrl, error }),
+                null
+            );
         }
     }
 
     /**
-     * Execute script in tab
-     * @param {number} tabId - Tab ID
-     * @param {Object} scriptDetails - Script details (func, args, files, etc.)
-     * @returns {Promise<Array|null>} Script results or null
+     * Execute script details in the specified tab.
      */
     static async executeScript(tabId, scriptDetails) {
-        if (!chrome?.scripting?.executeScript) {
-            ErrorLogger.error('Chrome scripting API not available', {
-                context: 'TabsService.executeScript',
-            });
-            return null;
-        }
+        if (!chrome?.scripting?.executeScript)
+            return (
+                ErrorLogger.error('Chrome scripting API not available', {
+                    context: 'TabsService.executeScript',
+                }),
+                null
+            );
 
         try {
-            const results = await chrome.scripting.executeScript({
-                target: { tabId },
-                ...scriptDetails,
-            });
-            return results;
+            return await chrome.scripting.executeScript({ target: { tabId }, ...scriptDetails });
         } catch (error) {
-            ErrorLogger.error('Failed to execute script', { tabId, scriptDetails, error });
-            return null;
+            return (
+                ErrorLogger.error('Failed to execute script', {
+                    tabId,
+                    scriptDetails,
+                    error,
+                }),
+                null
+            );
         }
     }
 }
