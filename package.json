@@ -21,7 +21,7 @@
     "devDependencies": {
         "clean-css": "^5.3.3",
         "rimraf": "^6.1.3",
-        "terser": "^5.46.1",
+        "terser": "^5.46.2",
         "vite": "^8.0.9"
     }
 }
