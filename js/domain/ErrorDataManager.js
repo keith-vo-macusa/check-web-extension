@@ -192,7 +192,7 @@ export class ErrorDataManager {
             const newComment = {
                 id: this.generateUUID(),
                 text: commentText,
-                author: await this.getUserInfo(),
+                author: await this.getUserInfoBasic(),
                 timestamp: Date.now(),
                 edited: false,
                 editedAt: null,
@@ -355,11 +355,28 @@ export class ErrorDataManager {
      * Get authenticated user info from storage.
      */
     async getUserInfo() {
+        // Backward-compatible alias: always return minimal fields
+        // to avoid accidentally persisting accessToken/roles/permissions.
+        return await this.getUserInfoBasic();
+    }
+
+    /**
+     * Only keep minimal author fields when persisting comment authorship.
+     * Avoid storing accessToken/roles/permissions to keep payload small.
+     */
+    async getUserInfoBasic() {
         try {
             const storage = await chrome.storage.local.get([ConfigurationManager.STORAGE_KEYS.USER_INFO]);
-            return storage[ConfigurationManager.STORAGE_KEYS.USER_INFO] || null;
+            const userInfo = storage[ConfigurationManager.STORAGE_KEYS.USER_INFO] || null;
+            if (!userInfo) return null;
+
+            return {
+                id: userInfo.id ?? null,
+                name: userInfo.name ?? null,
+                email: userInfo.email ?? null,
+            };
         } catch (error) {
-            return (ErrorLogger.error('Failed to get user info', { error }), null);
+            return (ErrorLogger.error('Failed to get user basic info', { error }), null);
         }
     }
 }

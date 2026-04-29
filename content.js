@@ -30,7 +30,7 @@ export default class WebsiteTestingAssistant {
             this.handleErrorClick.bind(this),
         );
         this.commentThreadManager = new CommentThreadManager(
-            this.getUserInfo.bind(this),
+            this.getUserInfoBasic.bind(this),
             this.handleCommentAdded.bind(this),
             this.handleCommentEdited.bind(this),
             this.handleCommentDeleted.bind(this),
@@ -47,7 +47,7 @@ export default class WebsiteTestingAssistant {
 
     async init() {
         try {
-            this.userInfo = await this.getUserInfo();
+            this.userInfo = await this.getUserInfoBasic();
             if (!this.userInfo) {
                 ErrorLogger.info('User not authenticated, skipping initialization');
                 return;
@@ -279,7 +279,7 @@ export default class WebsiteTestingAssistant {
                     {
                         id: this.errorDataManager.generateUUID(),
                         text: comment,
-                        author: await this.getUserInfo(),
+                        author: await this.getUserInfoBasic(),
                         timestamp: Date.now(),
                         edited: false,
                         editedAt: null,
@@ -288,7 +288,11 @@ export default class WebsiteTestingAssistant {
             };
 
         if (type === ConfigurationManager.ERROR_TYPES.BORDER) {
-            errorData.elementIdentifiers = { xpath: window.getElementXPath(element) };
+            errorData.elementIdentifiers =
+                window.getElementFingerprint?.(element) || { xpath: window.getElementXPath(element) };
+            errorData.coordinates = this.coordsCalculator.createCombinedCoordinates(
+                element.getBoundingClientRect(),
+            );
         } else if (type === ConfigurationManager.ERROR_TYPES.RECT) {
             errorData.coordinates = coordinates;
         }
@@ -376,11 +380,28 @@ export default class WebsiteTestingAssistant {
     }
 
     async getUserInfo() {
+        // Backward-compatible alias: always return minimal fields
+        // to avoid accidentally persisting accessToken/roles/permissions.
+        return this.getUserInfoBasic();
+    }
+
+    /**
+     * Return only the fields needed for UI + storing comment authorship.
+     * Avoid persisting accessToken/roles/permissions to keep payload small.
+     */
+    async getUserInfoBasic() {
         try {
             const storage = await StorageService.get(ConfigurationManager.STORAGE_KEYS.USER_INFO);
-            return storage[ConfigurationManager.STORAGE_KEYS.USER_INFO] || null;
+            const userInfo = storage[ConfigurationManager.STORAGE_KEYS.USER_INFO] || null;
+            if (!userInfo) return null;
+
+            return {
+                id: userInfo.id ?? null,
+                name: userInfo.name ?? null,
+                email: userInfo.email ?? null,
+            };
         } catch (error) {
-            ErrorLogger.error('Failed to get user info', { error });
+            ErrorLogger.error('Failed to get user basic info', { error });
             return null;
         }
     }

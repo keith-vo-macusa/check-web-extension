@@ -43,9 +43,14 @@ export class ErrorRenderer {
 
         if (errorData.type === ConfigurationManager.ERROR_TYPES.BORDER) {
             targetElement = this.findErrorElement(errorData);
-            if (!targetElement) {
+            if (!targetElement && !errorData.coordinates) {
                 ErrorLogger.warn('Cannot find element for error', { errorId: errorData.id });
                 return null;
+            }
+            if (!targetElement) {
+                ErrorLogger.warn('Element missing, using last-known rect for border error', {
+                    errorId: errorData.id,
+                });
             }
         }
 
@@ -61,7 +66,7 @@ export class ErrorRenderer {
 
         this.container.appendChild(overlayElement);
         this.errorBorders.push(overlayElement);
-        this.positionErrorOverlay(overlayElement, errorData);
+        this.positionErrorOverlay(overlayElement, errorData, targetElement);
 
         ErrorLogger.debug('Error overlay created', {
             errorId: errorData.id,
@@ -75,7 +80,7 @@ export class ErrorRenderer {
     /**
      * Position and style one overlay according to error data.
      */
-    positionErrorOverlay(overlayElement, errorData) {
+    positionErrorOverlay(overlayElement, errorData, targetElementOverride = undefined) {
         const isMatchingCurrentBreakpoint =
             this.coordsCalculator.shouldShowErrorAtCurrentBreakpoint(errorData);
         overlayElement.classList.remove(
@@ -95,7 +100,7 @@ export class ErrorRenderer {
         if (errorData.type === ConfigurationManager.ERROR_TYPES.RECT) {
             this.positionRectOverlay(overlayElement, errorData);
         } else if (errorData.type === ConfigurationManager.ERROR_TYPES.BORDER) {
-            this.positionBorderOverlay(overlayElement, errorData);
+            this.positionBorderOverlay(overlayElement, errorData, targetElementOverride);
         }
     }
 
@@ -125,34 +130,72 @@ export class ErrorRenderer {
     }
 
     /**
-     * Position overlay for border-type errors by target element bounds.
+     * Position overlay for border-type errors. Prefers live element bounds;
+     * falls back to last-known responsive rect saved when the error was created.
      */
-    positionBorderOverlay(overlayElement, errorData) {
-        const targetElement = this.findErrorElement(errorData);
-        if (!targetElement) {
-            ErrorLogger.warn('Cannot find element for border overlay', {
-                errorId: errorData.id,
-            });
+    positionBorderOverlay(overlayElement, errorData, targetElementOverride = undefined) {
+        const cached = this.errorsData.get(errorData.id);
+        const cachedElement = cached?.element;
+
+        const isCachedElementValid =
+            cachedElement && cachedElement.nodeType === 1 && document.contains(cachedElement);
+
+        const isReLookup =
+            targetElementOverride === undefined && !isCachedElementValid;
+
+        const targetElement =
+            targetElementOverride !== undefined
+                ? targetElementOverride
+                : isCachedElementValid
+                    ? cachedElement
+                    : this.findErrorElement(errorData);
+
+        // If we re-located the element (DOM changed), refresh cache so next render
+        // can use it without an extra lookup.
+        if (isReLookup && targetElement) {
+            this.errorsData.set(errorData.id, { error: errorData, element: targetElement });
+        }
+        if (targetElement) {
+            const position = this.coordsCalculator.getElementPosition(targetElement);
+            overlayElement.style.top = `${position.top}px`;
+            overlayElement.style.left = `${position.left}px`;
+            overlayElement.style.width = `${position.width}px`;
+            overlayElement.style.height = `${position.height}px`;
             return;
         }
 
-        const position = this.coordsCalculator.getElementPosition(targetElement);
-        overlayElement.style.top = `${position.top}px`;
-        overlayElement.style.left = `${position.left}px`;
-        overlayElement.style.width = `${position.width}px`;
-        overlayElement.style.height = `${position.height}px`;
+        if (errorData.coordinates) {
+            this.positionRectOverlay(overlayElement, errorData);
+            return;
+        }
+
+        ErrorLogger.warn('Cannot find element or coordinates for border overlay', {
+            errorId: errorData.id,
+        });
     }
 
     /**
-     * Resolve target element using xpath or css selector identifiers.
+     * Resolve target element using fingerprint identifiers (preferred), then
+     * legacy xpath / cssSelector identifiers for backward compatibility.
      */
     findErrorElement(errorData) {
-        if (!errorData.elementIdentifiers) return null;
+        const identifiers = errorData.elementIdentifiers;
+        if (!identifiers) return null;
 
-        if (errorData.elementIdentifiers.xpath)
+        const isFingerprint = identifiers.version !== undefined;
+        if (isFingerprint && typeof window.findElementByFingerprint === 'function') {
+            try {
+                const element = window.findElementByFingerprint(identifiers);
+                if (element) return element;
+            } catch (error) {
+                ErrorLogger.warn('Fingerprint lookup failed', { error });
+            }
+        }
+
+        if (identifiers.xpath) {
             try {
                 const result = document.evaluate(
-                    errorData.elementIdentifiers.xpath,
+                    identifiers.xpath,
                     document,
                     null,
                     XPathResult.FIRST_ORDERED_NODE_TYPE,
@@ -160,18 +203,18 @@ export class ErrorRenderer {
                 );
                 if (result.singleNodeValue) return result.singleNodeValue;
             } catch {
-                ErrorLogger.warn('XPath evaluation failed', { xpath: errorData.elementIdentifiers.xpath });
+                ErrorLogger.warn('XPath evaluation failed', { xpath: identifiers.xpath });
             }
+        }
 
-        if (errorData.elementIdentifiers.cssSelector)
+        if (identifiers.cssSelector) {
             try {
-                const element = document.querySelector(errorData.elementIdentifiers.cssSelector);
+                const element = document.querySelector(identifiers.cssSelector);
                 if (element) return element;
             } catch {
-                ErrorLogger.warn('CSS selector failed', {
-                    selector: errorData.elementIdentifiers.cssSelector,
-                });
+                ErrorLogger.warn('CSS selector failed', { selector: identifiers.cssSelector });
             }
+        }
 
         return null;
     }
@@ -196,6 +239,7 @@ export class ErrorRenderer {
         if (!overlayElement) return;
         overlayElement.remove();
         this.errorBorders = this.errorBorders.filter((item) => item !== overlayElement);
+        this.errorsData.delete(errorId);
         ErrorLogger.debug('Error border removed', { errorId });
     }
 
@@ -205,6 +249,7 @@ export class ErrorRenderer {
     removeAllErrorBorders() {
         this.errorBorders.forEach((overlayElement) => overlayElement.remove());
         this.errorBorders = [];
+        this.errorsData.clear();
         ErrorLogger.debug('All error borders removed');
     }
 
