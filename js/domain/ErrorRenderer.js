@@ -26,6 +26,12 @@ export class ErrorRenderer {
         if (!this.container) {
             this.container = document.createElement('div');
             this.container.id = ConfigurationManager.UI.ERROR_CONTAINER_ID;
+        }
+
+        // Always keep overlay container as a direct child of <body>.
+        // Some sites or scripts can move existing nodes, causing overlays to
+        // inherit unexpected layout/stacking contexts.
+        if (this.container.parentElement !== document.body) {
             document.body.appendChild(this.container);
         }
     }
