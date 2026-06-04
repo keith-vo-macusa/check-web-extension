@@ -35,6 +35,8 @@
             ],
             "css": ["css/content.css", "lib/sweet-alert/sweetalert2.min.css"],
             "run_at": "document_end",
+            "all_frames": true,
+            "match_about_blank": true,
             "type": "module"
         }
     ],
