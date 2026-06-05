@@ -174,6 +174,7 @@ class UIManager {
         $('#clearAll').click(() => this.handleClearAll());
         $('#drawOpenErrors').change((event) => this.handleDrawOpenErrors(event));
         $('#drawResolvedErrors').change((event) => this.handleDrawResolvedErrors(event));
+        $('#searchErrors').on('input', () => this.refreshErrorsList());
 
         window.addEventListener('focus', () => this.refreshErrorsList());
         document.addEventListener('visibilitychange', () => {
@@ -314,10 +315,42 @@ class UIManager {
         this.displayErrors(errors);
     }
 
+    updateDashboard(errors) {
+        const openErrors = errors.filter((error) => !error.status || error.status === 'open');
+        const resolvedErrors = errors.filter((error) => error.status === 'resolved');
+
+        const openCount = openErrors.length || 0;
+        const resolvedCount = resolvedErrors.length || 0;
+        const totalCount = errors.length || 0;
+
+        $('#openCount').text(openCount);
+        $('#resolvedCount').text(resolvedCount);
+        $('#totalCount').text(totalCount);
+
+        const percent = totalCount > 0 ? Math.round((resolvedCount / totalCount) * 100) : 0;
+        $('#progressBarFill').css('width', `${percent}%`);
+    }
+
     displayErrors(errors) {
         const errorsListElement = $('#errorsList');
         errorsListElement.empty();
-        const filteredErrors = this.filterErrorsByBreakpoint(errors);
+
+        // Cập nhật thống kê trên Dashboard trước khi lọc
+        this.updateDashboard(errors);
+
+        // Lọc theo Breakpoint
+        let filteredErrors = this.filterErrorsByBreakpoint(errors);
+
+        // Lọc theo tìm kiếm từ khóa comment
+        const searchQuery = ($('#searchErrors').val() || '').trim().toLowerCase();
+        if (searchQuery) {
+            filteredErrors = filteredErrors.filter((error) =>
+                error.comments.some((comment) =>
+                    (comment.text || '').toLowerCase().includes(searchQuery)
+                )
+            );
+        }
+
         const sortedErrors = ErrorManager.sortErrors(filteredErrors);
         this.renderErrorsList(errorsListElement, sortedErrors);
     }
@@ -331,13 +364,18 @@ class UIManager {
     }
 
     renderErrorsList(container, errors) {
+        if (errors.length === 0) {
+            container.append('<div class="no-errors">Không tìm thấy lỗi nào khớp với điều kiện lọc</div>');
+            return;
+        }
+
         const openErrors = errors.filter((error) => !error.status || error.status === 'open');
         const resolvedErrors = errors.filter((error) => error.status === 'resolved');
 
         const openCount = openErrors.length || 0;
         const resolvedCount = resolvedErrors.length || 0;
         container.append(
-            `\n                <div class="error-count">\n                    <span>Tổng số lỗi: ${errors.length}</span>\n                    <span class="breakpoint-label">\n                        ${this.state.selectedBreakpoint === BREAKPOINTS.ALL ? 'Tất cả breakpoint' : `Breakpoint ${this.state.selectedBreakpoint}`}\n                    </span>\n                </div>\n                <div class="error-group">\n                    <div class="error-group-header">\n                        <span>Errors: ${openCount} - Resolved: ${resolvedCount}/${errors.length}</span>\n                    </div>\n                </div>\n            `,
+            `\n                <div class="error-count">\n                    <span>Số lượng lỗi: ${errors.length}</span>\n                    <span class="breakpoint-label">\n                        ${this.state.selectedBreakpoint === BREAKPOINTS.ALL ? 'Tất cả breakpoint' : `Breakpoint ${this.state.selectedBreakpoint}`}\n                    </span>\n                </div>\n            `,
         );
 
         errors.forEach((error, index) => this.renderErrorItem(container, error, index));
@@ -360,8 +398,16 @@ class UIManager {
         const breakpointWidth = error.breakpoint ? `${error.breakpoint.width}px` : '';
         const safeUrl = this.escapeHtml(error.url || '');
 
+        const breakpointIcons = {
+            all: '<i class="fa-solid fa-layer-group"></i>',
+            desktop: '<i class="fa-solid fa-desktop"></i>',
+            tablet: '<i class="fa-solid fa-tablet"></i>',
+            mobile: '<i class="fa-solid fa-mobile-button"></i>'
+        };
+        const devIcon = breakpointIcons[breakpointType] || '<i class="fa-solid fa-globe"></i>';
+
         errorItem.html(
-            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        <span class="error-time">${timestamp}</span>\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-x' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash"></i>\n                    </button>\n                </div>\n            </div>\n        `,
+            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        <span class="error-time">${timestamp}</span>\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${devIcon} ${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-xmark' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash-can"></i>\n                    </button>\n                </div>\n            </div>\n        `,
         );
 
         this.setupErrorItemEventHandlers(errorItem, error);

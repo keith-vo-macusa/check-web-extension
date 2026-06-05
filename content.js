@@ -53,6 +53,15 @@ export default class WebsiteTestingAssistant {
                 return;
             }
 
+            // Load Outfit Google Font dynamically for premium injected modals
+            if (!document.getElementById('testing-google-font')) {
+                const fontLink = document.createElement('link');
+                fontLink.id = 'testing-google-font';
+                fontLink.rel = 'stylesheet';
+                fontLink.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap';
+                document.head.appendChild(fontLink);
+            }
+
             await this.checkAdminBar();
             await this.errorDataManager.fetchErrors();
             this.setupEventListeners();
