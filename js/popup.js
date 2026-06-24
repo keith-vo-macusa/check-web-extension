@@ -162,7 +162,9 @@ class UIManager {
             'Hủy',
         ).then((result) => {
             if (result.isConfirmed) {
-                TabManager.createTab('https://github.com/keith-vo-macusa/check-web-extension/releases');
+                TabManager.createTab(
+                    'https://github.com/keith-vo-macusa/check-web-extension/releases',
+                );
             }
         });
     }
@@ -224,27 +226,24 @@ class UIManager {
     }
 
     async handleClearAll() {
-        AlertManager.confirm(
-            'Xóa tất cả lỗi',
-            messages.remove_all_errors,
-            'Xóa',
-            'Hủy',
-        ).then(async (result) => {
-            if (result.isConfirmed)
-                try {
-                    AlertManager.loading(messages.loading);
-                    const response = await ErrorManager.clearAllErrors();
-                    if (response?.success) {
-                        this.refreshErrorsList();
-                    } else {
-                        console.error('Error clearing all errors:', response?.message);
+        AlertManager.confirm('Xóa tất cả lỗi', messages.remove_all_errors, 'Xóa', 'Hủy').then(
+            async (result) => {
+                if (result.isConfirmed)
+                    try {
+                        AlertManager.loading(messages.loading);
+                        const response = await ErrorManager.clearAllErrors();
+                        if (response?.success) {
+                            this.refreshErrorsList();
+                        } else {
+                            console.error('Error clearing all errors:', response?.message);
+                        }
+                        AlertManager.close();
+                    } catch {
+                        console.log('Cannot clear errors - content script not available');
+                        AlertManager.close();
                     }
-                    AlertManager.close();
-                } catch {
-                    console.log('Cannot clear errors - content script not available');
-                    AlertManager.close();
-                }
-        });
+            },
+        );
     }
 
     async handleDrawOpenErrors(event) {
@@ -294,7 +293,9 @@ class UIManager {
                 .removeClass('btn-primary')
                 .addClass('active');
             statusElement
-                .html('<i class="fas fa-play-circle"></i> Chế độ: Đang hoạt động - Click vào vùng lỗi')
+                .html(
+                    '<i class="fas fa-play-circle"></i> Chế độ: Đang hoạt động - Click vào vùng lỗi',
+                )
                 .removeClass('inactive')
                 .addClass('active');
         } else {
@@ -383,28 +384,25 @@ class UIManager {
     setupErrorItemEventHandlers(errorItem, error) {
         errorItem.find('.delete-error-btn').click(async (event) => {
             event.stopPropagation();
-            AlertManager.confirm(
-                'Xóa lỗi',
-                messages.remove_error,
-                'Xóa',
-                'Hủy',
-            ).then(async (result) => {
-                if (result.isConfirmed)
-                    try {
-                        AlertManager.loading(messages.loading);
-                        const response = await ErrorManager.deleteError(error.id);
-                        AlertManager.close();
-                        if (response?.success) {
-                            this.refreshErrorsList();
-                            return;
+            AlertManager.confirm('Xóa lỗi', messages.remove_error, 'Xóa', 'Hủy').then(
+                async (result) => {
+                    if (result.isConfirmed)
+                        try {
+                            AlertManager.loading(messages.loading);
+                            const response = await ErrorManager.deleteError(error.id);
+                            AlertManager.close();
+                            if (response?.success) {
+                                this.refreshErrorsList();
+                                return;
+                            }
+                            throw new Error(response?.message);
+                        } catch (deleteError) {
+                            AlertManager.close();
+                            console.error('Error deleting error:', deleteError);
+                            AlertManager.error('Error deleting error:', deleteError);
                         }
-                        throw new Error(response?.message);
-                    } catch (deleteError) {
-                        AlertManager.close();
-                        console.error('Error deleting error:', deleteError);
-                        AlertManager.error('Error deleting error:', deleteError);
-                    }
-            });
+                },
+            );
         });
 
         errorItem.find('.btn-toogle-check-fixed').click(async (event) => {
@@ -475,7 +473,10 @@ $(document).ready(async function () {
     });
 
     if (!isAuthorized)
-        return void AlertManager.errorWithOutClose('Lỗi', `${domainName} chưa được khởi tạo trên Checkwise`);
+        return void AlertManager.errorWithOutClose(
+            'Lỗi',
+            `${domainName} chưa được khởi tạo trên Checkwise`,
+        );
 
     const sendNotification = async (userInfo, notificationType) => {
         AlertManager.confirm(
@@ -485,13 +486,17 @@ $(document).ready(async function () {
             'Hủy',
         ).then(async (result) => {
             if (result.isConfirmed) {
-                await NotificationManager.sendMarkErrorsResolevedOrNewErrors(userInfo, notificationType);
+                await NotificationManager.sendMarkErrorsResolevedOrNewErrors(
+                    userInfo,
+                    notificationType,
+                );
             }
         });
     };
 
     try {
-        if (!(await AuthManager.isAuthenticated())) return void (window.location.href = 'login.html');
+        if (!(await AuthManager.isAuthenticated()))
+            return void (window.location.href = 'login.html');
 
         const userInfo = await AuthManager.getUserInfo();
         if (userInfo) {
@@ -527,22 +532,27 @@ $(document).ready(async function () {
             });
 
             const toggleModeSection = $('#toggleModeSection');
-            if (ConfigurationManager.isCheckwiseAdmin(userInfo)) {
+            const hasQCErrorPermission = userInfo.permissions.some(
+                (permission) =>
+                    permission.name == ConfigurationManager.PERMISSON.SITE_CHECK_QC_ERROR,
+            );
+            const hasMemberPermission = userInfo.permissions.some(
+                (permission) => permission.name == ConfigurationManager.PERMISSON.SITE_CHECK_FIXER,
+            );
+
+            if (hasQCErrorPermission) {
                 toggleModeSection.show();
-                $('#sendNotification')
-                    .attr('aria-label', 'Gửi thông báo lỗi')
-                    .attr('title', 'Gửi thông báo lỗi');
-                $('#sendNotificationLabel').text('Gửi thông báo lỗi');
-                $('#sendNotification').click(() => {
+                $('#sendBugFoundNotification').show();
+                $('#sendBugFoundNotification').click(() => {
                     sendNotification(userInfo, typeNotification.BUG_FOUND);
                 });
             } else {
                 toggleModeSection.hide();
-                $('#sendNotification')
-                    .attr('aria-label', 'Gửi thông báo đã sửa tất cả lỗi')
-                    .attr('title', 'Gửi thông báo đã sửa tất cả lỗi');
-                $('#sendNotificationLabel').text('Gửi thông báo đã sửa tất cả lỗi');
-                $('#sendNotification').click(() => {
+            }
+
+            if (hasMemberPermission) {
+                $('#sendBugFixedNotification').show();
+                $('#sendBugFixedNotification').click(() => {
                     sendNotification(userInfo, typeNotification.BUG_FIXED);
                 });
             }
@@ -569,4 +579,3 @@ $(document).ready(async function () {
         window.location.href = 'login.html';
     }
 });
-

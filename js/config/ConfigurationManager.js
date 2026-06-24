@@ -61,7 +61,11 @@ export class ConfigurationManager {
         CHECK_FOR_UPDATES: 'checkForUpdates',
         OPEN_OR_RESIZE_ERROR_WINDOW: 'openOrResizeErrorWindow',
     };
-    static ADMIN = { PERMISSON: 'SITE_CHECK_ADMIN' };
+    static ADMIN = { PERMISSON: 'SITE_CHECK_QC_ERROR' };
+    static PERMISSON = {
+        SITE_CHECK_QC_ERROR: 'wpm.checkwise.qc', // QC: Người phát hiện/kiểm tra lỗi
+        SITE_CHECK_FIXER: 'wpm.checkwise.member', // Fixer/Assignee: Người sửa lỗi
+    };
     static UI = {
         COMMENT_MAX_LENGTH: 500,
         DRAG_THRESHOLD_PX: 5,
@@ -143,10 +147,10 @@ export class ConfigurationManager {
         };
     }
 
-    /**
-     * Check whether the user has extension admin permission.
-     */
-    static isCheckwiseAdmin(userInfo) {
-        return userInfo.permissions.some((permission) => permission.name == this.ADMIN.PERMISSON);
-    }
+    // /**
+    //  * Check whether the user has extension admin permission.
+    //  */
+    // static isCheckwiseAdmin(userInfo) {
+    //     return userInfo.permissions.some((permission) => permission.name == this.ADMIN.PERMISSON);
+    // }
 }
