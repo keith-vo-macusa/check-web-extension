@@ -767,8 +767,6 @@ body[data-show-resolved='false'] .error-item.resolved {
     font-size: 0;
     padding: 6px;
     background: 0 0;
-    color: #2e7d32;
-    border: 1px solid rgba(46, 125, 50, 0.4);
     border-radius: 999px;
     cursor: pointer;
     transition: var(--transition-base);
@@ -778,8 +776,19 @@ body[data-show-resolved='false'] .error-item.resolved {
     align-items: center;
     justify-content: center;
 }
-.notification-btn:hover {
-    background: #e8f5e9;
+.notification-btn--found {
+    color: var(--color-status-open-text);
+    border: 1px solid rgba(230, 81, 0, 0.4);
+}
+.notification-btn--found:hover {
+    background: var(--color-status-open-bg);
+}
+.notification-btn--fixed {
+    color: var(--color-status-resolved-text);
+    border: 1px solid rgba(46, 125, 50, 0.4);
+}
+.notification-btn--fixed:hover {
+    background: var(--color-status-resolved-bg);
 }
 .clear-btn {
     font-size: 0;
