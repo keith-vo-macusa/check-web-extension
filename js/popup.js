@@ -532,25 +532,20 @@ $(document).ready(async function () {
             });
 
             const toggleModeSection = $('#toggleModeSection');
+            const permName = (p) => (typeof p === 'string' ? p : p?.name);
+            const hasPermission = (name) =>
+                (userInfo.permissions ?? []).some((p) => permName(p) === name) ||
+                (userInfo.roles ?? []).some((role) =>
+                    [...(role.permissions ?? []), ...(role.permissons ?? [])].some(
+                        (p) => permName(p) === name,
+                    ),
+                );
 
-            const getAllPermissions = (user) => {
-                // Permissions trực tiếp
-                const directPerms = user.permissions ?? [];
-
-                // Permissions từ roles (hỗ trợ cả key "permissons" và "permissions")
-                const rolePerms =
-                    user.roles?.flatMap((role) => role.permissions || role.permissons || []) ?? [];
-
-                // Gộp và loại bỏ trùng (dùng Set)
-                return [...new Set([...directPerms, ...rolePerms])];
-            };
-
-            const hasQCErrorPermission = getAllPermissions(userInfo).includes(
-                ConfigurationManager.PERMISSION.SITE_CHECK_QC_ERROR, // 'wpm.checkwise.qc'
+            const hasQCErrorPermission = hasPermission(
+                ConfigurationManager.PERMISSION.SITE_CHECK_QC_ERROR,
             );
-
-            const hasMemberPermission = getAllPermissions(userInfo).includes(
-                ConfigurationManager.PERMISSION.SITE_CHECK_FIXER, // 'wpm.checkwise.member'
+            const hasMemberPermission = hasPermission(
+                ConfigurationManager.PERMISSION.SITE_CHECK_FIXER,
             );
 
             if (hasQCErrorPermission) {
