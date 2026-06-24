@@ -62,7 +62,7 @@ export class ConfigurationManager {
         OPEN_OR_RESIZE_ERROR_WINDOW: 'openOrResizeErrorWindow',
     };
     static ADMIN = { PERMISSON: 'SITE_CHECK_QC_ERROR' };
-    static PERMISSON = {
+    static PERMISSION = {
         SITE_CHECK_QC_ERROR: 'wpm.checkwise.qc', // QC: Người phát hiện/kiểm tra lỗi
         SITE_CHECK_FIXER: 'wpm.checkwise.member', // Fixer/Assignee: Người sửa lỗi
     };

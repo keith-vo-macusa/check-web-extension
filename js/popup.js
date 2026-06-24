@@ -532,12 +532,25 @@ $(document).ready(async function () {
             });
 
             const toggleModeSection = $('#toggleModeSection');
-            const hasQCErrorPermission = userInfo.permissions.some(
-                (permission) =>
-                    permission.name == ConfigurationManager.PERMISSON.SITE_CHECK_QC_ERROR,
+
+            const getAllPermissions = (user) => {
+                // Permissions trực tiếp
+                const directPerms = user.permissions ?? [];
+
+                // Permissions từ roles (hỗ trợ cả key "permissons" và "permissions")
+                const rolePerms =
+                    user.roles?.flatMap((role) => role.permissions || role.permissons || []) ?? [];
+
+                // Gộp và loại bỏ trùng (dùng Set)
+                return [...new Set([...directPerms, ...rolePerms])];
+            };
+
+            const hasQCErrorPermission = getAllPermissions(userInfo).includes(
+                ConfigurationManager.PERMISSION.SITE_CHECK_QC_ERROR, // 'wpm.checkwise.qc'
             );
-            const hasMemberPermission = userInfo.permissions.some(
-                (permission) => permission.name == ConfigurationManager.PERMISSON.SITE_CHECK_FIXER,
+
+            const hasMemberPermission = getAllPermissions(userInfo).includes(
+                ConfigurationManager.PERMISSION.SITE_CHECK_FIXER, // 'wpm.checkwise.member'
             );
 
             if (hasQCErrorPermission) {
