@@ -22,6 +22,10 @@ export class ErrorRenderer {
      * Ensure overlay container exists in document.
      */
     initializeContainer() {
+        if (document.body?.classList.contains('mce-content-body')) {
+            return;
+        }
+
         this.container = document.getElementById(ConfigurationManager.UI.ERROR_CONTAINER_ID);
         if (!this.container) {
             this.container = document.createElement('div');
@@ -40,6 +44,8 @@ export class ErrorRenderer {
      * Create visual overlay for one error entity.
      */
     createErrorOverlay(errorData) {
+        if (!this.container) return null;
+
         const overlayElement = document.createElement('div');
         overlayElement.className = ConfigurationManager.CSS_CLASSES.ERROR_BORDER;
         overlayElement.dataset.errorId = errorData.id;
@@ -241,6 +247,8 @@ export class ErrorRenderer {
      * Remove one overlay by error id.
      */
     removeErrorBorder(errorId) {
+        if (!this.container) return;
+
         const overlayElement = this.container.querySelector(`[data-error-id="${errorId}"]`);
         if (!overlayElement) return;
         overlayElement.remove();
@@ -289,6 +297,8 @@ export class ErrorRenderer {
      * Get overlay element by error id.
      */
     getErrorBorder(errorId) {
+        if (!this.container) return null;
+
         return this.container.querySelector(`[data-error-id="${errorId}"]`);
     }
 
