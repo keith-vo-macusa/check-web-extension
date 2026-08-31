@@ -191,10 +191,21 @@ export class CommentThreadManager {
                 const authorInitial = authorName.charAt(0).toUpperCase();
                 const timeText = this.formatTime(comment.timestamp);
                 const editedText = comment.edited ? '<span class="comment-edited">(đã chỉnh sửa)</span>' : '';
-                const isOwnComment = comment.author?.id === userInfo?.id;
-                const replyAction = `\n                    <button class="btn-reply-comment" data-comment-id="${comment.id}">Trả lời</button>\n                `;
+                const isOwnComment =
+                    (comment.author?.id != null &&
+                        userInfo?.id != null &&
+                        String(comment.author.id) === String(userInfo.id)) ||
+                    (comment.author?.email &&
+                        userInfo?.email &&
+                        comment.author.email.toLowerCase() === userInfo.email.toLowerCase());
+                const replyAction = `
+                    <button class="btn-reply-comment" data-comment-id="${comment.id}">Trả lời</button>
+                `;
                 const ownerActions = isOwnComment
-                    ? `\n                <button class="btn-edit-comment" data-comment-id="${comment.id}">Chỉnh sửa</button>\n                <button class="btn-delete-comment" data-comment-id="${comment.id}">Xóa</button>\n            `
+                    ? `
+                <button class="btn-edit-comment" data-comment-id="${comment.id}">Chỉnh sửa</button>
+                <button class="btn-delete-comment" data-comment-id="${comment.id}">Xóa</button>
+            `
                     : '';
                 const sanitizedText = ValidationService.sanitizeHtml(comment.text);
                 const linkifiedText = ValidationService.linkify(sanitizedText);
@@ -266,7 +277,9 @@ export class CommentThreadManager {
         panelElement.addEventListener('click', async (event) => {
             if (event.target.classList.contains('btn-reply-comment')) {
                 const commentId = event.target.dataset.commentId;
-                const targetComment = errorData.comments.find((comment) => comment.id === commentId);
+                const targetComment = errorData.comments.find(
+                    (comment) => String(comment.id) === String(commentId),
+                );
                 const replyTargetName = targetComment?.author?.name || 'Unknown';
                 const replyBox = panelElement.querySelector('.reply-input');
                 if (replyBox) {
@@ -295,31 +308,51 @@ export class CommentThreadManager {
      * Switch comment into inline edit mode.
      */
     async editComment(panelElement, errorData, commentId) {
-        if (!errorData.comments.find((comment) => comment.id === commentId)) return;
+        const targetComment = errorData.comments.find(
+            (comment) => String(comment.id) === String(commentId),
+        );
+        if (!targetComment) return;
 
         const commentItem = panelElement.querySelector(`[data-comment-id="${commentId}"]`);
+        if (!commentItem) return;
+
         const commentText = commentItem.querySelector('.comment-text');
         const commentActions = commentItem.querySelector('.comment-actions');
-        const originalText = commentText.dataset.original;
+        const originalText = targetComment.text;
         const editForm = document.createElement('div');
         editForm.className = 'edit-form';
-        editForm.innerHTML = `\n            <div class="edit-input-wrap">\n                <textarea class="edit-input" maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}">${originalText}</textarea>\n                <button class="btn-edit-save btn-inside-input btn-send-icon" style="border-radius: 50% !important;" aria-label="Lưu chỉnh sửa" title="Lưu">\n                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">\n                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>\n                    </svg>\n                </button>\n            </div>\n            <div class="edit-buttons">\n                <button class="btn-edit-cancel">Hủy</button>\n            </div>\n        `;
+        editForm.innerHTML = `
+            <div class="edit-input-wrap">
+                <textarea class="edit-input" maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>
+                <button class="btn-edit-save btn-inside-input btn-send-icon" style="border-radius: 50% !important;" aria-label="Lưu chỉnh sửa" title="Lưu">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="edit-buttons">
+                <button class="btn-edit-cancel">Hủy</button>
+            </div>
+        `;
+
+        const editInput = editForm.querySelector('.edit-input');
+        editInput.value = originalText;
 
         commentText.style.display = 'none';
         if (commentActions) commentActions.style.display = 'none';
         commentText.parentNode.appendChild(editForm);
 
-        const editInput = editForm.querySelector('.edit-input');
         editInput.focus();
         editInput.setSelectionRange(editInput.value.length, editInput.value.length);
 
-        editForm.querySelector('.btn-edit-cancel').addEventListener('click', () => {
+        const cancelEditButton = editForm.querySelector('.btn-edit-cancel');
+        const saveEditButton = editForm.querySelector('.btn-edit-save');
+
+        cancelEditButton.addEventListener('click', () => {
             this.cancelEdit(commentText, editForm, commentActions);
         });
 
-        const saveEditButton = editForm.querySelector('.btn-edit-save');
-        const cancelEditButton = editForm.querySelector('.btn-edit-cancel');
-        saveEditButton.addEventListener('click', async () => {
+        const performSave = async () => {
             const updatedText = editInput.value.trim();
             if (!ValidationService.validateComment(updatedText).valid || updatedText === originalText) {
                 this.cancelEdit(commentText, editForm, commentActions);
@@ -331,14 +364,25 @@ export class CommentThreadManager {
             cancelEditButton.disabled = true;
             this.setButtonLoading(saveEditButton, true);
             try {
-                await this.onCommentEdited(errorData, commentId, updatedText);
+                await this.onCommentEdited(errorData, targetComment.id, updatedText);
                 await this.refreshThreadPanel(panelElement, errorData);
             } catch (error) {
                 ErrorLogger.error('Failed to edit comment', error);
-            } finally {
                 editInput.disabled = false;
                 cancelEditButton.disabled = false;
                 this.setButtonLoading(saveEditButton, false);
+            }
+        };
+
+        saveEditButton.addEventListener('click', performSave);
+
+        editInput.addEventListener('keydown', (event) => {
+            if ((event.key === 'Enter' && !event.shiftKey) || (event.key === 'Enter' && event.ctrlKey)) {
+                event.preventDefault();
+                performSave();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                this.cancelEdit(commentText, editForm, commentActions);
             }
         });
     }

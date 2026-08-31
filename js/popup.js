@@ -61,14 +61,41 @@ class ErrorManager {
         if (!currentTab || !currentTab[0]) return [];
 
         const domainName = await TabManager.getCurrentTabDomain();
-        const response = await TabManager.sendMessageToBackground({
+        let response = await TabManager.sendMessageToBackground({
             action: 'getErrors',
             domainName,
         });
 
+        if (!response?.path || response.path.length === 0) {
+            try {
+                const endpoint = `${ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA}?domain=${encodeURIComponent(domainName)}`;
+                const url = ConfigurationManager.API.BASE_URL + endpoint;
+                const accessToken = await AuthManager.getAccessToken();
+                const headers = { 'Content-Type': 'application/json' };
+                if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+                const apiRes = await fetch(url, { method: 'GET', headers });
+                if (apiRes.ok) {
+                    const apiData = await apiRes.json();
+                    if (apiData?.data) {
+                        response = apiData.data;
+                        await TabManager.sendMessageToBackground({
+                            action: ConfigurationManager.ACTIONS.SET_ERRORS,
+                            errors: response,
+                            domainName,
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch errors in popup', err);
+            }
+        }
+
         const allErrors = [];
         response?.path?.forEach((pathItem) => {
-            allErrors.push(...pathItem.data);
+            if (Array.isArray(pathItem?.data)) {
+                allErrors.push(...pathItem.data);
+            }
         });
         return allErrors;
     }
@@ -350,19 +377,20 @@ class UIManager {
         if (error.status === 'closed') errorItem.addClass('closed');
         if (!error.status || error.status === 'open') errorItem.addClass('open');
 
-        const timestamp = new Date(error.timestamp).toLocaleString('vi-VN');
-        const lastComment = error.comments[error.comments.length - 1];
+        const timestamp = error.timestamp ? new Date(error.timestamp).toLocaleString('vi-VN') : '';
+        const comments = Array.isArray(error.comments) ? error.comments : [];
+        const lastComment = comments.length > 0 ? comments[comments.length - 1] : null;
         const statusBadge = this.createStatusBadge(error.status);
         const isResolved = error.status === 'resolved';
         const resolvedClass = isResolved ? 'bg-success' : '';
         const commentText = this.escapeHtml(lastComment?.text || '');
-        const commentsCount = error.comments?.length || 0;
+        const commentsCount = comments.length;
         const breakpointType = error.breakpoint ? error.breakpoint.type : 'all';
         const breakpointWidth = error.breakpoint ? `${error.breakpoint.width}px` : '';
         const safeUrl = this.escapeHtml(error.url || '');
 
         errorItem.html(
-            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        <span class="error-time">${timestamp}</span>\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-x' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash"></i>\n                    </button>\n                </div>\n            </div>\n        `,
+            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        ${timestamp ? `<span class="error-time">${timestamp}</span>` : ''}\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-x' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash"></i>\n                    </button>\n                </div>\n            </div>\n        `,
         );
 
         this.setupErrorItemEventHandlers(errorItem, error);

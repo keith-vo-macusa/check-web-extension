@@ -14,7 +14,7 @@ export default class WebsiteTestingAssistant {
      */
     constructor() {
         this.currentUrl = window.location.href;
-        this.domainName = window.location.hostname;
+        this.domainName = window.location.origin;
         this.userInfo = null;
         this.hasAdminBar = false;
         this.adminBarHeight = 0;
@@ -233,8 +233,19 @@ export default class WebsiteTestingAssistant {
         );
     }
 
-    handleErrorClick(errorData, borderElement) {
-        this.commentThreadManager.showCommentThread(errorData, borderElement);
+    async handleErrorClick(errorData, borderElement) {
+        await this.commentThreadManager.showCommentThread(errorData, borderElement);
+
+        try {
+            const freshErrors = await this.errorDataManager.fetchFreshErrors();
+            const freshError = freshErrors.find((e) => e.id === errorData.id);
+            const currentThread = this.commentThreadManager.getCurrentThread();
+            if (freshError && currentThread?.error?.id === errorData.id && currentThread?.panel) {
+                await this.commentThreadManager.refreshThreadPanel(currentThread.panel, freshError);
+            }
+        } catch (error) {
+            ErrorLogger.debug('Failed to reload fresh error on click', { error });
+        }
     }
 
     async handleCommentAdded(errorData, comment) {

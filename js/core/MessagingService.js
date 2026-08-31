@@ -2,9 +2,9 @@ import { ErrorLogger } from '../utils/ErrorLogger.js';
 
 export class MessagingService {
     /**
-     * Send a message to the extension background context with timeout protection.
+     * Send a message to the extension background context.
      */
-    static async sendToBackground(message, timeoutMs = 5000) {
+    static async sendToBackground(message) {
         if (!chrome?.runtime?.sendMessage)
             throw (
                 ErrorLogger.error('Chrome runtime messaging not available', {
@@ -14,10 +14,7 @@ export class MessagingService {
             );
 
         try {
-            return await Promise.race([
-                chrome.runtime.sendMessage(message),
-                this._createTimeout(timeoutMs),
-            ]);
+            return await chrome.runtime.sendMessage(message);
         } catch (error) {
             if (error.message?.includes('Extension context invalidated'))
                 throw (
@@ -35,7 +32,7 @@ export class MessagingService {
     /**
      * Send a message to a tab content script. Uses active tab when tabId is omitted.
      */
-    static async sendToContentScript(message, tabId = null, timeoutMs = 5000) {
+    static async sendToContentScript(message, tabId = null) {
         if (!chrome?.tabs?.sendMessage)
             throw (
                 ErrorLogger.error('Chrome tabs messaging not available', {
@@ -52,10 +49,7 @@ export class MessagingService {
                 targetTabId = activeTabs[0].id;
             }
 
-            return await Promise.race([
-                chrome.tabs.sendMessage(targetTabId, message),
-                this._createTimeout(timeoutMs),
-            ]);
+            return await chrome.tabs.sendMessage(targetTabId, message);
         } catch (error) {
             if (error.message?.includes('Receiving end does not exist'))
                 throw (
