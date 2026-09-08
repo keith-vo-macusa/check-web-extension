@@ -48,13 +48,7 @@ writeFileSync(
             types: ['chrome'],
             typeRoots: [join(process.cwd(), 'node_modules', '@types')],
         },
-        include: [
-            globalsPath,
-            join(process.cwd(), 'js', '**', '*.js'),
-            join(process.cwd(), 'content.js'),
-            join(process.cwd(), 'content-loader.js'),
-            join(process.cwd(), 'background.js'),
-        ],
+        include: [globalsPath, join(process.cwd(), 'src', '**', '*.js')],
     }),
 );
 

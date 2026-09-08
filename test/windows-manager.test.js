@@ -9,7 +9,7 @@ import { createFakeChrome, sleep } from './fakes/chrome.js';
 async function runScenario(options, drive) {
     const fake = createFakeChrome(options);
     globalThis.chrome = fake.api;
-    const manager = await import(`../js/services/WindowsManager.js?case=${Math.random()}`);
+    const manager = await import(`../src/background/WindowsManager.js?case=${Math.random()}`);
     await drive(manager);
     await sleep(400);
     return fake;

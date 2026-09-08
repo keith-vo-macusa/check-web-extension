@@ -1,6 +1,6 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { DomainErrorCache } from '../js/domain/DomainErrorCache.js';
+import { DomainErrorCache } from '../src/background/DomainErrorCache.js';
 
 /** storage.session giả — cũng dùng để mô phỏng service worker bị tắt rồi bật lại. */
 function createStorageArea() {

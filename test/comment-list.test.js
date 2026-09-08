@@ -4,7 +4,7 @@ import {
     isOwnComment,
     renderComments,
     renderCommentsSkeleton,
-} from '../js/ui/content/CommentList.js';
+} from '../src/content/ui/CommentList.js';
 
 const ME = { id: 7, name: 'Kiet', email: 'Kiet@Macusa.com' };
 const comment = (overrides = {}) => ({

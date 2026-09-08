@@ -138,7 +138,7 @@ export default defineConfig(({ mode }) => ({
                 copyFileSync('manifest.json', 'dist/manifest.json');
 
                 // Copy JavaScript files (không bundle)
-                const jsFiles = ['background.js', 'content.js', 'content-loader.js'];
+                const jsFiles = [];
                 jsFiles.forEach((file) => {
                     if (existsSync(file)) {
                         copyFileSync(file, join('dist', file));
@@ -157,7 +157,7 @@ export default defineConfig(({ mode }) => ({
                 });
 
                 // Copy directories
-                const dirsToCopy = ['assets', 'lib', 'css', 'js'];
+                const dirsToCopy = ['assets', 'lib', 'css', 'src'];
                 dirsToCopy.forEach((dir) => {
                     copyDir(dir, join('dist', dir));
                 });
@@ -166,7 +166,7 @@ export default defineConfig(({ mode }) => ({
                 // Build copy source chứ không bundle nên phải thay thủ công ở đây.
                 const envBaseUrl = loadEnv(mode, __dirname, 'VITE_').VITE_API_BASE_URL;
                 if (envBaseUrl) {
-                    const envFile = join('dist', 'js', 'config', 'env.js');
+                    const envFile = join('dist', 'src', 'shared', 'config', 'env.js');
                     if (existsSync(envFile)) {
                         const source = readFileSync(envFile, 'utf8');
                         writeFileSync(
@@ -182,7 +182,7 @@ export default defineConfig(({ mode }) => ({
 
                 // Minify JS files in dist
                 console.log('\n🔧 Minifying JavaScript files...');
-                await minifyJSInDir('dist/js');
+                await minifyJSInDir('dist/src');
                 for (const file of jsFiles) {
                     const distFile = join('dist', file);
                     if (existsSync(distFile)) {

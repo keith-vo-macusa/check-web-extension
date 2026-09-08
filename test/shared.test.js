@@ -1,8 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateUUID } from '../js/shared/id.js';
-import { formatTime, getStatusText } from '../js/shared/format.js';
-import { buildErrorsSignature } from '../js/shared/errorsSignature.js';
+import { generateUUID } from '../src/content/id.js';
+import { formatTime, getStatusText } from '../src/content/format.js';
+import { buildErrorsSignature } from '../src/popup/errorsSignature.js';
 
 describe('generateUUID', () => {
     const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -16,7 +16,7 @@ describe('generateUUID', () => {
 
     test('ValidationService.validateErrorData chấp nhận id sinh ra', async () => {
         globalThis.document = { createElement: () => ({ textContent: '', innerHTML: '' }) };
-        const { ValidationService } = await import('../js/utils/ValidationService.js');
+        const { ValidationService } = await import('../src/shared/ValidationService.js');
         assert.ok(ValidationService.isValidUUID(generateUUID()));
     });
 });

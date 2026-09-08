@@ -1,6 +1,6 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { ErrorStore } from '../js/domain/ErrorStore.js';
+import { ErrorStore } from '../src/content/ErrorStore.js';
 
 let store;
 const errorA = () => ({ id: 'a', status: 'open', comments: [] });

@@ -1,7 +1,7 @@
 import { test, describe, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakeChrome } from './fakes/chrome.js';
-import { API_BASE_URL as BASE_URL } from '../js/config/env.js';
+import { API_BASE_URL as BASE_URL } from '../src/shared/config/env.js';
 
 let ApiClient;
 let ApiError;
@@ -9,7 +9,7 @@ let lastRequest = null;
 
 before(async () => {
     globalThis.chrome = createFakeChrome().api;
-    ({ ApiClient, ApiError } = await import('../js/core/http/ApiClient.js'));
+    ({ ApiClient, ApiError } = await import('../src/shared/http/ApiClient.js'));
 });
 
 beforeEach(() => {

@@ -6,7 +6,7 @@ let BugListService;
 
 before(async () => {
     globalThis.chrome = createFakeChrome().api;
-    ({ BugListService } = await import('../js/domain/BugListService.js'));
+    ({ BugListService } = await import('../src/shared/BugListService.js'));
 });
 
 const OPTIONS = [

@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { html, raw, escapeHtml } from '../js/ui/shared/html.js';
+import { html, raw, escapeHtml } from '../src/shared/ui/html.js';
 
 // Khoảng trắng giữa các thẻ không mang nghĩa, và prettier tự format lại phần
 // HTML trong tagged template. Chuẩn hoá để test khẳng định cấu trúc + escaping,

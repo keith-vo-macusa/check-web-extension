@@ -55,69 +55,78 @@ giao diện, thêm comment, quản lý trạng thái lỗi và đồng bộ vớ
 
 ## Cấu trúc dự án
 
+Sắp theo **runtime**, không theo tầng kỹ thuật. Với một MV3 extension, câu hỏi hay gặp nhất khi sửa
+code là "cái này chạy ở đâu, đụng vào có vỡ chỗ khác không" — cây thư mục trả lời luôn câu đó.
+
+Thư mục runtime nào chỉ chứa module chỉ chạy trong runtime đó. Muốn vào `shared/` thì phải thật sự
+được ít nhất hai runtime dùng.
+
 ```
 check-web-extension/
-├── manifest.json              # Cấu hình extension (v1.2.3)
-├── background.js              # Service Worker
-├── content.js                 # Main content script class
-├── content-loader.js          # Loader cho content script
+├── manifest.json
+├── screens/                    # login.html · popup.html · offscreen.html
 │
-├── screens/
-│   ├── login.html             # Màn hình đăng nhập
-│   ├── popup.html             # Popup chính
-│   └── offscreen.html         # Offscreen document
+├── src/
+│   ├── background/             # service worker
+│   │   ├── index.js                # entry: định tuyến message, vòng đời
+│   │   ├── BadgeManager.js         # badge + CRUD lỗi phía nền
+│   │   ├── DomainErrorCache.js     # cache theo domain, ghi xuống storage.session
+│   │   ├── WindowsManager.js       # mở/resize cửa sổ xem lỗi
+│   │   ├── WindowsService.js       # bọc chrome.windows
+│   │   └── UpdateChecker.js        # kiểm tra phiên bản mới
+│   │
+│   ├── content/                # content script chạy trong trang
+│   │   ├── loader.js               # entry trong manifest, bỏ qua iframe editor
+│   │   ├── index.js                # lắp ráp các thành phần
+│   │   ├── ErrorStore.js           # nguồn sự thật duy nhất cho lỗi của tab
+│   │   ├── ErrorDataManager.js     # CRUD lỗi qua API + đồng bộ store
+│   │   ├── ErrorRenderer.js        # vẽ overlay đánh dấu lỗi
+│   │   ├── SelectionHandler.js     # chọn element / kéo vùng
+│   │   ├── CoordinatesCalculator.js
+│   │   ├── CommentThreadManager.js # panel bình luận
+│   │   ├── elementFingerprint.js   # nhận diện lại element sau khi reload
+│   │   ├── format.js · id.js
+│   │   └── ui/                     # thành phần DOM
+│   │       ├── CommentInputModal.js · CommentList.js
+│   │       ├── ThreadBugListRow.js · BugListPicker.js
+│   │       └── buttonLoading.js
+│   │
+│   ├── popup/                  # popup của extension
+│   │   ├── index.js                # entry: đăng nhập, lắp ráp
+│   │   ├── PopupController.js      # gắn sự kiện, vẽ danh sách
+│   │   ├── PopupState.js           # trạng thái hiển thị
+│   │   ├── errorItemTemplate.js    # markup dòng lỗi (thuần chuỗi)
+│   │   ├── popupErrors.js          # cổng dữ liệu: API + cache nền
+│   │   ├── errorsSignature.js      # vân tay để bỏ render thừa
+│   │   ├── AlertManager.js · NotificationManager.js · TabManager.js
+│   │
+│   ├── login/index.js
+│   ├── offscreen/index.js
+│   │
+│   └── shared/                 # chỉ đặt ở đây khi >= 2 runtime dùng
+│       ├── auth.js
+│       ├── BugListService.js       # options loại lỗi (content + popup)
+│       ├── ErrorLogger.js · ValidationService.js
+│       ├── config/  ConfigurationManager.js · env.js
+│       ├── chrome/  StorageService · TabsService · MessagingService
+│       ├── http/    ApiClient.js   # nơi duy nhất gọi backend
+│       └── ui/      html.js        # template tự escape
 │
-├── js/
-│   ├── auth.js                # Authentication manager
-│   ├── login.js               # Login logic
-│   ├── popup.js               # Popup logic
-│   ├── utils.js               # Utilities
-│   │
-│   ├── config/
-│   │   └── ConfigurationManager.js    # Centralized config
-│   │
-│   ├── constants/
-│   │   └── index.js           # App constants
-│   │
-│   ├── core/
-│   │   ├── StorageService.js      # Chrome Storage wrapper
-│   │   ├── MessagingService.js    # Chrome Messaging wrapper
-│   │   ├── TabsService.js         # Tabs management
-│   │   └── WindowsService.js      # Windows management
-│   │
-│   ├── domain/
-│   │   ├── ErrorDataManager.js    # Error CRUD & API sync
-│   │   ├── ErrorRenderer.js       # Render error markers
-│   │   ├── SelectionHandler.js    # Element selection logic
-│   │   ├── CommentModal.js        # Comment input modal
-│   │   ├── CommentThreadManager.js # Comment thread UI
-│   │   └── CoordinatesCalculator.js # Position calculations
-│   │
-│   ├── services/
-│   │   ├── BadgeService.js        # Extension badge
-│   │   ├── NotificationManager.js # Notifications
-│   │   ├── UpdateChecker.js       # Version updates
-│   │   ├── AlertManager.js        # SweetAlert wrapper
-│   │   └── TabManager.js          # Tab utilities
-│   │
-│   └── utils/
-│       ├── ErrorLogger.js         # Logging utility
-│       └── ValidationService.js   # Input validation
-│
-├── css/
-│   ├── content.css            # Styles injected vào trang
-│   ├── login.css              # Login screen styles
-│   └── popup.css              # Popup styles
-│
-├── lib/
-│   ├── jquery.min.js          # jQuery
-│   └── sweet-alert/           # SweetAlert2
-│
-└── assets/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
+├── test/                       # node:test, không cần dependency
+│   └── fakes/chrome.js             # chrome API giả, ghi lại thứ tự lời gọi
+├── scripts/                    # check-env.mjs · check-undefined.mjs
+├── css/ · lib/ · assets/
 ```
+
+### Quy ước
+
+- **Thêm file mới**: mặc định đặt vào thư mục runtime đang dùng nó. Chỉ chuyển lên `shared/` khi
+  runtime thứ hai thật sự cần.
+- **`shared/http/ApiClient.js`** là nơi duy nhất gọi backend — có sẵn token, timeout và `ApiError`
+  mang theo status.
+- **`shared/ui/html.js`** escape mặc định; muốn chèn HTML thô phải viết `raw()`.
+- **`shared/config/env.js`** là dòng duy nhất chứa URL backend; `npm run check:env` chặn commit nếu
+  nó không trỏ production.
 
 ---
 

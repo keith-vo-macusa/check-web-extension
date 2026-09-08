@@ -17,8 +17,8 @@ before(async () => {
         renderStatusBadge,
         renderErrorsSkeleton,
         renderErrorsSummary,
-    } = await import('../js/ui/popup/errorItemTemplate.js'));
-    ({ BugListService } = await import('../js/domain/BugListService.js'));
+    } = await import('../src/popup/errorItemTemplate.js'));
+    ({ BugListService } = await import('../src/shared/BugListService.js'));
 });
 
 beforeEach(() => {
