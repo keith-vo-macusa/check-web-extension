@@ -10,6 +10,7 @@ import {
 import AlertManager from './services/AlertManager.js';
 import NotificationManager from './services/NotificationManager.js';
 import { ConfigurationManager } from './config/ConfigurationManager.js';
+import { BugListService } from './domain/BugListService.js';
 
 class PopupState {
     constructor() {
@@ -376,7 +377,11 @@ class UIManager {
         const requestId = ++this.refreshRequestId;
         this.showErrorsLoading();
 
-        const errors = await ErrorManager.loadFreshErrors();
+        // Options tải song song để chip loại lỗi có tên ngay ở lần vẽ đầu tiên.
+        const [errors] = await Promise.all([
+            ErrorManager.loadFreshErrors(),
+            BugListService.loadOptions().catch(() => null),
+        ]);
         if (requestId !== this.refreshRequestId) return;
 
         this.lastErrors = errors;
@@ -442,6 +447,27 @@ class UIManager {
         errors.forEach((error, index) => this.renderErrorItem(container, error, index));
     }
 
+    /**
+     * Bug list tags of an error, resolved to names via the cached options.
+     * Ids no longer active stay visible (styled as unknown) instead of vanishing.
+     */
+    buildBugListMarkup(error) {
+        const selectedIds = BugListService.sanitizeIds(error.bug_list_ids);
+        if (selectedIds.length === 0) return '';
+
+        // Options chưa tải được thì mọi id đều "chưa biết tên" — đừng tô đỏ như tag hỏng.
+        const isOptionsLoaded = BugListService.cachedOptions !== null;
+        const chips = BugListService.resolveSelected(BugListService.cachedOptions ?? [], selectedIds)
+            .map((option) => {
+                const safeName = this.escapeHtml(option.name);
+                const unknownClass = option.isUnknown && isOptionsLoaded ? ' is-unknown' : '';
+                return `<span class="error-bug-tag${unknownClass}" title="${safeName}">${safeName}</span>`;
+            })
+            .join('');
+
+        return `<div class="error-bug-list">${chips}</div>`;
+    }
+
     renderErrorItem(container, error, index) {
         const errorItem = $('<div>').addClass('error-item');
         if (error.status === 'resolved') errorItem.addClass('resolved');
@@ -459,9 +485,10 @@ class UIManager {
         const breakpointType = error.breakpoint ? error.breakpoint.type : 'all';
         const breakpointWidth = error.breakpoint ? `${error.breakpoint.width}px` : '';
         const safeUrl = this.escapeHtml(error.url || '');
+        const bugListMarkup = this.buildBugListMarkup(error);
 
         errorItem.html(
-            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        ${timestamp ? `<span class="error-time">${timestamp}</span>` : ''}\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-x' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash"></i>\n                    </button>\n                </div>\n            </div>\n        `,
+            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        ${timestamp ? `<span class="error-time">${timestamp}</span>` : ''}\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    ${bugListMarkup}\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-x' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash"></i>\n                    </button>\n                </div>\n            </div>\n        `,
         );
 
         this.setupErrorItemEventHandlers(errorItem, error);

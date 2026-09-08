@@ -7,6 +7,7 @@ import { SelectionHandler } from './js/domain/SelectionHandler.js';
 import { ErrorRenderer } from './js/domain/ErrorRenderer.js';
 import { CommentThreadManager } from './js/domain/CommentThreadManager.js';
 import { ErrorDataManager } from './js/domain/ErrorDataManager.js';
+import { BugListService } from './js/domain/BugListService.js';
 
 export default class WebsiteTestingAssistant {
     /**
@@ -36,6 +37,7 @@ export default class WebsiteTestingAssistant {
             this.handleCommentDeleted.bind(this),
             this.handleErrorStatusToggled.bind(this),
             this.handleErrorDeleted.bind(this),
+            this.handleBugListUpdated.bind(this),
         );
         this.errorDataManager = new ErrorDataManager(this.currentUrl, this.domainName);
 
@@ -204,9 +206,10 @@ export default class WebsiteTestingAssistant {
     handleElementSelected(element) {
         this.commentThreadManager.showCommentInputModal(
             false,
-            async (comment) => {
+            async (comment, bugListIds) => {
                 await this.reportError({
                     comment,
+                    bugListIds,
                     type: ConfigurationManager.ERROR_TYPES.BORDER,
                     element,
                 });
@@ -219,9 +222,10 @@ export default class WebsiteTestingAssistant {
         this.selectedRect = coordinates;
         this.commentThreadManager.showCommentInputModal(
             true,
-            async (comment) => {
+            async (comment, bugListIds) => {
                 await this.reportError({
                     comment,
+                    bugListIds,
                     type: ConfigurationManager.ERROR_TYPES.RECT,
                     coordinates,
                 });
@@ -279,7 +283,12 @@ export default class WebsiteTestingAssistant {
         this.errorRenderer.removeErrorBorder(errorData.id);
     }
 
-    async reportError({ comment, type, element = null, coordinates = null }) {
+    async handleBugListUpdated(errorData, bugListIds) {
+        const isUpdated = await this.errorDataManager.updateBugList(errorData, bugListIds);
+        if (!isUpdated) throw new Error('Không thể cập nhật loại lỗi');
+    }
+
+    async reportError({ comment, bugListIds = [], type, element = null, coordinates = null }) {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         const errorData = {
@@ -293,6 +302,7 @@ export default class WebsiteTestingAssistant {
                 },
                 url: this.currentUrl,
                 status: ConfigurationManager.ERROR_STATUS.OPEN,
+                bug_list_ids: BugListService.sanitizeIds(bugListIds),
                 elementIdentifiers: null,
                 coordinates: null,
                 comments: [

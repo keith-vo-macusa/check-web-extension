@@ -29,6 +29,7 @@ export class ConfigurationManager {
             GET_DOMAIN_DATA: 'api/v1/websites/check-wise/ext/',
             SET_DOMAIN_DATA: 'api/v1/websites/check-wise/ext/',
             BUGS: 'api/v1/websites/check-wise/ext/bugs',
+            BUG_LIST_OPTIONS: 'api/v1/websites/site-check/bug-list/options',
         },
         TIMEOUT: 10000,
     };
@@ -133,6 +134,14 @@ export class ConfigurationManager {
     static getBugCommentUrl(bugId, commentId = '') {
         const base = `${this.API.BASE_URL}${this.API.ENDPOINTS.BUGS}/${bugId}/comments`;
         return commentId ? `${base}/${commentId}` : base;
+    }
+
+    /**
+     * Build bug list options URL. Omitting the term returns every active option.
+     */
+    static getBugListOptionsUrl(searchTerm = '') {
+        const base = this.API.BASE_URL + this.API.ENDPOINTS.BUG_LIST_OPTIONS;
+        return searchTerm ? `${base}?search=${encodeURIComponent(searchTerm)}` : base;
     }
 
     /**

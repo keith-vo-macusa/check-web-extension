@@ -2,6 +2,7 @@ import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { ValidationService } from '../utils/ValidationService.js';
 import { MessagingService } from '../core/MessagingService.js';
+import { BugListService } from './BugListService.js';
 import AuthManager from '../auth.js';
 
 export class ErrorDataManager {
@@ -123,6 +124,9 @@ export class ErrorDataManager {
                 if (Array.isArray(responseData.data.comments) && responseData.data.comments.length > 0) {
                     errorData.comments = responseData.data.comments;
                 }
+                if (Array.isArray(responseData.data.bug_list_ids)) {
+                    errorData.bug_list_ids = responseData.data.bug_list_ids;
+                }
             }
 
             this.currentTabErrors.push(errorData);
@@ -172,6 +176,28 @@ export class ErrorDataManager {
             ErrorLogger.error('Failed to update bug', { error });
             return false;
         }
+    }
+
+    /**
+     * Replace the bug list tags of a bug. Passing an empty array clears them.
+     * Reverts the local value when the API call fails.
+     */
+    async updateBugList(errorData, bugListIds) {
+        const previousIds = Array.isArray(errorData.bug_list_ids) ? [...errorData.bug_list_ids] : undefined;
+        errorData.bug_list_ids = BugListService.sanitizeIds(bugListIds);
+
+        const isUpdated = await this.updateError(errorData);
+        if (!isUpdated) {
+            if (previousIds === undefined) delete errorData.bug_list_ids;
+            else errorData.bug_list_ids = previousIds;
+            return false;
+        }
+
+        ErrorLogger.info('Bug list updated successfully', {
+            bugId: errorData.id,
+            bugListIds: errorData.bug_list_ids,
+        });
+        return true;
     }
 
     /**
