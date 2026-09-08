@@ -137,26 +137,6 @@ class ErrorManager {
         });
     }
 
-    /**
-     * Cheap fingerprint of everything the list actually renders. Equal signature
-     * means a re-render would produce identical DOM.
-     */
-    static buildErrorsSignature(errors) {
-        return errors
-            .map((error) =>
-                [
-                    error.id,
-                    error.status ?? 'open',
-                    error.comments?.length ?? 0,
-                    error.comments?.[error.comments.length - 1]?.text ?? '',
-                    (error.bug_list_ids ?? []).join('.'),
-                    error.breakpoint?.type ?? '',
-                    error.url ?? '',
-                ].join(':'),
-            )
-            .join('|');
-    }
-
     static sortErrors(errors) {
         const statusOrder = { open: 1, resolved: 2, closed: 3 };
         return errors.sort((first, second) => {
@@ -406,7 +386,7 @@ class UIManager {
         if (requestId !== this.refreshRequestId) return;
 
         // Dữ liệu y hệt thì đừng vẽ lại: vẽ lại là mất vị trí cuộn và nháy màn hình.
-        const signature = ErrorManager.buildErrorsSignature(errors);
+        const signature = buildErrorsSignature(errors);
         const isUnchanged = signature === this.lastErrorsSignature;
         this.lastErrors = errors;
         this.lastErrorsSignature = signature;
