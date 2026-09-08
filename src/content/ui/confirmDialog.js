@@ -1,38 +1,73 @@
-import { ErrorLogger } from '../../shared/ErrorLogger.js';
+import { ConfigurationManager } from '../../shared/config/ConfigurationManager.js';
+import { html } from '../../shared/ui/html.js';
 
 /**
  * Confirmation dialog for destructive actions in the comment thread.
  *
- * The thread used to call window.confirm, which renders as a bare browser dialog
- * on top of the page — visually unrelated to the extension, and inconsistent with
- * the SweetAlert prompts the popup already uses. SweetAlert2 is injected into
- * every page by the content script manifest entry, so it is available here too.
+ * Built here rather than with SweetAlert. SweetAlert renders into the host page,
+ * so the page's own CSS cascades into it — on a themed site the title picked up
+ * text-transform and a display font, and the buttons took the site's colours,
+ * overriding confirmButtonColor. Every .testing-* rule in this extension is
+ * declared !important for exactly that reason, and this dialog follows the same
+ * convention, so it looks the same on every site.
  *
- * Falls back to window.confirm if the library is missing, so a page that blocks
- * it cannot make deletion silently impossible.
+ * @returns {Promise<boolean>} true only when the user confirms.
  */
-export async function confirmDestructive({ title, text, confirmLabel = 'Xóa' }) {
-    const swal = typeof Swal !== 'undefined' ? Swal : null;
-    if (!swal) {
-        ErrorLogger.debug('SweetAlert unavailable, falling back to window.confirm');
-        return window.confirm(`${title}\n\n${text}`);
-    }
+export function confirmDestructive({ title, text, confirmLabel = 'Xóa' }) {
+    return new Promise((resolve) => {
+        const backdrop = document.createElement('div');
+        backdrop.className = ConfigurationManager.CSS_CLASSES.MODAL_BACKDROP;
 
-    const result = await swal.fire({
-        title,
-        text,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: confirmLabel,
-        cancelButtonText: 'Hủy',
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#6c757d',
-        reverseButtons: true,
-        // The thread panel sits at 2147483647; without this the dialog opens behind it.
-        didOpen: (element) => {
-            const container = element.closest('.swal2-container');
-            if (container) container.style.zIndex = '2147483647';
-        },
+        const dialog = document.createElement('div');
+        dialog.className = 'testing-confirm';
+        dialog.setAttribute('role', 'alertdialog');
+        dialog.setAttribute('aria-modal', 'true');
+        dialog.innerHTML = String(html`
+            <div class="testing-confirm-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12z"></path>
+                    <path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path>
+                </svg>
+            </div>
+            <div class="testing-confirm-body">
+                <div class="testing-confirm-title">${title}</div>
+                <div class="testing-confirm-text">${text}</div>
+            </div>
+            <div class="testing-confirm-actions">
+                <button type="button" class="testing-confirm-cancel">Hủy</button>
+                <button type="button" class="testing-confirm-ok">${confirmLabel}</button>
+            </div>
+        `);
+
+        let isSettled = false;
+        const close = (didConfirm) => {
+            if (isSettled) return;
+            isSettled = true;
+            document.removeEventListener('keydown', onKeydown, true);
+            backdrop.remove();
+            dialog.remove();
+            resolve(didConfirm);
+        };
+
+        // Capture phase: the page may stop propagation on its own key handlers.
+        const onKeydown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                close(false);
+            }
+        };
+
+        backdrop.addEventListener('click', () => close(false));
+        dialog
+            .querySelector('.testing-confirm-cancel')
+            .addEventListener('click', () => close(false));
+        dialog.querySelector('.testing-confirm-ok').addEventListener('click', () => close(true));
+        document.addEventListener('keydown', onKeydown, true);
+
+        document.body.appendChild(backdrop);
+        document.body.appendChild(dialog);
+        // Focus cancel, not confirm: this dialog only ever guards a deletion.
+        dialog.querySelector('.testing-confirm-cancel').focus();
     });
-    return result.isConfirmed === true;
 }
