@@ -6,6 +6,12 @@ import { ConfigurationManager } from './config/ConfigurationManager.js';
 import { BugListService } from './domain/BugListService.js';
 import { ApiClient } from './core/http/ApiClient.js';
 import { buildErrorsSignature } from './shared/errorsSignature.js';
+import {
+    renderErrorItemBody,
+    renderErrorsSkeleton,
+    renderErrorsSummary,
+} from './ui/popup/errorItemTemplate.js';
+import { html } from './ui/shared/html.js';
 
 /** Bỏ qua revalidate trong khoảng này sau khi người dùng mở cửa sổ lỗi. */
 const REVALIDATE_SUPPRESS_MS = 3000;
@@ -164,17 +170,6 @@ class UIManager {
         this.checkForUpdates();
     }
 
-    escapeHtml(value) {
-        return value == null
-            ? ''
-            : String(value)
-                  .replace(/&/g, '&amp;')
-                  .replace(/</g, '&lt;')
-                  .replace(/>/g, '&gt;')
-                  .replace(/"/g, '&quot;')
-                  .replace(/'/g, '&#039;');
-    }
-
     async setupUI() {
         const { errorsVisible } = await chrome.storage.local.get('errorsVisible');
         if (errorsVisible) $('#toggleErrors').prop('checked', true);
@@ -232,7 +227,34 @@ class UIManager {
 
     setupBreakpointFilters() {
         $('#controls').append(
-            `\n            <div class="breakpoint-filters">\n                <button class="filter-btn active" data-breakpoint="${ConfigurationManager.BREAKPOINTS.ALL}">Tất cả</button>\n                <button class="filter-btn" data-breakpoint="${ConfigurationManager.BREAKPOINTS.DESKTOP}">Desktop</button>\n                <button class="filter-btn" data-breakpoint="${ConfigurationManager.BREAKPOINTS.TABLET}">Tablet</button>\n                <button class="filter-btn" data-breakpoint="${ConfigurationManager.BREAKPOINTS.MOBILE}">Mobile</button>\n            </div>\n        `,
+            String(html`
+                <div class="breakpoint-filters">
+                    <button
+                        class="filter-btn active"
+                        data-breakpoint="${ConfigurationManager.BREAKPOINTS.ALL}"
+                    >
+                        Tất cả
+                    </button>
+                    <button
+                        class="filter-btn"
+                        data-breakpoint="${ConfigurationManager.BREAKPOINTS.DESKTOP}"
+                    >
+                        Desktop
+                    </button>
+                    <button
+                        class="filter-btn"
+                        data-breakpoint="${ConfigurationManager.BREAKPOINTS.TABLET}"
+                    >
+                        Tablet
+                    </button>
+                    <button
+                        class="filter-btn"
+                        data-breakpoint="${ConfigurationManager.BREAKPOINTS.MOBILE}"
+                    >
+                        Mobile
+                    </button>
+                </div>
+            `),
         );
         $('.filter-btn').click((event) => this.handleBreakpointFilter(event));
     }
@@ -412,28 +434,7 @@ class UIManager {
      */
     showErrorsLoading() {
         const rowCount = Math.min(Math.max(this.lastErrors.length, 3), 5);
-        const rows = Array.from(
-            { length: rowCount },
-            () => `
-            <div class="error-item error-skeleton">
-                <div class="error-row">
-                    <div class="error-main">
-                        <div class="skeleton-block skeleton-line skeleton-topline"></div>
-                        <div class="skeleton-block skeleton-line skeleton-text"></div>
-                        <div class="skeleton-block skeleton-line skeleton-bottomline"></div>
-                    </div>
-                    <div class="error-actions">
-                        <div class="skeleton-block skeleton-action"></div>
-                        <div class="skeleton-block skeleton-action"></div>
-                    </div>
-                </div>
-            </div>
-        `,
-        ).join('');
-
-        $('#errorsList').html(
-            `<div class="errors-loading" role="status" aria-label="Đang tải danh sách lỗi">${rows}</div>`,
-        );
+        $('#errorsList').html(String(renderErrorsSkeleton(rowCount)));
     }
 
     displayErrors(errors) {
@@ -453,79 +454,24 @@ class UIManager {
     }
 
     renderErrorsList(container, errors) {
-        const openErrors = errors.filter((error) => !error.status || error.status === 'open');
-        const resolvedErrors = errors.filter((error) => error.status === 'resolved');
+        const breakpointLabel =
+            this.state.selectedBreakpoint === ConfigurationManager.BREAKPOINTS.ALL
+                ? 'Tất cả breakpoint'
+                : `Breakpoint ${this.state.selectedBreakpoint}`;
 
-        const openCount = openErrors.length || 0;
-        const resolvedCount = resolvedErrors.length || 0;
-        container.append(
-            `\n                <div class="error-count">\n                    <span>Tổng số lỗi: ${errors.length}</span>\n                    <span class="breakpoint-label">\n                        ${this.state.selectedBreakpoint === ConfigurationManager.BREAKPOINTS.ALL ? 'Tất cả breakpoint' : `Breakpoint ${this.state.selectedBreakpoint}`}\n                    </span>\n                </div>\n                <div class="error-group">\n                    <div class="error-group-header">\n                        <span>Errors: ${openCount} - Resolved: ${resolvedCount}/${errors.length}</span>\n                    </div>\n                </div>\n            `,
-        );
-
+        container.append(String(renderErrorsSummary(errors, breakpointLabel)));
         errors.forEach((error, index) => this.renderErrorItem(container, error, index));
-    }
-
-    /**
-     * Bug list tags of an error, resolved to names via the cached options.
-     * Ids no longer active stay visible (styled as unknown) instead of vanishing.
-     */
-    buildBugListMarkup(error) {
-        const selectedIds = BugListService.sanitizeIds(error.bug_list_ids);
-        if (selectedIds.length === 0) return '';
-
-        // Options chưa tải được thì mọi id đều "chưa biết tên" — đừng tô đỏ như tag hỏng.
-        const isOptionsLoaded = BugListService.cachedOptions !== null;
-        const chips = BugListService.resolveSelected(
-            BugListService.cachedOptions ?? [],
-            selectedIds,
-        )
-            .map((option) => {
-                const safeName = this.escapeHtml(option.name);
-                const unknownClass = option.isUnknown && isOptionsLoaded ? ' is-unknown' : '';
-                return `<span class="error-bug-tag${unknownClass}" title="${safeName}">${safeName}</span>`;
-            })
-            .join('');
-
-        return `<div class="error-bug-list">${chips}</div>`;
     }
 
     renderErrorItem(container, error, index) {
         const errorItem = $('<div>').addClass('error-item');
-        if (error.status === 'resolved') errorItem.addClass('resolved');
-        if (error.status === 'closed') errorItem.addClass('closed');
-        if (!error.status || error.status === 'open') errorItem.addClass('open');
-
-        const timestamp = error.timestamp ? new Date(error.timestamp).toLocaleString('vi-VN') : '';
-        const comments = Array.isArray(error.comments) ? error.comments : [];
-        const lastComment = comments.length > 0 ? comments[comments.length - 1] : null;
-        const statusBadge = this.createStatusBadge(error.status);
-        const isResolved = error.status === 'resolved';
-        const resolvedClass = isResolved ? 'bg-success' : '';
-        const commentText = this.escapeHtml(lastComment?.text || '');
-        const commentsCount = comments.length;
-        const breakpointType = error.breakpoint ? error.breakpoint.type : 'all';
-        const breakpointWidth = error.breakpoint ? `${error.breakpoint.width}px` : '';
-        const safeUrl = this.escapeHtml(error.url || '');
-        const bugListMarkup = this.buildBugListMarkup(error);
-
-        errorItem.html(
-            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        ${timestamp ? `<span class="error-time">${timestamp}</span>` : ''}\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    ${bugListMarkup}\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-x' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash"></i>\n                    </button>\n                </div>\n            </div>\n        `,
+        errorItem.addClass(
+            error.status === 'resolved' || error.status === 'closed' ? error.status : 'open',
         );
+        errorItem.html(String(renderErrorItemBody(error, index)));
 
         this.setupErrorItemEventHandlers(errorItem, error);
         container.append(errorItem);
-    }
-
-    createStatusBadge(status) {
-        const badge = $('<span>').addClass('status-badge');
-        switch (status) {
-            case 'resolved':
-                return badge.addClass('resolved').text('Resolved').prop('outerHTML');
-            case 'closed':
-                return badge.addClass('closed').text('Closed').prop('outerHTML');
-            default:
-                return badge.addClass('open').text('Open').prop('outerHTML');
-        }
     }
 
     setupErrorItemEventHandlers(errorItem, error) {
@@ -663,7 +609,40 @@ $(document).ready(async function () {
         const userInfo = await AuthManager.getUserInfo();
         if (userInfo) {
             $('.header').append(
-                `\n                <div class="user-info">\n                    <span class="user-id">ID: ${userInfo.id}</span>\n                    <span class="user-name">Tên: ${userInfo.name}</span>\n                    <button id="logoutBtn" class="logout-btn" title="Đăng xuất" aria-label="Đăng xuất">\n                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">\n                            <path\n                            d="M12 2v10"\n                            stroke="currentColor"\n                            stroke-width="2"\n                            stroke-linecap="round"\n                            />\n                            <path\n                            d="M6 5a8 8 0 1 0 12 0"\n                            stroke="currentColor"\n                            stroke-width="2"\n                            stroke-linecap="round"\n                            />\n                        </svg>\n                        <span class="visually-hidden">Đăng xuất</span>\n                    </button>\n                </div>\n            `,
+                String(html`
+                    <div class="user-info">
+                        <span class="user-id">ID: ${userInfo.id}</span>
+                        <span class="user-name">Tên: ${userInfo.name}</span>
+                        <button
+                            id="logoutBtn"
+                            class="logout-btn"
+                            title="Đăng xuất"
+                            aria-label="Đăng xuất"
+                        >
+                            <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M12 2v10"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                />
+                                <path
+                                    d="M6 5a8 8 0 1 0 12 0"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                />
+                            </svg>
+                            <span class="visually-hidden">Đăng xuất</span>
+                        </button>
+                    </div>
+                `),
             );
 
             $('#logoutBtn').click(async () => {
