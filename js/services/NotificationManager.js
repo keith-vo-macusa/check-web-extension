@@ -1,5 +1,4 @@
 import TabManager from './TabManager.js';
-import { messages } from '../constants/index.js';
 import AlertManager from './AlertManager.js';
 import AuthManager from '../auth.js';
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
@@ -18,7 +17,7 @@ export default class NotificationManager {
 
         try {
             sendNotificationButton.prop('disabled', true);
-            AlertManager.loading(messages.loading);
+            AlertManager.loading(ConfigurationManager.MESSAGES.loading);
 
             const accessToken = await AuthManager.getAccessToken();
             const headers = { 'Content-Type': 'application/json' };

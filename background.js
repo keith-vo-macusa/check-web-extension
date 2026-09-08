@@ -1,7 +1,7 @@
 import { checkForUpdates, setupUpdateCheck } from './js/services/UpdateChecker.js';
 import { handleWindowMessage, handleWindowClose } from './js/services/WindowsManager.js';
 import { handleBadgeAndErrors } from './js/services/BadgeManager.js';
-import { DEFAULT_STORAGE, CURRENT_VERSION } from './js/constants/common.js';
+import { ConfigurationManager } from './js/config/ConfigurationManager.js';
 
 /**
  * Create the offscreen document used to keep background capabilities available.
@@ -20,7 +20,7 @@ async function createOffscreen() {
  * Handle extension installation/update lifecycle.
  */
 chrome.runtime.onInstalled.addListener(() => {
-    console.log(`Website Testing Assistant ${CURRENT_VERSION} installed/updated`);
+    console.log(`Website Testing Assistant ${ConfigurationManager.getCurrentVersion()} installed/updated`);
     checkForUpdates();
     setupUpdateCheck();
 });
@@ -34,8 +34,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             chrome.storage.local.get(['updateAvailable', 'latestVersion', 'updateUrl'], (storage) => {
                 sendResponse({
                     updateAvailable: storage.updateAvailable || false,
-                    currentVersion: CURRENT_VERSION,
-                    latestVersion: storage.latestVersion || CURRENT_VERSION,
+                    currentVersion: ConfigurationManager.getCurrentVersion(),
+                    latestVersion: storage.latestVersion || ConfigurationManager.getCurrentVersion(),
                     updateUrl: storage.updateUrl,
                 });
             });
@@ -72,7 +72,7 @@ chrome.notifications.onClicked.addListener((notificationId) => {
     });
 });
 
-chrome.storage.local.set(DEFAULT_STORAGE);
+chrome.storage.local.set(ConfigurationManager.getDefaultStorage());
 chrome.windows.onRemoved.addListener(handleWindowClose);
 chrome.runtime.onStartup.addListener(createOffscreen);
 self.onmessage = () => {};

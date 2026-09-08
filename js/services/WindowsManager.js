@@ -13,7 +13,7 @@ import { WindowsService } from '../core/WindowsService.js';
  * navigating gives a wrong correction whenever the two pages differ in scrollbars.
  */
 
-const STORAGE_KEY = 'errorWindowId';
+const STORAGE_KEY = ConfigurationManager.STORAGE_KEYS.ERROR_WINDOW_ID;
 const DEFAULT_INNER_SIZE = { width: 800, height: 600 };
 const NAVIGATION_TIMEOUT_MS = 15000;
 const SIZE_TOLERANCE_PX = 1;

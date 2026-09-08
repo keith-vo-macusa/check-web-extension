@@ -1,12 +1,5 @@
 import TabManager from './services/TabManager.js';
 import AuthManager from './auth.js';
-import {
-    BREAKPOINTS,
-    typeNotification,
-    messages,
-    ACTION_MESSAGE,
-    ADMIN_EMAIL,
-} from './constants/index.js';
 import AlertManager from './services/AlertManager.js';
 import NotificationManager from './services/NotificationManager.js';
 import { ConfigurationManager } from './config/ConfigurationManager.js';
@@ -20,7 +13,7 @@ class PopupState {
         this.isActive = false;
         this.errorsVisible = true;
         this.resolvedErrorsVisible = false;
-        this.selectedBreakpoint = BREAKPOINTS.ALL;
+        this.selectedBreakpoint = ConfigurationManager.BREAKPOINTS.ALL;
         this.isRectMode = false;
         this.drawOpenErrors = false;
         this.drawResolvedErrors = false;
@@ -268,7 +261,7 @@ class UIManager {
 
     setupBreakpointFilters() {
         $('#controls').append(
-            `\n            <div class="breakpoint-filters">\n                <button class="filter-btn active" data-breakpoint="${BREAKPOINTS.ALL}">Tất cả</button>\n                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.DESKTOP}">Desktop</button>\n                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.TABLET}">Tablet</button>\n                <button class="filter-btn" data-breakpoint="${BREAKPOINTS.MOBILE}">Mobile</button>\n            </div>\n        `,
+            `\n            <div class="breakpoint-filters">\n                <button class="filter-btn active" data-breakpoint="${ConfigurationManager.BREAKPOINTS.ALL}">Tất cả</button>\n                <button class="filter-btn" data-breakpoint="${ConfigurationManager.BREAKPOINTS.DESKTOP}">Desktop</button>\n                <button class="filter-btn" data-breakpoint="${ConfigurationManager.BREAKPOINTS.TABLET}">Tablet</button>\n                <button class="filter-btn" data-breakpoint="${ConfigurationManager.BREAKPOINTS.MOBILE}">Mobile</button>\n            </div>\n        `,
         );
         $('.filter-btn').click((event) => this.handleBreakpointFilter(event));
     }
@@ -279,7 +272,7 @@ class UIManager {
 
         try {
             await TabManager.sendMessage({
-                action: this.state.isActive ? ACTION_MESSAGE.ACTIVATE : ACTION_MESSAGE.DEACTIVATE,
+                action: this.state.isActive ? ConfigurationManager.ACTIONS.ACTIVATE : ConfigurationManager.ACTIONS.DEACTIVATE,
             });
         } catch {
             console.log('Cannot toggle mode - content script not available');
@@ -296,7 +289,7 @@ class UIManager {
 
         try {
             await TabManager.sendMessage({
-                action: isVisible ? ACTION_MESSAGE.SHOW_ALL_ERRORS : ACTION_MESSAGE.HIDE_ALL_ERRORS,
+                action: isVisible ? ConfigurationManager.ACTIONS.SHOW_ALL_ERRORS : ConfigurationManager.ACTIONS.HIDE_ALL_ERRORS,
             });
         } catch {
             console.log('Cannot toggle errors visibility - content script not available');
@@ -309,11 +302,11 @@ class UIManager {
     }
 
     async handleClearAll() {
-        AlertManager.confirm('Xóa tất cả lỗi', messages.remove_all_errors, 'Xóa', 'Hủy').then(
+        AlertManager.confirm('Xóa tất cả lỗi', ConfigurationManager.MESSAGES.remove_all_errors, 'Xóa', 'Hủy').then(
             async (result) => {
                 if (result.isConfirmed)
                     try {
-                        AlertManager.loading(messages.loading);
+                        AlertManager.loading(ConfigurationManager.MESSAGES.loading);
                         const response = await ErrorManager.clearAllErrors();
                         if (response?.success) {
                             this.refreshErrorsList();
@@ -336,7 +329,7 @@ class UIManager {
 
         try {
             await TabManager.sendMessage({
-                action: ACTION_MESSAGE.DRAW_OPEN_ERRORS,
+                action: ConfigurationManager.ACTIONS.DRAW_OPEN_ERRORS,
                 drawOpenErrors,
             });
         } catch {
@@ -351,7 +344,7 @@ class UIManager {
 
         try {
             await TabManager.sendMessage({
-                action: ACTION_MESSAGE.DRAW_RESOLVED_ERRORS,
+                action: ConfigurationManager.ACTIONS.DRAW_RESOLVED_ERRORS,
                 drawResolvedErrors,
             });
         } catch {
@@ -476,7 +469,7 @@ class UIManager {
     filterErrorsByBreakpoint(errors) {
         return errors.filter(
             (error) =>
-                this.state.selectedBreakpoint === BREAKPOINTS.ALL ||
+                this.state.selectedBreakpoint === ConfigurationManager.BREAKPOINTS.ALL ||
                 (!!error.breakpoint && error.breakpoint.type === this.state.selectedBreakpoint),
         );
     }
@@ -488,7 +481,7 @@ class UIManager {
         const openCount = openErrors.length || 0;
         const resolvedCount = resolvedErrors.length || 0;
         container.append(
-            `\n                <div class="error-count">\n                    <span>Tổng số lỗi: ${errors.length}</span>\n                    <span class="breakpoint-label">\n                        ${this.state.selectedBreakpoint === BREAKPOINTS.ALL ? 'Tất cả breakpoint' : `Breakpoint ${this.state.selectedBreakpoint}`}\n                    </span>\n                </div>\n                <div class="error-group">\n                    <div class="error-group-header">\n                        <span>Errors: ${openCount} - Resolved: ${resolvedCount}/${errors.length}</span>\n                    </div>\n                </div>\n            `,
+            `\n                <div class="error-count">\n                    <span>Tổng số lỗi: ${errors.length}</span>\n                    <span class="breakpoint-label">\n                        ${this.state.selectedBreakpoint === ConfigurationManager.BREAKPOINTS.ALL ? 'Tất cả breakpoint' : `Breakpoint ${this.state.selectedBreakpoint}`}\n                    </span>\n                </div>\n                <div class="error-group">\n                    <div class="error-group-header">\n                        <span>Errors: ${openCount} - Resolved: ${resolvedCount}/${errors.length}</span>\n                    </div>\n                </div>\n            `,
         );
 
         errors.forEach((error, index) => this.renderErrorItem(container, error, index));
@@ -557,11 +550,11 @@ class UIManager {
     setupErrorItemEventHandlers(errorItem, error) {
         errorItem.find('.delete-error-btn').click(async (event) => {
             event.stopPropagation();
-            AlertManager.confirm('Xóa lỗi', messages.remove_error, 'Xóa', 'Hủy').then(
+            AlertManager.confirm('Xóa lỗi', ConfigurationManager.MESSAGES.remove_error, 'Xóa', 'Hủy').then(
                 async (result) => {
                     if (result.isConfirmed)
                         try {
-                            AlertManager.loading(messages.loading);
+                            AlertManager.loading(ConfigurationManager.MESSAGES.loading);
                             const response = await ErrorManager.deleteError(error.id);
                             AlertManager.close();
                             if (response?.success) {
@@ -582,16 +575,16 @@ class UIManager {
             event.stopPropagation();
             AlertManager.confirm(
                 'Thay đổi trạng thái',
-                messages.change_status_error,
+                ConfigurationManager.MESSAGES.change_status_error,
                 'Check',
                 'Hủy',
             ).then(async (result) => {
                 if (result.isConfirmed)
                     try {
-                        AlertManager.loading(messages.loading);
+                        AlertManager.loading(ConfigurationManager.MESSAGES.loading);
                         const domainName = await TabManager.getCurrentTabDomain();
                         const response = await TabManager.sendMessageToBackground({
-                            action: ACTION_MESSAGE.CHECK_FIXED,
+                            action: ConfigurationManager.ACTIONS.CHECK_FIXED,
                             errorId: error.id,
                             domainName,
                         });
@@ -665,7 +658,7 @@ $(document).ready(async function () {
     const sendNotification = async (userInfo, notificationType) => {
         AlertManager.confirm(
             'Gửi thông báo',
-            messages[notificationType] || 'Bạn có chắc muốn gửi thông báo không?',
+            ConfigurationManager.MESSAGES[notificationType] || 'Bạn có chắc muốn gửi thông báo không?',
             'Gửi',
             'Hủy',
         ).then(async (result) => {
@@ -700,11 +693,11 @@ $(document).ready(async function () {
                             await chrome.storage.local.remove(['feedback']);
                             const didLogout = await AuthManager.logout();
                             await TabManager.sendMessage({
-                                action: ACTION_MESSAGE.DEACTIVATE,
+                                action: ConfigurationManager.ACTIONS.DEACTIVATE,
                                 reason: 'logout',
                             });
                             await TabManager.sendMessage({
-                                action: ACTION_MESSAGE.HIDE_ALL_ERRORS,
+                                action: ConfigurationManager.ACTIONS.HIDE_ALL_ERRORS,
                             });
                             await TabManager.reloadCurrentTab();
                             window.close();
@@ -736,7 +729,7 @@ $(document).ready(async function () {
                 toggleModeSection.show();
                 $('#sendBugFoundNotification').show();
                 $('#sendBugFoundNotification').click(() => {
-                    sendNotification(userInfo, typeNotification.BUG_FOUND);
+                    sendNotification(userInfo, ConfigurationManager.NOTIFICATION_TYPES.BUG_FOUND);
                 });
             } else {
                 toggleModeSection.hide();
@@ -745,7 +738,7 @@ $(document).ready(async function () {
             if (hasMemberPermission) {
                 $('#sendBugFixedNotification').show();
                 $('#sendBugFixedNotification').click(() => {
-                    sendNotification(userInfo, typeNotification.BUG_FIXED);
+                    sendNotification(userInfo, ConfigurationManager.NOTIFICATION_TYPES.BUG_FIXED);
                 });
             }
         }
@@ -754,7 +747,7 @@ $(document).ready(async function () {
         uiManager = new UIManager(popupState);
 
         try {
-            const contentState = await TabManager.sendMessage({ action: ACTION_MESSAGE.GET_STATE });
+            const contentState = await TabManager.sendMessage({ action: ConfigurationManager.ACTIONS.GET_STATE });
             if (contentState) {
                 popupState.setActive(contentState.isActive);
                 uiManager.updateUI();
