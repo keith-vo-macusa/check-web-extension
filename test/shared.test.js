@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateUUID } from '../src/content/id.js';
 import { formatTime, getStatusText } from '../src/content/format.js';
-import { buildErrorsSignature } from '../src/popup/errorsSignature.js';
+import { buildErrorsSignature } from '../src/popup/ErrorsSignature.js';
 
 describe('generateUUID', () => {
     const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

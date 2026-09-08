@@ -17,7 +17,7 @@ before(async () => {
         renderStatusBadge,
         renderErrorsSkeleton,
         renderErrorsSummary,
-    } = await import('../src/popup/errorItemTemplate.js'));
+    } = await import('../src/popup/ErrorItemTemplate.js'));
     ({ BugListService } = await import('../src/shared/BugListService.js'));
 });
 

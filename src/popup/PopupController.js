@@ -2,13 +2,13 @@ import TabManager from './TabManager.js';
 import AlertManager from './AlertManager.js';
 import { ConfigurationManager } from '../shared/config/ConfigurationManager.js';
 import { BugListService } from '../shared/BugListService.js';
-import { buildErrorsSignature } from './errorsSignature.js';
-import { ErrorManager } from './popupErrors.js';
+import { buildErrorsSignature } from './ErrorsSignature.js';
+import { ErrorManager } from './PopupErrors.js';
 import {
     renderErrorItemBody,
     renderErrorsSkeleton,
     renderErrorsSummary,
-} from './errorItemTemplate.js';
+} from './ErrorItemTemplate.js';
 import { html } from '../shared/ui/html.js';
 
 /** Skip revalidation for this long after the user opens an error window. */

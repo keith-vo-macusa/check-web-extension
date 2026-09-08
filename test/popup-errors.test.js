@@ -6,7 +6,7 @@ let ErrorManager;
 
 before(async () => {
     globalThis.chrome = createFakeChrome().api;
-    ({ ErrorManager } = await import('../src/popup/popupErrors.js'));
+    ({ ErrorManager } = await import('../src/popup/PopupErrors.js'));
 });
 
 describe('flattenErrors', () => {
