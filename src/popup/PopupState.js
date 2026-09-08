@@ -1,8 +1,9 @@
 import { ConfigurationManager } from '../shared/config/ConfigurationManager.js';
 
 /**
- * Trạng thái hiển thị của popup: chế độ chọn, bộ lọc, các công tắc hiển thị lỗi.
- * Ghi thẳng xuống chrome.storage để content script và lần mở popup sau đọc lại.
+ * Popup display state: selection mode, filters, error visibility toggles.
+ * Written straight to chrome.storage so the content script and the next popup
+ * session read the same values.
  */
 export class PopupState {
     constructor() {

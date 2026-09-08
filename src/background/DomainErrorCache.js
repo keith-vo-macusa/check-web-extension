@@ -1,22 +1,23 @@
 import { ErrorLogger } from '../shared/ErrorLogger.js';
 
 /**
- * Cache dữ liệu lỗi theo domain cho service worker.
+ * Per-domain cache of error data for the service worker.
  *
- * Trước đây đây chỉ là một `Map` trong bộ nhớ. MV3 tắt service worker sau
- * khoảng 30 giây rảnh, nên cache biến mất lặng lẽ: badge về 0 và trang đang mở
- * gọi GET_ERRORS sẽ nhận danh sách rỗng.
+ * This used to be a plain in-memory `Map`. MV3 terminates the service worker
+ * after roughly 30 seconds idle and the Map died with it, so the cache emptied
+ * silently: the badge dropped to zero and an open page calling GET_ERRORS got
+ * an empty list back.
  *
- * Nay ghi xuyên qua `chrome.storage.session` — sống qua các lần service worker
- * bị tắt/bật, và tự xoá khi đóng trình duyệt, đúng vòng đời của một cache.
- * Lớp Map vẫn giữ làm tầng nóng để badge không phải chờ storage.
+ * It now write-throughs to `chrome.storage.session`, which survives worker
+ * restarts and clears when the browser closes — the right lifetime for a cache.
+ * The Map stays as a hot layer so badge updates do not wait on storage.
  */
 export class DomainErrorCache {
     static KEY_PREFIX = 'errorsCache:';
 
     /**
-     * @param {object|null} [storageArea] Bỏ trống để tự chọn; truyền null để
-     *   chạy thuần bộ nhớ (dùng trong test).
+     * @param {object|null} [storageArea] Omit to pick one automatically; pass
+     *   null for memory-only, which is what tests use.
      */
     constructor(storageArea) {
         this.memory = new Map();
@@ -25,7 +26,7 @@ export class DomainErrorCache {
             this.area = storageArea;
             return;
         }
-        // storage.session cần Chrome 102+; rơi về local nếu không có.
+        // storage.session needs Chrome 102+; fall back to local without it.
         const storage = typeof chrome !== 'undefined' ? chrome.storage : null;
         this.area = storage?.session ?? storage?.local ?? null;
     }
@@ -39,7 +40,7 @@ export class DomainErrorCache {
     }
 
     /**
-     * Đếm số lỗi đang mở trong một payload domain.
+     * Count the open errors in a domain payload.
      */
     static countOpenErrors(payload, openStatus = 'open') {
         if (!payload?.path) return 0;
@@ -93,7 +94,7 @@ export class DomainErrorCache {
     }
 
     /**
-     * Xoá toàn bộ cache, chỉ đụng vào khoá của chính mình.
+     * Drop the whole cache, touching only keys owned by this class.
      */
     async clear() {
         const domains = [...this.memory.keys()];
@@ -101,7 +102,7 @@ export class DomainErrorCache {
         if (!this.area) return;
 
         try {
-            // Đọc hết khoá để dọn cả những domain chỉ còn trong storage.
+            // Read every key so domains left only in storage are cleaned up too.
             const all = await this.area.get(null);
             const keys = Object.keys(all ?? {}).filter((key) =>
                 key.startsWith(DomainErrorCache.KEY_PREFIX),

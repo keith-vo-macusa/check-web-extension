@@ -87,8 +87,8 @@ export class BugListPicker {
     }
 
     bindEvents() {
-        // Giữ focus ở input khi bấm vào vùng trống của control hoặc vào dropdown,
-        // nếu không blur sẽ đóng dropdown trước khi click kịp chạy.
+        // Keep focus on the input when clicking empty control space or the dropdown;
+        // otherwise blur closes the dropdown before the click can land.
         this.rootElement
             .querySelector('.bug-list-picker-control')
             .addEventListener('mousedown', (event) => {
@@ -142,8 +142,8 @@ export class BugListPicker {
         if (event.key === 'Enter') {
             const highlighted = this.visibleOptions[this.highlightedIndex];
             if (!this.isDropdownOpen || !highlighted) return;
-            // Chỉ nuốt Enter khi thật sự đang chọn option, để Enter trong ô
-            // bình luận vẫn gửi được như cũ.
+            // Only swallow Enter while an option is actually highlighted, so Enter in
+            // the comment box still sends as before.
             event.preventDefault();
             event.stopPropagation();
             this.toggleOption(highlighted.id);
@@ -198,7 +198,7 @@ export class BugListPicker {
         this.chipsElement.innerHTML = selectedOptions
             .map((option) => {
                 const safeName = ValidationService.sanitizeHtml(option.name);
-                // Trước khi options về, mọi id đều "chưa biết tên" — đừng tô đỏ vội.
+                // Before options arrive every id is simply unnamed, not invalid — do not flag it red yet.
                 const unknownClass = option.isUnknown && this.isOptionsLoaded ? ' is-unknown' : '';
                 return `
                     <span class="bug-list-chip${unknownClass}" title="${safeName}">

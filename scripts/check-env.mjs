@@ -1,9 +1,9 @@
 /**
- * Chặn việc lỡ tay commit URL backend dev.
+ * Stops a dev backend URL from being committed by accident.
  *
- * Chạy trong CI (`npm run check:env`). Nếu src/shared/config/env.js không giữ URL
- * production thì fail — đây là lớp phòng vệ cho đúng cái bẫy đã từng dính:
- * BASE_URL bị để localhost và merge lên nhánh chung.
+ * Runs in CI as `npm run check:env` and fails when src/shared/config/env.js is not
+ * pointing at production. Guards against a trap this repo has already fallen into:
+ * BASE_URL left on localhost and merged into a shared branch.
  */
 import { readFileSync } from 'fs';
 

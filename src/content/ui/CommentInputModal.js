@@ -6,10 +6,10 @@ import { setButtonLoading } from './buttonLoading.js';
 import { html } from '../../shared/ui/html.js';
 
 /**
- * Modal "Thêm bình luận" hiện ra sau khi người dùng chọn element hoặc kéo vùng.
+ * The "add comment" modal shown after the user picks an element or drags a region.
  *
- * Tách khỏi CommentThreadManager: nó có vòng đời riêng (mở, lưu, đóng) và không
- * dùng chung state nào với panel thread, ngoài việc cùng cần BugListPicker.
+ * Split out of CommentThreadManager: it has its own lifecycle (open, save, close)
+ * and shares no state with the thread panel beyond both needing a BugListPicker.
  */
 export class CommentInputModal {
     constructor() {
@@ -24,9 +24,10 @@ export class CommentInputModal {
 
     /**
      * @param {object} options
-     * @param {boolean} options.isRect Chọn vùng kéo thả hay chọn element.
-     * @param {Function} options.onSave Nhận (commentText, bugListIds); ném lỗi
-     *   thì modal mở lại để người dùng thử tiếp, không mất nội dung đã gõ.
+     * @param {boolean} options.isRect Dragged region rather than a picked element.
+     * @param {Function} options.onSave Receives (commentText, bugListIds). If it
+     *   throws, the modal stays open so the user can retry without losing what
+     *   they typed.
      * @param {Function} options.onCancel
      */
     open({ isRect = false, onSave = null, onCancel = null } = {}) {

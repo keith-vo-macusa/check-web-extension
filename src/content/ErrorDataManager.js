@@ -18,12 +18,12 @@ export class ErrorDataManager {
         this.store = new ErrorStore();
     }
 
-    /** Đăng ký nhận thay đổi của danh sách lỗi. Trả về hàm huỷ đăng ký. */
+    /** Subscribe to error list changes. Returns an unsubscribe function. */
     subscribe(listener) {
         return this.store.subscribe(listener);
     }
 
-    /** Đổi một error object có thể đã cũ lấy bản đang sống trong store. */
+    /** Swap a possibly stale error object for the one in the store. */
     resolveError(errorLike) {
         return this.store.resolve(errorLike);
     }

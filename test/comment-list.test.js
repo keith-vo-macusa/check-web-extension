@@ -56,7 +56,7 @@ describe('renderComments', () => {
     });
 
     test('dấu nháy trong nội dung không thoát được ra ngoài thuộc tính', () => {
-        // data-original="${text}" từng là lỗ ở đây: sanitizeHtml không escape nháy.
+        // data-original="${text}" was the hole here: sanitizeHtml leaves quotes alone.
         const output = render([comment({ text: '" onmouseover="alert(1)' })]);
         assert.ok(!output.includes('onmouseover="alert'));
     });

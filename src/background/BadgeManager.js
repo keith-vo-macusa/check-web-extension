@@ -324,8 +324,8 @@ export class BadgeManager {
                 })),
             );
 
-            // Chưa có endpoint xoá hàng loạt, nên xoá từng bug. Chạy tuần tự để
-            // không dội hàng chục request cùng lúc lên server.
+            // There is no bulk-delete endpoint, so delete one bug at a time.
+            // Sequentially, to avoid firing dozens of requests at once.
             const failedIds = [];
             for (const deletion of deletions) {
                 try {
@@ -343,8 +343,8 @@ export class BadgeManager {
                 }
             }
 
-            // Chỉ dọn cache những gì server đã xoá thật, để lần fetch sau không
-            // làm các bug xoá hụt "sống lại" một cách khó hiểu.
+            // Only evict what the server actually deleted, so a bug that failed to
+            // delete does not confusingly reappear on the next fetch.
             const remainingPaths = (errorsData?.path ?? [])
                 .map((pathItem) => ({
                     ...pathItem,

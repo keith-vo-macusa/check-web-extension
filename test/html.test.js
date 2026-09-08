@@ -2,9 +2,9 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { html, raw, escapeHtml } from '../src/shared/ui/html.js';
 
-// Khoảng trắng giữa các thẻ không mang nghĩa, và prettier tự format lại phần
-// HTML trong tagged template. Chuẩn hoá để test khẳng định cấu trúc + escaping,
-// chứ không khoá cứng cách xuống dòng.
+// Whitespace between tags carries no meaning, and prettier reformats the HTML
+// inside tagged templates. Normalise it so these assert structure and escaping
+// rather than pinning down indentation.
 const render = (value) => String(value).replace(/>\s+</g, '><').trim();
 
 describe('escapeHtml', () => {

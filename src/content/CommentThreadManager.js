@@ -12,9 +12,10 @@ export class CommentThreadManager {
     /**
      * @param {object} handlers
      * @param {Function} handlers.getUserInfo
-     * @param {Function} handlers.resolveError Đổi một error object có thể đã cũ
-     *   lấy bản đang sống trong ErrorStore. Nếu thiếu, panel sẽ dùng object bắt
-     *   được lúc mở — chính là nguồn gốc bug "sửa/xoá comment không ăn".
+     * @param {Function} handlers.resolveError Swaps a possibly stale error object
+     *   for the one in ErrorStore. Without it the panel keeps the object captured
+     *   when it opened, which is where the "editing a comment does nothing" bug
+     *   came from.
      * @param {Function} handlers.onCommentAdded
      * @param {Function} handlers.onCommentEdited
      * @param {Function} handlers.onCommentDeleted
@@ -46,8 +47,8 @@ export class CommentThreadManager {
     }
 
     /**
-     * Modal thêm bình luận nay là component riêng; giữ hai hàm này làm mặt tiền
-     * cho content.js khỏi phải biết cả hai đối tượng.
+     * The input modal is its own component now; these two stay as a facade so
+     * the content entry point does not have to know about both objects.
      */
     showCommentInputModal(isRect, onSave, onCancel) {
         this.inputModal.open({ isRect, onSave, onCancel });
@@ -173,10 +174,9 @@ export class CommentThreadManager {
      * Bind all interactions inside thread panel.
      */
     bindThreadEvents(panelElement, errorData) {
-        // Panel có thể được vẽ lại bằng dữ liệu mới từ server (refreshThreadPanel),
-        // nên handler phải luôn đọc error object hiện tại thay vì object lúc bind.
-        // Luôn đi qua store: object bắt được lúc bind có thể đã bị thay bằng bản
-        // mới từ server, và khi đó id comment trong DOM không còn khớp object cũ.
+        // Always go through the store. The object captured at bind time may have
+        // been replaced by fresher server data, and once it has, the comment ids in
+        // the DOM no longer match the ids on that stale object.
         const getError = () => {
             const candidate = this.currentThread?.error ?? errorData;
             return this.resolveError?.(candidate) ?? candidate;
@@ -459,8 +459,8 @@ export class CommentThreadManager {
         panelElement.classList.remove('is-syncing');
         if (commentsList.dataset.syncing !== 'true') return;
 
-        // Skeleton vẫn còn nghĩa là refreshThreadPanel chưa chạy (fetch lỗi) —
-        // vẽ lại từ dữ liệu cache đang có thay vì để trống.
+        // Skeleton still in place means refreshThreadPanel never ran (the fetch
+        // failed), so re-render from the cached data rather than leaving it blank.
         delete commentsList.dataset.syncing;
         if (!this.currentThread) return;
         commentsList.innerHTML = renderComments(
@@ -501,7 +501,7 @@ export class CommentThreadManager {
         this.currentThread.error = errorData;
         this.currentThread.userInfo = userInfo;
 
-        // Chỉ vẽ lại chip khi không ở chế độ sửa, tránh nuốt lựa chọn đang dở.
+        // Only redraw the chips outside edit mode, or an in-progress selection is lost.
         if (!this.bugListRow?.isEditing) await this.bugListRow?.renderChips(errorData);
     }
 

@@ -3,15 +3,15 @@ import { BugListPicker } from './BugListPicker.js';
 import { html } from '../../shared/ui/html.js';
 
 /**
- * Hàng "Loại lỗi" trong panel thread: chip chỉ đọc, bấm Sửa thì mở picker ngay
- * tại chỗ.
+ * The bug list row in the thread panel: read-only chips, with an inline picker
+ * once the user hits edit.
  *
- * Tự quản lý picker của mình, nên CommentThreadManager không còn phải giữ
- * threadBugListPicker và ba hàm vòng đời đi kèm.
+ * It owns its picker, so CommentThreadManager no longer carries a picker field
+ * and the three lifecycle methods that went with it.
  */
 export class ThreadBugListRow {
     /**
-     * @param {HTMLElement} panelElement Panel thread chứa hàng này.
+     * @param {HTMLElement} panelElement The thread panel containing this row.
      */
     constructor(panelElement) {
         this.panelElement = panelElement;
@@ -22,7 +22,7 @@ export class ThreadBugListRow {
         return this.picker !== null;
     }
 
-    /** Vẽ chip chỉ đọc. Nạp options trước để id hiện ra thành tên. */
+    /** Draw the read-only chips, loading options first so ids render as names. */
     async renderChips(errorData) {
         const chipsElement = this.panelElement.querySelector('.thread-bug-list-chips');
         if (!chipsElement) return;

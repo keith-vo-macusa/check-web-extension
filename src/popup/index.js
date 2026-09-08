@@ -8,8 +8,8 @@ import { UIManager } from './PopupController.js';
 import { html } from '../shared/ui/html.js';
 
 /**
- * Entry point của popup: kiểm tra đăng nhập, dựng state + controller, đăng ký
- * các listener toàn cục. Mọi thứ khác đã chuyển sang ui/popup và data/.
+ * Popup entry point: check authentication, build state and controller, register
+ * the global listeners. Everything else lives in the modules it imports.
  */
 $(document).ready(async function () {
     let uiManager = null;
@@ -20,7 +20,7 @@ $(document).ready(async function () {
         );
 
     chrome.runtime.onMessage.addListener((message) => {
-        // Sự kiện nền, không phải người dùng bấm — cập nhật im lặng.
+        // A background event, not a user action, so update without the skeleton.
         if (message.action === 'errorAdded' && uiManager)
             uiManager.refreshErrorsList({ showSkeleton: false });
     });

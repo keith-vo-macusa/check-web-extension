@@ -1,12 +1,13 @@
 /**
- * Kiểm tra các đường dẫn nội bộ được viết dưới dạng CHUỖI.
+ * Validates internal paths that are written as plain STRINGS.
  *
- * Sinh ra sau khi đổi cấu trúc: loader.js gọi
- * `chrome.runtime.getURL('content.js')`, file đó đã chuyển sang
- * src/content/index.js, và extension chết ngay từ bước nạp content script.
+ * Added after the restructure: loader.js still called
+ * chrome.runtime.getURL('content.js') after that file had moved to
+ * src/content/index.js, and the extension died at content script load.
  *
- * Không lớp nào hiện có bắt được: đó là chuỗi nên check:undef không thấy,
- * resolve-imports chỉ đi theo câu lệnh import, test thì không nạp manifest.
+ * No existing layer could catch it. It is a string, so check:undef sees nothing;
+ * resolve-imports only follows import statements; the tests never load the
+ * manifest.
  */
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
@@ -31,17 +32,17 @@ function scanDirectory(dir) {
         for (const match of source.matchAll(/getURL\(\s*['"]([^'"]+)['"]\s*\)/g)) {
             check(`${full}: getURL`, match[1]);
         }
-        // Chuỗi trỏ vào tài nguyên trong package, ví dụ createDocument({ url: 'screens/…' }).
+        // Strings pointing at packaged resources, e.g. createDocument({ url: 'screens/…' }).
         for (const match of source.matchAll(
             /['"]((?:screens|src|lib|css|assets)\/[\w./-]+\.\w+)['"]/g,
         )) {
-            check(`${full}: đường dẫn tài nguyên`, match[1]);
+            check(`${full}: resource path`, match[1]);
         }
     }
 }
 scanDirectory('src');
 
-// 2. Đường dẫn trong manifest
+// 2. Paths declared in the manifest
 const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
 manifest.content_scripts?.forEach((entry) => {
     entry.js?.forEach((file) => check('manifest.content_scripts.js', file));
@@ -55,7 +56,7 @@ if (manifest.action?.default_popup) {
 }
 Object.values(manifest.icons ?? {}).forEach((file) => check('manifest.icons', file));
 
-// 3. src trong các file HTML của extension
+// 3. src and href in the extension's HTML pages
 for (const page of readdirSync('screens')) {
     if (!page.endsWith('.html')) continue;
     const source = readFileSync(join('screens', page), 'utf8');

@@ -1,13 +1,14 @@
 /**
- * Bắt định danh không tồn tại — thiếu import, gõ sai tên, biến đã xoá còn gọi.
+ * Catches identifiers that do not exist: missing imports, typos, calls to
+ * something that was deleted.
  *
- * Sinh ra sau khi popup.js dùng ApiClient và buildErrorsSignature suốt nhiều
- * commit mà thiếu hẳn dòng import. Test không bắt được (popup.js kéo jQuery nên
- * không import nổi ngoài trình duyệt), parse-check cũng không, vì cú pháp vẫn
- * hợp lệ — chỉ tới lúc chạy mới ném ReferenceError.
+ * Added after popup.js used ApiClient and buildErrorsSignature for several
+ * commits with no import at all. Tests could not catch it — popup.js pulls in
+ * jQuery, so it cannot be imported outside a browser — and neither could a parse
+ * check, because the syntax is valid. It only fails at runtime.
  *
- * Bật checkJs cho toàn bộ codebase sẽ ra hàng trăm lỗi kiểu; ở đây chỉ giữ đúng
- * nhóm "không tìm thấy tên" và bỏ qua phần còn lại.
+ * Turning on checkJs for the whole codebase produces hundreds of type errors, so
+ * this keeps only the "cannot find name" group and drops the rest.
  */
 import { execFileSync } from 'child_process';
 import { writeFileSync, mkdtempSync } from 'fs';
@@ -20,7 +21,7 @@ const workDir = mkdtempSync(join(tmpdir(), 'check-undefined-'));
 const globalsPath = join(workDir, 'globals.d.ts');
 const configPath = join(workDir, 'tsconfig.json');
 
-// Global do content script / thẻ <script> nạp, không import được.
+// Globals that arrive via <script> tags and cannot be imported.
 writeFileSync(
     globalsPath,
     [
@@ -56,7 +57,7 @@ let output = '';
 try {
     execFileSync('npx', ['tsc', '-p', configPath], { encoding: 'utf8', shell: true });
 } catch (error) {
-    // tsc thoát khác 0 với mọi loại lỗi; chỉ quan tâm nhóm định danh.
+    // tsc exits non-zero for any error; only the identifier group matters here.
     output = String(error.stdout ?? '');
 }
 

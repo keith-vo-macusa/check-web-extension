@@ -1,9 +1,10 @@
 /**
- * Nhận diện và tìm lại element trên trang: XPath, CSS selector, JS path và
- * fingerprint tổng hợp.
+ * Identifying an element and finding it again later: XPath, CSS selector,
+ * JS path, and a combined fingerprint.
  *
- * Tách khỏi js/utils.js — file đó nạp như content script global nên tầng module
- * không import được, buộc phải viết lại hàm ở nhiều nơi.
+ * Split out of the old js/utils.js, which loaded as a global content script and
+ * so could not be imported by the module layer — forcing the same helpers to be
+ * written a second time elsewhere.
  */
 function xpathLiteral(value) {
     // Builds a valid XPath string literal for any input (including quotes).

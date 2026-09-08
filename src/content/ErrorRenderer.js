@@ -290,7 +290,7 @@ export class ErrorRenderer {
             this.highlightedElement = null;
         }
 
-        // Dọn cả những overlay còn sót class từ lần chạy trước (ví dụ sau khi vẽ lại).
+        // Also clear overlays left with the class by an earlier run, e.g. after a re-render.
         this.container
             ?.querySelectorAll(`.${ConfigurationManager.CSS_CLASSES.ERROR_HIGHLIGHT}`)
             .forEach((element) =>

@@ -1,5 +1,5 @@
 /**
- * Sinh id phía client cho bug và comment trước khi server cấp id thật.
+ * Client-side ids for bugs and comments, used until the server assigns real ones.
  */
 export function generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {

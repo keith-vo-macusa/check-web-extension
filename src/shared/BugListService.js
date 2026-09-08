@@ -130,7 +130,7 @@ export class BugListService {
         const seen = new Set();
         const sanitized = [];
         ids.forEach((id) => {
-            // Number(null) và Number('') đều ra 0, nên phải loại trước khi ép kiểu.
+            // Number(null) and Number('') are both 0, so reject them before coercing.
             if (id === null || id === undefined || id === '' || typeof id === 'boolean') return;
 
             const numericId = Number(id);

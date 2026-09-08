@@ -67,7 +67,7 @@ export class ApiClient {
             signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
         });
 
-        // 204 và body rỗng là hợp lệ — đừng để JSON.parse làm hỏng một request thành công.
+        // 204 and an empty body are valid; do not let JSON.parse fail a successful call.
         const payload = await response.json().catch(() => null);
 
         if (!response.ok) {

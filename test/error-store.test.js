@@ -39,7 +39,7 @@ describe('setAll / getAll', () => {
 });
 
 describe('resolve', () => {
-    // Đây là chốt chặn cho con bug "panel vẽ từ bản này, handler ghi vào bản kia".
+    // The guard against "panel renders one copy, handler writes to another".
     test('object cũ cùng id trả về object đang sống trong store', () => {
         const live = errorA();
         store.setAll([live]);

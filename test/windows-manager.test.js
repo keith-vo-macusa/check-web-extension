@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { createFakeChrome, sleep } from './fakes/chrome.js';
 
 /**
- * Mỗi kịch bản cần một instance module riêng vì WindowsManager giữ state ở
- * module scope (activeRequestId, currentPlatform). Query string ép Node nạp lại.
+ * Each scenario needs its own module instance because WindowsManager keeps state
+ * at module scope (activeRequestId, currentPlatform). The query string forces
+ * Node to load a fresh copy.
  */
 async function runScenario(options, drive) {
     const fake = createFakeChrome(options);
@@ -24,7 +25,7 @@ describe('luồng mở cửa sổ lỗi', () => {
         const created = fake.calls.find((call) => call.op === 'windows.create');
         assert.equal(created.type, 'popup', "phải là 'popup'; 'panel' Chrome đã bỏ hỗ trợ");
 
-        // Ước lượng khung đúng ngay => chỉ còn lần update để focus.
+        // The decoration estimate was already right, so only the focus update remains.
         const resizes = fake.calls.filter((call) => call.op === 'windows.update' && call.width);
         assert.equal(resizes.length, 0);
         assert.equal(fake.leakedListeners(), 0);
@@ -44,7 +45,7 @@ describe('luồng mở cửa sổ lỗi', () => {
             'đo trang cũ rồi mới điều hướng sẽ cho số hiệu chỉnh sai',
         );
 
-        // Hội tụ đúng breakpoint sau tối đa 2 lượt.
+        // Converges on the breakpoint within two passes.
         const measures = fake.calls.filter((call) => call.op === 'executeScript.measure');
         assert.deepEqual(measures.at(-1).inner, { width: 375, height: 812 });
         assert.equal(fake.leakedListeners(), 0);

@@ -48,7 +48,7 @@ describe('filterOptions', () => {
 });
 
 describe('sanitizeIds', () => {
-    // Number(null) và Number('') đều ra 0 — từng lọt qua thành id 0.
+    // Number(null) and Number('') are both 0, which once let null through as id 0.
     const cases = [
         [[1, 4, 1, '8', 'abc', null, 4], [1, 4, 8], 'khử trùng lặp và giá trị rác'],
         [[null, undefined, '', 0, -3, 2.5], [], 'loại null/rỗng/0/âm/thập phân'],

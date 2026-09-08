@@ -1,8 +1,9 @@
 /**
- * Chrome extension API giả, đủ dùng cho test logic nền.
+ * A fake Chrome extension API, enough to test background logic.
  *
- * Ghi lại mọi lời gọi vào `calls` để test khẳng định được thứ tự thao tác —
- * thứ tự chính là chỗ WindowsManager từng sai (đo kích thước trước khi điều hướng).
+ * Records every call in `calls` so tests can assert on the order of operations —
+ * order is exactly what WindowsManager got wrong, measuring the viewport before
+ * navigating.
  */
 export function createFakeChrome({
     storedWindowId = null,
@@ -11,7 +12,7 @@ export function createFakeChrome({
     outerSize = { width: 1016, height: 740 },
     contentScriptAnswers = true,
     windowExists = true,
-    // Chrome thật: cửa sổ mới có inner ≈ outer trừ phần khung.
+    // Like real Chrome: a new window's inner size is outer minus the decorations.
     decoration = { width: 16, height: 40 },
 } = {}) {
     const calls = [];
@@ -144,7 +145,7 @@ export function createFakeChrome({
         },
         scripting: {
             executeScript: async ({ args }) => {
-                // Lời gọi có args là fallback highlight; không args là đo kích thước.
+                // A call with args is the fallback highlight; without, it is a measurement.
                 if (args) {
                     calls.push({ op: 'executeScript.highlight', errorId: args[0] });
                     return [{ result: true }];
@@ -159,7 +160,7 @@ export function createFakeChrome({
         api,
         calls,
         state,
-        /** Số listener chưa được gỡ — phải về 0 sau mỗi luồng hoàn tất. */
+        /** Listeners still attached; must be 0 once a flow finishes. */
         leakedListeners: () => state.updatedListeners.length + state.removedListeners.length,
         ops: () => calls.map((call) => call.op),
     };

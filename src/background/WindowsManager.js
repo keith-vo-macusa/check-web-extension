@@ -134,7 +134,7 @@ async function applyInnerSize(windowId, tabId, targetInnerSize, requestId) {
         if (isStale(requestId)) return;
 
         const measuredSize = await measureInnerSize(tabId);
-        // Trang trắng/chưa layout xong có thể trả 0 — số đo đó vô nghĩa, bỏ qua.
+        // A blank or not-yet-laid-out page reports 0; that measurement is useless.
         if (!measuredSize || measuredSize.width <= 0 || measuredSize.height <= 0) return;
 
         const widthDiff = targetInnerSize.width - measuredSize.width;
@@ -170,7 +170,7 @@ async function requestHighlight(tabId, errorId, requestId) {
             });
             if (response?.success) return true;
         } catch {
-            // Content script chưa sẵn sàng nhận message — thử lại.
+            // Content script is not ready to receive messages yet; retry.
         }
 
         await delay(HIGHLIGHT_RETRY_DELAY_MS);

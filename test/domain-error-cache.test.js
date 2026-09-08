@@ -2,7 +2,7 @@ import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { DomainErrorCache } from '../src/background/DomainErrorCache.js';
 
-/** storage.session giả — cũng dùng để mô phỏng service worker bị tắt rồi bật lại. */
+/** Fake storage.session, also used to simulate a service worker restart. */
 function createStorageArea() {
     const data = {};
     return {
@@ -64,8 +64,8 @@ describe('đọc ghi cơ bản', () => {
 });
 
 describe('sống sót qua việc service worker bị tắt', () => {
-    // Đây là bug thật: Map trong bộ nhớ chết theo service worker sau ~30s rảnh,
-    // khiến badge về 0 và GET_ERRORS trả rỗng.
+    // A real bug: the in-memory Map died with the service worker after ~30s idle,
+    // dropping the badge to zero and making GET_ERRORS return nothing.
     test('instance mới đọc lại được dữ liệu từ storage', async () => {
         await cache.set(DOMAIN, payload());
 
@@ -94,7 +94,7 @@ describe('sống sót qua việc service worker bị tắt', () => {
             remove: async () => {},
         });
         await assert.doesNotReject(() => broken.set(DOMAIN, payload()));
-        // set vẫn cập nhật tầng nóng, nên phải xoá đi mới thấy nhánh đọc lỗi.
+        // set still fills the hot layer, so clear it to reach the failing read path.
         broken.memory.clear();
         assert.deepEqual(await broken.get(DOMAIN), { path: [] });
     });

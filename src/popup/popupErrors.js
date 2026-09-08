@@ -3,9 +3,9 @@ import { ConfigurationManager } from '../shared/config/ConfigurationManager.js';
 import { ApiClient } from '../shared/http/ApiClient.js';
 
 /**
- * Cổng truy cập dữ liệu lỗi cho popup: API server và cache trong background.
+ * The popup's gateway to error data: the API server and the background cache.
  *
- * flattenErrors và sortErrors là hàm thuần nên test được; phần còn lại là I/O.
+ * flattenErrors and sortErrors are pure and therefore tested; the rest is I/O.
  */
 export class ErrorManager {
     /**

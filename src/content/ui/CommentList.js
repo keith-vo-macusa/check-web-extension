@@ -3,17 +3,17 @@ import { formatTime } from '../format.js';
 import { html, raw, escapeHtml } from '../../shared/ui/html.js';
 
 /**
- * Dựng markup cho danh sách bình luận trong panel thread.
+ * Markup for the comment list inside the thread panel.
  *
- * Không đụng tới DOM — chỉ nhận dữ liệu và trả chuỗi — nên test được thẳng,
- * và đây là chỗ nội dung người dùng nhập đi vào HTML nên đáng để test.
+ * Touches no DOM — data in, string out — so it is directly testable, which matters
+ * because this is where user input reaches HTML.
  */
 
 /**
- * Bình luận có phải của chính người đang xem không.
+ * Whether a comment belongs to the current viewer.
  *
- * So cả id lẫn email vì id có thể là số từ server còn local là chuỗi, và bình
- * luận cũ có thể chỉ có email.
+ * Compares id and email both: ids can be numeric from the server but strings
+ * locally, and older comments may carry only an email.
  */
 export function isOwnComment(comment, userInfo) {
     const commentAuthor = comment?.author;
@@ -30,7 +30,7 @@ export function isOwnComment(comment, userInfo) {
 
 function renderComment(comment, userInfo) {
     const authorName = comment.author?.name || 'Unknown';
-    // linkify chạy trên chuỗi đã escape nên thẻ <a> nó sinh ra là tin cậy.
+    // linkify runs on already-escaped text, so the anchors it emits are trusted.
     const linkedText = raw(ValidationService.linkify(escapeHtml(comment.text)));
 
     return html`
@@ -85,8 +85,8 @@ export function renderComments(comments, userInfo) {
 }
 
 /**
- * Khung xám thay chỗ danh sách trong lúc chờ dữ liệu mới từ server.
- * Kích thước bám theo comment thật để danh sách không nhảy khi swap.
+ * Placeholder blocks shown while fresh data is loading. Sized like real comments
+ * so the list does not jump when the two swap.
  */
 export function renderCommentsSkeleton(itemCount = 3) {
     const items = Array.from({ length: itemCount }, (unused, index) => {

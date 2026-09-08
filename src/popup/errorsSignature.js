@@ -1,9 +1,9 @@
 /**
- * Vân tay rẻ tiền của mọi thứ danh sách lỗi thực sự render.
+ * A cheap fingerprint of everything the error list actually renders.
  *
- * Signature giống nhau nghĩa là vẽ lại sẽ ra DOM y hệt — popup dùng nó để bỏ
- * qua lượt render thừa, tránh nháy màn hình và mất vị trí cuộn khi kiểm tra lại
- * dữ liệu lúc được focus.
+ * An unchanged signature means a re-render would produce identical DOM, so the
+ * popup can skip it — which avoids the flicker and lost scroll position that
+ * revalidating on focus would otherwise cause.
  */
 export function buildErrorsSignature(errors) {
     return errors

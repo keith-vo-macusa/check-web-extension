@@ -11,11 +11,11 @@ import {
 } from './errorItemTemplate.js';
 import { html } from '../shared/ui/html.js';
 
-/** Bỏ qua revalidate trong khoảng này sau khi người dùng mở cửa sổ lỗi. */
+/** Skip revalidation for this long after the user opens an error window. */
 const REVALIDATE_SUPPRESS_MS = 3000;
 
 /**
- * Nối trạng thái popup với DOM: gắn sự kiện, vẽ danh sách lỗi, gọi dữ liệu.
+ * Binds popup state to the DOM: event wiring, rendering the list, fetching data.
  */
 export class UIManager {
     constructor(state) {
@@ -216,7 +216,7 @@ export class UIManager {
         $('.filter-btn').removeClass('active');
         $(event.target).addClass('active');
         this.state.setSelectedBreakpoint($(event.target).data('breakpoint'));
-        // Lọc breakpoint là thao tác client-side, không cần gọi lại server.
+        // Breakpoint filtering is client-side; no need to hit the server again.
         this.displayErrors(this.lastErrors);
     }
 
@@ -255,21 +255,21 @@ export class UIManager {
      * Reload from the server.
      *
      * @param {object} options
-     * @param {boolean} options.showSkeleton Skeleton chỉ dành cho refresh do người
-     *   dùng chủ động gây ra. Revalidate ngầm phải im lặng.
+     * @param {boolean} options.showSkeleton The skeleton is for refreshes the user
+     *   asked for. Background revalidation has to stay silent.
      */
     async refreshErrorsList({ showSkeleton = true } = {}) {
         const requestId = ++this.refreshRequestId;
         if (showSkeleton) this.showErrorsLoading();
 
-        // Options tải song song để chip loại lỗi có tên ngay ở lần vẽ đầu tiên.
+        // Load options in parallel so bug list chips have names on the first paint.
         const [errors] = await Promise.all([
             ErrorManager.loadFreshErrors(),
             BugListService.loadOptions().catch(() => null),
         ]);
         if (requestId !== this.refreshRequestId) return;
 
-        // Dữ liệu y hệt thì đừng vẽ lại: vẽ lại là mất vị trí cuộn và nháy màn hình.
+        // Identical data means no re-render: redrawing loses scroll position and flickers.
         const signature = buildErrorsSignature(errors);
         const isUnchanged = signature === this.lastErrorsSignature;
         this.lastErrors = errors;
@@ -280,8 +280,8 @@ export class UIManager {
     }
 
     /**
-     * Kiểm tra lại dữ liệu khi popup được focus lại — không skeleton, không vẽ lại
-     * nếu không có gì đổi. Bỏ qua ngay sau khi người dùng bấm mở cửa sổ lỗi.
+     * Re-check the data when the popup regains focus: no skeleton, and no re-render
+     * unless something changed. Skipped right after the user opens an error window.
      */
     revalidateErrorsList() {
         if (Date.now() < this.suppressRevalidateUntil) return;
@@ -398,8 +398,8 @@ export class UIManager {
                 return;
             }
 
-            // Mở cửa sổ lỗi sẽ cướp rồi trả lại focus cho popup; đừng để cú focus
-            // đó kích hoạt revalidate và làm nháy danh sách.
+            // Opening the error window takes focus and hands it back; that focus event
+            // must not trigger a revalidation and flicker the list.
             this.suppressRevalidateUntil = Date.now() + REVALIDATE_SUPPRESS_MS;
 
             try {

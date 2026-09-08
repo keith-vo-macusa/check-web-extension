@@ -2,11 +2,11 @@ import { BugListService } from '../shared/BugListService.js';
 import { html } from '../shared/ui/html.js';
 
 /**
- * Markup cho một dòng lỗi trong danh sách của popup.
+ * Markup for one row in the popup's error list.
  *
- * Không đụng jQuery và không đụng DOM — chỉ nhận dữ liệu, trả chuỗi — nên test
- * được. Trước đây nó nằm trong popup.js, mà popup.js kéo jQuery và chạy code
- * DOM ngay lúc import nên không thứ gì bên trong test được.
+ * Touches neither jQuery nor the DOM — data in, string out — so it can be tested.
+ * It used to live in popup.js, which pulls in jQuery and runs DOM code at import,
+ * putting everything inside it out of reach of tests.
  */
 
 const STATUS_LABELS = {
@@ -23,8 +23,8 @@ export function renderStatusBadge(status) {
 }
 
 /**
- * Chip loại lỗi. Options chưa tải được thì mọi id đều "chưa biết tên" — đừng tô
- * đỏ như tag hỏng, vì đỏ nghĩa là tag đã bị gỡ khỏi bug list.
+ * Bug list chips. Before options load, every id is merely unnamed — do not flag it
+ * red, because red means the tag was removed from the bug list.
  */
 export function renderBugListTags(error) {
     const selectedIds = BugListService.sanitizeIds(error.bug_list_ids);
@@ -124,7 +124,7 @@ export function renderErrorItemBody(error, index) {
 }
 
 /**
- * Khung xám khi đang tải, kích thước bám theo dòng lỗi thật để list không nhảy.
+ * Loading placeholders, sized like real rows so the list does not jump.
  */
 export function renderErrorsSkeleton(rowCount) {
     const rows = Array.from(

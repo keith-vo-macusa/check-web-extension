@@ -1,16 +1,15 @@
 /**
- * Tagged template dựng HTML, mặc định escape mọi giá trị chèn vào.
+ * Tagged template for HTML that escapes every interpolated value by default.
  *
- * Trước đây mỗi chỗ tự nhớ gọi ValidationService.sanitizeHtml, mà quên một lần
- * là thành lỗ XSS — nội dung comment và tên loại lỗi đều do người dùng nhập.
- * Ở đây quy tắc bị đảo lại: an toàn là mặc định, muốn chèn HTML thô thì phải
- * nói rõ bằng raw().
+ * Call sites used to be responsible for remembering ValidationService.sanitizeHtml,
+ * and forgetting once is an XSS hole — comment text and bug list names are user
+ * input. This inverts the rule: safe unless you say otherwise with raw().
  *
- *   html`<div title="${name}">${text}</div>`     // name, text được escape
- *   html`<div>${raw(linkifiedText)}</div>`       // cố ý giữ nguyên thẻ
+ *   html`<div title="${name}">${text}</div>`   // name and text are escaped
+ *   html`<div>${raw(linkifiedText)}</div>`     // markup kept on purpose
  *
- * Khác với sanitizeHtml cũ (dựa vào document.createElement), hàm này thuần
- * chuỗi nên chạy được cả trong test lẫn service worker.
+ * Unlike sanitizeHtml, which relies on document.createElement, this is pure
+ * string work, so it also runs in tests and in the service worker.
  */
 
 const ESCAPE_MAP = {
@@ -21,7 +20,7 @@ const ESCAPE_MAP = {
     "'": '&#39;',
 };
 
-/** Đánh dấu chuỗi đã là HTML tin cậy, html`` sẽ chèn nguyên văn. */
+/** Marks a string as trusted HTML so html`` inserts it verbatim. */
 class RawHtml {
     constructor(value) {
         this.value = String(value ?? '');
@@ -41,7 +40,7 @@ export function escapeHtml(value) {
 }
 
 /**
- * Mảng được nối lại, nên list con dựng bằng .map(html`...`) dùng thẳng được.
+ * Arrays are joined, so a list built with .map(html`...`) can be dropped in as is.
  */
 function renderValue(value) {
     if (value === null || value === undefined || value === false) return '';

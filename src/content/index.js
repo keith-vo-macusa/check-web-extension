@@ -44,7 +44,7 @@ export default class WebsiteTestingAssistant {
             onBugListUpdated: this.handleBugListUpdated.bind(this),
         });
 
-        // Dữ liệu đổi ở đâu thì overlay tự cập nhật ở đó, không phải nhớ gọi tay.
+        // Overlays follow the data wherever it changes; no manual redraw calls.
         this.errorDataManager.subscribe((errors) => {
             this.errorRenderer.updateAllErrorBorders(errors);
         });
@@ -167,8 +167,9 @@ export default class WebsiteTestingAssistant {
                 sendResponse({ success: true });
                 break;
             case ConfigurationManager.ACTIONS.HIGHLIGHT_ERROR:
-                // Trả success ngay cả khi overlay chưa vẽ xong: đã nhận thì background
-                // ngừng retry, phần còn lại do displayExistingErrors lo.
+                // Report success even when the overlay is not drawn yet: answering at
+                // all stops the background retrying, and displayExistingErrors will
+                // replay the request once the overlays exist.
                 sendResponse({ success: true, pending: !this.highlightError(message.errorId) });
                 break;
             case ConfigurationManager.ACTIONS.SET_ERRORS_IN_CONTENT:
@@ -407,8 +408,8 @@ export default class WebsiteTestingAssistant {
     }
 
     /**
-     * Background đã xoá trên server rồi mới báo xuống đây, nên phía này chỉ dọn
-     * phần hiển thị và đồng bộ lại từ cache.
+     * The background deletes on the server before notifying us, so this side only
+     * clears the overlays and re-syncs from cache.
      */
     async clearAllErrors() {
         this.errorRenderer.removeAllErrorBorders();

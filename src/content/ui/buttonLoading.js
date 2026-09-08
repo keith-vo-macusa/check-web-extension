@@ -1,11 +1,11 @@
 import { html, raw } from '../../shared/ui/html.js';
 
 /**
- * Trạng thái loading cho nút bất đồng bộ, dùng chung giữa modal, panel comment
- * và hàng loại lỗi.
+ * Loading state for async buttons, shared by the modal, the comment panel and
+ * the bug list row.
  *
- * Lưu lại innerHTML và trạng thái disabled ban đầu để khôi phục đúng nguyên
- * trạng — nút vốn có thể đang disabled sẵn vì lý do khác.
+ * Records the original innerHTML and disabled state so the button is restored
+ * exactly as it was — it may already have been disabled for another reason.
  */
 
 const SPINNER = html`
@@ -14,7 +14,7 @@ const SPINNER = html`
     </svg>
 `;
 
-/** Nút chỉ có icon thì thay bằng spinner, nút có chữ thì đổi nhãn. */
+/** Icon-only buttons get a spinner; buttons with text get their label swapped. */
 const ICON_BUTTON_CLASSES = ['btn-send-icon', 'btn-inside-input', 'testing-modal-send'];
 
 export function getSpinnerMarkup() {

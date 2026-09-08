@@ -1,8 +1,8 @@
 /**
- * Định dạng hiển thị dùng chung giữa content script và popup.
+ * Display formatting for the content script.
  */
 
-/** Nhãn thời gian tương đối: "Vừa xong", "5 phút trước", ... */
+/** Relative time label: "Vừa xong", "5 phút trước", and so on. */
 export function formatTime(timestamp) {
     const elapsedMs = Date.now() - timestamp;
     return elapsedMs < 60000
@@ -14,7 +14,7 @@ export function formatTime(timestamp) {
             : `${Math.floor(elapsedMs / 86400000)} ngày trước`;
 }
 
-/** Nhãn tiếng Việt cho trạng thái lỗi. */
+/** Vietnamese label for an error status. */
 export function getStatusText(status) {
     return { open: 'Mở', resolved: 'Đã giải quyết', closed: 'Đã đóng' }[status] || 'Mở';
 }

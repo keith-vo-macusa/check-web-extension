@@ -1,22 +1,23 @@
 /**
- * Nguồn sự thật duy nhất cho danh sách lỗi của tab hiện tại.
+ * Single source of truth for the current tab's errors.
  *
- * Trước đây dữ liệu tồn tại song song ở nhiều nơi (ErrorDataManager giữ một
- * mảng, ErrorRenderer giữ một Map, panel comment giữ một object). Không nơi nào
- * biết nơi khác vừa đổi, nên panel vẽ từ bản này còn handler ghi vào bản kia —
- * đúng con bug "sửa/xoá comment không ăn".
+ * The data used to live in parallel copies that did not know about each other:
+ * ErrorDataManager held an array, ErrorRenderer a Map, the comment panel an
+ * object captured when it opened. The panel rendered from one copy while the
+ * handler wrote into another, which is what produced the "editing or deleting a
+ * comment does nothing" bug.
  *
- * `resolve()` là chốt chặn cho cả họ bug đó: đưa vào một object có thể đã cũ,
- * nhận về đúng object đang sống trong store.
+ * resolve() is the guard against that whole family of bugs: hand it a possibly
+ * stale object, get back the one actually in the store.
  */
 export class ErrorStore {
     constructor() {
-        /** @type {Map<string, object>} Map giữ nguyên thứ tự chèn. */
+        /** @type {Map<string, object>} A Map preserves insertion order. */
         this.errorsById = new Map();
         this.listeners = new Set();
     }
 
-    /** Thay toàn bộ nội dung, dùng khi fetch về danh sách mới. */
+    /** Replace everything, for when a fresh list arrives from the server. */
     setAll(errors) {
         this.errorsById.clear();
         (Array.isArray(errors) ? errors : []).forEach((error) => {
@@ -44,15 +45,15 @@ export class ErrorStore {
     }
 
     /**
-     * Đổi một object có thể đã cũ lấy object đang sống trong store.
-     * Không tìm thấy thì trả lại chính nó, để caller vẫn chạy được.
+     * Swap a possibly stale object for the one living in the store.
+     * Returns the input untouched when unknown, so callers keep working.
      */
     resolve(errorLike) {
         if (!errorLike?.id) return errorLike ?? null;
         return this.get(errorLike.id) ?? errorLike;
     }
 
-    /** Thêm mới hoặc thay thế theo id. */
+    /** Insert or replace by id. */
     upsert(error) {
         if (error?.id === undefined || error?.id === null) return null;
         this.errorsById.set(String(error.id), error);
@@ -73,14 +74,14 @@ export class ErrorStore {
     }
 
     /**
-     * Báo cho store biết một lỗi vừa bị sửa tại chỗ, để các view vẽ lại.
-     * Cần vì code hiện tại vẫn mutate object trực tiếp ở nhiều nơi.
+     * Tell the store an error was mutated in place so views re-render.
+     * Needed because several call sites still mutate error objects directly.
      */
     touch() {
         this.notify();
     }
 
-    /** @returns {Function} gọi để huỷ đăng ký. */
+    /** @returns {Function} call it to unsubscribe. */
     subscribe(listener) {
         if (typeof listener !== 'function') return () => {};
         this.listeners.add(listener);
@@ -89,7 +90,7 @@ export class ErrorStore {
 
     notify() {
         const snapshot = this.getAll();
-        // Copy trước khi duyệt: listener có thể tự huỷ đăng ký ngay trong callback.
+        // Copy before iterating: a listener may unsubscribe itself inside the callback.
         [...this.listeners].forEach((listener) => {
             try {
                 listener(snapshot);
