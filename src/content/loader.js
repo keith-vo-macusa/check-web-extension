@@ -32,7 +32,7 @@ function isEditorIframe() {
     }
 
     try {
-        const contentModule = await import(chrome.runtime.getURL('content.js'));
+        const contentModule = await import(chrome.runtime.getURL('src/content/index.js'));
         new contentModule.default();
         console.log('✅ content.js loaded via content-loader.js');
     } catch (error) {

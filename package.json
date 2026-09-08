@@ -12,10 +12,11 @@
         "format": "prettier --write \"**/*.{js,css,html,json,md}\"",
         "format:check": "prettier --check \"**/*.{js,css,html,json,md}\"",
         "check:env": "node scripts/check-env.mjs",
-        "check": "npm run check:env && npm run check:undef && npm run format:check && npm test",
+        "check": "npm run check:env && npm run check:paths && npm run check:undef && npm run format:check && npm test",
         "check:types": "tsc --noEmit -p jsconfig.json",
         "test": "node --test \"test/*.test.js\"",
-        "check:undef": "node scripts/check-undefined.mjs"
+        "check:undef": "node scripts/check-undefined.mjs",
+        "check:paths": "node scripts/check-asset-paths.mjs"
     },
     "keywords": [
         "chrome-extension",
