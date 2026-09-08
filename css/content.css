@@ -203,12 +203,6 @@ body.testing-selection-mode .elementor-element input {
     align-items: center !important;
     gap: 8px !important;
 }
-.thread-heading {
-    font-weight: 700 !important;
-    color: #050505 !important;
-    font-size: 15px !important;
-    letter-spacing: -0.2px !important;
-}
 .thread-status {
     padding: 4px 8px !important;
     border-radius: 12px !important;
@@ -571,15 +565,6 @@ body.testing-selection-mode .elementor-element input {
 }
 .btn-resolve.resolved:hover {
     background: #1b5e20 !important;
-}
-.btn-delete {
-    background: #fce8e6 !important;
-    color: #d93025 !important;
-    padding: 6px 10px !important;
-}
-.btn-delete:hover {
-    background: #f28b82 !important;
-    color: #fff !important;
 }
 .edit-form {
     margin-top: 8px !important;
@@ -1108,4 +1093,49 @@ div:where(.swal2-container) {
 }
 body #testing-error-container .testing-error-border.testing-error-highlight {
     display: block !important;
+}
+/* --- Thread header ------------------------------------------------------- */
+/* Delete used to sit directly beside close, both of them plain text buttons, so
+   the destructive action was one slip away from the harmless one. It is an icon
+   button now, separated from close by a divider. */
+.thread-comment-count {
+    font-size: 12px !important;
+    color: #65676b !important;
+}
+.thread-header-divider {
+    width: 1px !important;
+    height: 20px !important;
+    margin: 0 2px !important;
+    background: rgba(0, 0, 0, 0.12) !important;
+    flex-shrink: 0 !important;
+}
+.btn-delete {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 6px !important;
+    background: 0 0 !important;
+    color: #9aa0a6 !important;
+    cursor: pointer !important;
+    transition: 0.2s !important;
+}
+.btn-delete svg {
+    width: 16px !important;
+    height: 16px !important;
+    fill: currentColor !important;
+    display: block !important;
+}
+.btn-delete:hover {
+    background: #fce8e6 !important;
+    color: #d93025 !important;
+}
+
+/* SweetAlert is injected into the page, which has its own stacking context; the
+   thread panel sits at the maximum z-index, so the dialog needs to match. */
+.swal2-container {
+    z-index: 2147483647 !important;
 }

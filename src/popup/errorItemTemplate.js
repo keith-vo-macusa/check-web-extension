@@ -151,19 +151,55 @@ export function renderErrorsSkeleton(rowCount) {
     `;
 }
 
-export function renderErrorsSummary(errors, breakpointLabel) {
+/**
+ * One compact stat row. The old version printed the total twice, once on its own
+ * and once inside "Resolved: n/total", which read like two different numbers.
+ */
+export function renderErrorsSummary(errors) {
     const openCount = errors.filter((error) => !error.status || error.status === 'open').length;
     const resolvedCount = errors.filter((error) => error.status === 'resolved').length;
 
     return html`
-        <div class="error-count">
-            <span>Tổng số lỗi: ${errors.length}</span>
-            <span class="breakpoint-label">${breakpointLabel}</span>
+        <div class="errors-summary">
+            <span class="summary-stat summary-stat--open">
+                <b>${openCount}</b>
+                đang mở
+            </span>
+            <span class="summary-stat summary-stat--resolved">
+                <b>${resolvedCount}</b>
+                đã giải quyết
+            </span>
         </div>
-        <div class="error-group">
-            <div class="error-group-header">
-                <span>Errors: ${openCount} - Resolved: ${resolvedCount}/${errors.length}</span>
+    `;
+}
+
+/**
+ * Shown instead of an empty list. Says why it is empty, because "no errors on
+ * this page" and "no errors at this breakpoint" need different next actions.
+ */
+export function renderEmptyState(selectedBreakpoint) {
+    const isFiltered = selectedBreakpoint && selectedBreakpoint !== 'all';
+
+    return html`
+        <div class="errors-empty">
+            <div class="errors-empty-icon" aria-hidden="true">
+                <i class="fa-regular fa-circle-check"></i>
             </div>
+            ${
+                isFiltered
+                    ? html`
+                          <p class="errors-empty-title">Không có lỗi ở breakpoint này</p>
+                          <p class="errors-empty-hint">
+                              Chọn "Tất cả" để xem toàn bộ lỗi của trang.
+                          </p>
+                      `
+                    : html`
+                          <p class="errors-empty-title">Trang này chưa có lỗi nào</p>
+                          <p class="errors-empty-hint">
+                              Bấm "Bắt đầu chọn lỗi" rồi click vào vùng cần báo.
+                          </p>
+                      `
+            }
         </div>
     `;
 }

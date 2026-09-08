@@ -6,6 +6,7 @@ import { renderComments, renderCommentsSkeleton } from './ui/CommentList.js';
 import { html } from '../shared/ui/html.js';
 import { ThreadBugListRow } from './ui/ThreadBugListRow.js';
 import { CommentInputModal } from './ui/CommentInputModal.js';
+import { confirmDestructive } from './ui/confirmDialog.js';
 import { setButtonLoading } from './ui/buttonLoading.js';
 
 export class CommentThreadManager {
@@ -96,8 +97,10 @@ export class CommentThreadManager {
         panelElement.innerHTML = String(html`
             <div class="thread-header">
                 <div class="thread-title">
-                    <div class="thread-heading">Bình luận</div>
-                    <div class="thread-status ${statusClass}">${statusText}</div>
+                    <span class="thread-status ${statusClass}">${statusText}</span>
+                    <span class="thread-comment-count">
+                        ${errorData.comments?.length ?? 0} bình luận
+                    </span>
                 </div>
                 <div class="thread-header-actions">
                     <button
@@ -106,9 +109,18 @@ export class CommentThreadManager {
                     >
                         ${isResolved ? '✓ Đã giải quyết' : 'Đánh dấu đã giải quyết'}
                     </button>
-                    <button class="btn-delete" data-error-id="${errorData.id}" aria-label="Xóa">
-                        Xóa
+                    <button
+                        class="btn-delete"
+                        data-error-id="${errorData.id}"
+                        aria-label="Xóa lỗi này"
+                        title="Xóa lỗi này"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12z"></path>
+                            <path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path>
+                        </svg>
                     </button>
+                    <span class="thread-header-divider" aria-hidden="true"></span>
                     <button class="thread-close" aria-label="Đóng">&times;</button>
                 </div>
             </div>
@@ -139,7 +151,7 @@ export class CommentThreadManager {
                             <div class="reply-box">
                                 <div class="reply-input-wrap">
                                     <textarea
-                                        placeholder="Viết bình luận..."
+                                        placeholder="Viết bình luận... (Enter để gửi)"
                                         class="reply-input"
                                         maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"
                                     ></textarea>
@@ -405,7 +417,11 @@ export class CommentThreadManager {
      * Confirm and delete a comment.
      */
     async confirmDeleteComment(panelElement, errorData, commentId, triggerButton) {
-        if (confirm('Bạn có chắc muốn xóa comment này?') && this.onCommentDeleted) {
+        const isConfirmed = await confirmDestructive({
+            title: 'Xóa bình luận',
+            text: 'Bình luận này sẽ bị xóa vĩnh viễn.',
+        });
+        if (isConfirmed && this.onCommentDeleted) {
             setButtonLoading(triggerButton, true, { text: 'Đang xóa...' });
             try {
                 await this.onCommentDeleted(errorData, commentId);
@@ -422,7 +438,11 @@ export class CommentThreadManager {
      * Confirm and delete the entire error thread.
      */
     async confirmDeleteError(errorData, triggerButton) {
-        if (confirm('Bạn có chắc muốn xóa lỗi này?')) {
+        const isConfirmed = await confirmDestructive({
+            title: 'Xóa lỗi',
+            text: 'Lỗi này và toàn bộ bình luận của nó sẽ bị xóa vĩnh viễn.',
+        });
+        if (isConfirmed) {
             if (this.onErrorDeleted) {
                 setButtonLoading(triggerButton, true, { text: 'Đang xóa...' });
                 try {
