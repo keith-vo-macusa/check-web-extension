@@ -363,7 +363,11 @@ export class ErrorDataManager {
                 throw new Error(`API returned ${response.status}`);
             }
 
-            errorData.comments = errorData.comments.filter((item) => String(item.id) !== String(commentId));
+            errorData.comments = errorData.comments.filter(
+                (item) =>
+                    String(item.id) !== String(commentId) &&
+                    String(item.id) !== String(actualCommentId),
+            );
             await this.syncErrorsToBackground();
             ErrorLogger.info('Comment deleted successfully via API', {
                 bugId: errorData.id,

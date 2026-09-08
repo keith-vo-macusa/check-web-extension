@@ -472,6 +472,59 @@ body.testing-selection-mode .elementor-element input {
     stroke-dasharray: 56 !important;
     stroke-dashoffset: 42 !important;
 }
+@keyframes testing-skeleton-shimmer {
+    0% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0 50%;
+    }
+}
+.comment-skeleton {
+    display: flex !important;
+    gap: 8px !important;
+    padding: 6px 0 !important;
+}
+.skeleton-bubble {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 7px !important;
+    padding: 11px 10px !important;
+    background: #e4e6eb !important;
+    border-radius: 18px !important;
+}
+.skeleton-block {
+    background: linear-gradient(90deg, #dcdfe4 25%, #eff1f4 37%, #dcdfe4 63%) !important;
+    background-size: 400% 100% !important;
+    animation: 1.4s ease infinite testing-skeleton-shimmer !important;
+    border-radius: 4px !important;
+}
+.skeleton-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    flex-shrink: 0 !important;
+    border-radius: 50% !important;
+}
+.skeleton-line {
+    height: 9px !important;
+}
+.skeleton-line-name {
+    width: 34% !important;
+}
+.skeleton-line-text {
+    width: 88% !important;
+}
+.skeleton-line-short {
+    width: 56% !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-block {
+        animation: none !important;
+        background: #dcdfe4 !important;
+    }
+}
 .reply-buttons {
     display: flex !important;
     gap: 8px !important;

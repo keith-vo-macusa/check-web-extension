@@ -236,6 +236,10 @@ export default class WebsiteTestingAssistant {
     async handleErrorClick(errorData, borderElement) {
         await this.commentThreadManager.showCommentThread(errorData, borderElement);
 
+        const openedPanel = this.commentThreadManager.getCurrentThread()?.panel;
+        if (!openedPanel) return;
+
+        this.commentThreadManager.setThreadSyncing(openedPanel, true);
         try {
             const freshErrors = await this.errorDataManager.fetchFreshErrors();
             const freshError = freshErrors.find((e) => e.id === errorData.id);
@@ -245,19 +249,24 @@ export default class WebsiteTestingAssistant {
             }
         } catch (error) {
             ErrorLogger.debug('Failed to reload fresh error on click', { error });
+        } finally {
+            this.commentThreadManager.setThreadSyncing(openedPanel, false);
         }
     }
 
     async handleCommentAdded(errorData, comment) {
-        await this.errorDataManager.addComment(errorData, comment);
+        const isAdded = await this.errorDataManager.addComment(errorData, comment);
+        if (!isAdded) throw new Error('Không thể gửi bình luận');
     }
 
     async handleCommentEdited(errorData, commentId, commentText) {
-        await this.errorDataManager.editComment(errorData, commentId, commentText);
+        const isEdited = await this.errorDataManager.editComment(errorData, commentId, commentText);
+        if (!isEdited) throw new Error('Không thể chỉnh sửa bình luận');
     }
 
     async handleCommentDeleted(errorData, commentId) {
-        await this.errorDataManager.deleteComment(errorData, commentId);
+        const isDeleted = await this.errorDataManager.deleteComment(errorData, commentId);
+        if (!isDeleted) throw new Error('Không thể xóa bình luận');
     }
 
     async handleErrorStatusToggled(errorData) {

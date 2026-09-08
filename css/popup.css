@@ -407,6 +407,54 @@ body {
     padding: var(--spacing-xl);
     font-style: italic;
 }
+@keyframes popup-skeleton-shimmer {
+    0% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0 50%;
+    }
+}
+.error-skeleton {
+    cursor: default;
+    pointer-events: none;
+}
+.error-skeleton:hover {
+    box-shadow: none;
+    transform: none;
+}
+.errors-loading .skeleton-block {
+    background: linear-gradient(90deg, #e6e8ec 25%, #f4f5f7 37%, #e6e8ec 63%);
+    background-size: 400% 100%;
+    animation: 1.4s ease infinite popup-skeleton-shimmer;
+    border-radius: 4px;
+}
+.errors-loading .skeleton-line {
+    height: 10px;
+}
+.errors-loading .skeleton-topline {
+    width: 62%;
+    margin-bottom: 8px;
+}
+.errors-loading .skeleton-text {
+    width: 92%;
+    height: 13px;
+    margin-bottom: 10px;
+}
+.errors-loading .skeleton-bottomline {
+    width: 45%;
+}
+.errors-loading .skeleton-action {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .errors-loading .skeleton-block {
+        animation: none;
+        background: #e6e8ec;
+    }
+}
 .clear-btn {
     font-size: var(--font-size-xs);
     padding: var(--spacing-xs) var(--spacing-sm);

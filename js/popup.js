@@ -56,48 +56,76 @@ class PopupState {
 }
 
 class ErrorManager {
-    static async loadErrors() {
-        const currentTab = await TabManager.getCurrentTab();
-        if (!currentTab || !currentTab[0]) return [];
-
-        const domainName = await TabManager.getCurrentTabDomain();
-        let response = await TabManager.sendMessageToBackground({
-            action: 'getErrors',
-            domainName,
-        });
-
-        if (!response?.path || response.path.length === 0) {
-            try {
-                const endpoint = `${ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA}?domain=${encodeURIComponent(domainName)}`;
-                const url = ConfigurationManager.API.BASE_URL + endpoint;
-                const accessToken = await AuthManager.getAccessToken();
-                const headers = { 'Content-Type': 'application/json' };
-                if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-                const apiRes = await fetch(url, { method: 'GET', headers });
-                if (apiRes.ok) {
-                    const apiData = await apiRes.json();
-                    if (apiData?.data) {
-                        response = apiData.data;
-                        await TabManager.sendMessageToBackground({
-                            action: ConfigurationManager.ACTIONS.SET_ERRORS,
-                            errors: response,
-                            domainName,
-                        });
-                    }
-                }
-            } catch (err) {
-                console.error('Failed to fetch errors in popup', err);
-            }
-        }
-
+    /**
+     * Flatten a domain payload ({ path: [{ full_url, data }] }) into a flat error list.
+     */
+    static flattenErrors(domainData) {
         const allErrors = [];
-        response?.path?.forEach((pathItem) => {
+        domainData?.path?.forEach((pathItem) => {
             if (Array.isArray(pathItem?.data)) {
                 allErrors.push(...pathItem.data);
             }
         });
         return allErrors;
+    }
+
+    /**
+     * Read the domain payload straight from the API server.
+     */
+    static async fetchErrorsFromApi(domainName) {
+        const endpoint = `${ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA}?domain=${encodeURIComponent(domainName)}`;
+        const url = ConfigurationManager.API.BASE_URL + endpoint;
+        const accessToken = await AuthManager.getAccessToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+        const apiResponse = await fetch(url, {
+            method: 'GET',
+            headers,
+            signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+        });
+        if (!apiResponse.ok) throw new Error(`API returned ${apiResponse.status}`);
+
+        const apiData = await apiResponse.json();
+        return apiData?.data ?? null;
+    }
+
+    /**
+     * Errors already cached in the background worker. Instant, may be stale.
+     */
+    static async loadCachedErrors() {
+        const domainName = await TabManager.getCurrentTabDomain();
+        if (!domainName) return [];
+
+        const response = await TabManager.sendMessageToBackground({
+            action: 'getErrors',
+            domainName,
+        });
+        return this.flattenErrors(response);
+    }
+
+    /**
+     * Always hit the server, refresh the background cache, and fall back to
+     * that cache when the request fails.
+     */
+    static async loadFreshErrors() {
+        const domainName = await TabManager.getCurrentTabDomain();
+        if (!domainName) return [];
+
+        try {
+            const domainData = await this.fetchErrorsFromApi(domainName);
+            if (!domainData) throw new Error('Empty API payload');
+
+            await TabManager.sendMessageToBackground({
+                action: ConfigurationManager.ACTIONS.SET_ERRORS,
+                errors: domainData,
+                domainName,
+            });
+            return this.flattenErrors(domainData);
+        } catch (error) {
+            console.error('Failed to fetch errors in popup, falling back to cache', error);
+            return await this.loadCachedErrors();
+        }
     }
 
     static async deleteError(errorId) {
@@ -138,6 +166,8 @@ class ErrorManager {
 class UIManager {
     constructor(state) {
         this.state = state;
+        this.refreshRequestId = 0;
+        this.lastErrors = [];
         this.setupUI();
         this.setupEventListeners();
         this.setupBreakpointFilters();
@@ -307,7 +337,8 @@ class UIManager {
         $('.filter-btn').removeClass('active');
         $(event.target).addClass('active');
         this.state.setSelectedBreakpoint($(event.target).data('breakpoint'));
-        this.refreshErrorsList();
+        // Lọc breakpoint là thao tác client-side, không cần gọi lại server.
+        this.displayErrors(this.lastErrors);
     }
 
     updateUI() {
@@ -337,9 +368,49 @@ class UIManager {
         }
     }
 
+    /**
+     * Paint cached errors right away, then replace them with server data.
+     * Late responses from a superseded call are discarded.
+     */
     async refreshErrorsList() {
-        const errors = await ErrorManager.loadErrors();
+        const requestId = ++this.refreshRequestId;
+        this.showErrorsLoading();
+
+        const errors = await ErrorManager.loadFreshErrors();
+        if (requestId !== this.refreshRequestId) return;
+
+        this.lastErrors = errors;
         this.displayErrors(errors);
+    }
+
+    /**
+     * Skeleton rows sized like real error items, so the list does not jump
+     * when server data replaces them.
+     */
+    showErrorsLoading() {
+        const rowCount = Math.min(Math.max(this.lastErrors.length, 3), 5);
+        const rows = Array.from(
+            { length: rowCount },
+            () => `
+            <div class="error-item error-skeleton">
+                <div class="error-row">
+                    <div class="error-main">
+                        <div class="skeleton-block skeleton-line skeleton-topline"></div>
+                        <div class="skeleton-block skeleton-line skeleton-text"></div>
+                        <div class="skeleton-block skeleton-line skeleton-bottomline"></div>
+                    </div>
+                    <div class="error-actions">
+                        <div class="skeleton-block skeleton-action"></div>
+                        <div class="skeleton-block skeleton-action"></div>
+                    </div>
+                </div>
+            </div>
+        `,
+        ).join('');
+
+        $('#errorsList').html(
+            `<div class="errors-loading" role="status" aria-label="Đang tải danh sách lỗi">${rows}</div>`,
+        );
     }
 
     displayErrors(errors) {

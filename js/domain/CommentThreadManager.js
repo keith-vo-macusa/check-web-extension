@@ -219,6 +219,10 @@ export class CommentThreadManager {
      * Bind all interactions inside thread panel.
      */
     bindThreadEvents(panelElement, errorData) {
+        // Panel có thể được vẽ lại bằng dữ liệu mới từ server (refreshThreadPanel),
+        // nên handler phải luôn đọc error object hiện tại thay vì object lúc bind.
+        const getError = () => this.currentThread?.error ?? errorData;
+
         panelElement.querySelector('.thread-close').addEventListener('click', () => {
             this.closeCommentThread();
         });
@@ -229,11 +233,12 @@ export class CommentThreadManager {
             const commentText = replyInput.value.trim();
             if (!ValidationService.validateComment(commentText).valid || !this.onCommentAdded) return;
 
+            const currentError = getError();
             replyInput.disabled = true;
             this.setButtonLoading(sendReplyButton, true);
             try {
-                await this.onCommentAdded(errorData, commentText);
-                await this.refreshThreadPanel(panelElement, errorData);
+                await this.onCommentAdded(currentError, commentText);
+                await this.refreshThreadPanel(panelElement, currentError);
                 replyInput.value = '';
                 const commentsList = panelElement.querySelector('.comments-list');
                 if (commentsList) commentsList.scrollTop = commentsList.scrollHeight;
@@ -257,27 +262,30 @@ export class CommentThreadManager {
         const resolveButton = panelElement.querySelector('.btn-resolve');
         resolveButton.addEventListener('click', async () => {
             if (this.onErrorResolved) {
+                const currentError = getError();
                 this.setButtonLoading(resolveButton, true, { text: 'Đang xử lý...' });
                 try {
-                    await this.onErrorResolved(errorData);
+                    await this.onErrorResolved(currentError);
                 } catch (error) {
                     ErrorLogger.error('Failed to resolve error', error);
                 } finally {
                     this.setButtonLoading(resolveButton, false);
                 }
-                await this.refreshThreadPanel(panelElement, errorData);
+                await this.refreshThreadPanel(panelElement, currentError);
             }
         });
 
         const deleteButton = panelElement.querySelector('.btn-delete');
         deleteButton.addEventListener('click', () => {
-            this.confirmDeleteError(errorData, deleteButton);
+            this.confirmDeleteError(getError(), deleteButton);
         });
 
         panelElement.addEventListener('click', async (event) => {
+            const currentError = getError();
+
             if (event.target.classList.contains('btn-reply-comment')) {
                 const commentId = event.target.dataset.commentId;
-                const targetComment = errorData.comments.find(
+                const targetComment = currentError.comments.find(
                     (comment) => String(comment.id) === String(commentId),
                 );
                 const replyTargetName = targetComment?.author?.name || 'Unknown';
@@ -294,12 +302,12 @@ export class CommentThreadManager {
 
             if (event.target.classList.contains('btn-edit-comment')) {
                 const commentId = event.target.dataset.commentId;
-                await this.editComment(panelElement, errorData, commentId);
+                await this.editComment(panelElement, currentError, commentId);
             }
 
             if (event.target.classList.contains('btn-delete-comment')) {
                 const commentId = event.target.dataset.commentId;
-                await this.confirmDeleteComment(panelElement, errorData, commentId, event.target);
+                await this.confirmDeleteComment(panelElement, currentError, commentId, event.target);
             }
         });
     }
@@ -434,6 +442,59 @@ export class CommentThreadManager {
     }
 
     /**
+     * Skeleton placeholder markup shown while comments are loading.
+     */
+    getCommentsSkeleton(itemCount = 3) {
+        const items = Array.from({ length: itemCount }, (unusedValue, index) => {
+            const extraLine =
+                index % 2 === 0 ? '<div class="skeleton-block skeleton-line skeleton-line-short"></div>' : '';
+            return `
+                <div class="comment-skeleton">
+                    <div class="skeleton-block skeleton-avatar"></div>
+                    <div class="skeleton-bubble">
+                        <div class="skeleton-block skeleton-line skeleton-line-name"></div>
+                        <div class="skeleton-block skeleton-line skeleton-line-text"></div>
+                        ${extraLine}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `<div class="comments-skeleton" role="status" aria-label="Đang tải bình luận">${items}</div>`;
+    }
+
+    /**
+     * Swap the comments list for a skeleton while fresh data is being fetched.
+     * Turning it off without an intervening refreshThreadPanel restores the cached comments.
+     */
+    setThreadSyncing(panelElement, isSyncing) {
+        if (!panelElement) return;
+
+        const commentsList = panelElement.querySelector('.comments-list');
+        if (!commentsList) return;
+
+        if (isSyncing) {
+            if (commentsList.dataset.syncing === 'true') return;
+            commentsList.dataset.syncing = 'true';
+            panelElement.classList.add('is-syncing');
+            commentsList.innerHTML = this.getCommentsSkeleton();
+            return;
+        }
+
+        panelElement.classList.remove('is-syncing');
+        if (commentsList.dataset.syncing !== 'true') return;
+
+        // Skeleton vẫn còn nghĩa là refreshThreadPanel chưa chạy (fetch lỗi) —
+        // vẽ lại từ dữ liệu cache đang có thay vì để trống.
+        delete commentsList.dataset.syncing;
+        if (!this.currentThread) return;
+        commentsList.innerHTML = this.renderComments(
+            this.currentThread.error.comments,
+            this.currentThread.userInfo,
+        );
+    }
+
+    /**
      * Refresh thread panel content without closing panel.
      */
     async refreshThreadPanel(panelElement, errorData) {
@@ -443,7 +504,11 @@ export class CommentThreadManager {
         if (!userInfo) return;
 
         const commentsList = panelElement.querySelector('.comments-list');
-        if (commentsList) commentsList.innerHTML = this.renderComments(errorData.comments, userInfo);
+        if (commentsList) {
+            commentsList.innerHTML = this.renderComments(errorData.comments, userInfo);
+            delete commentsList.dataset.syncing;
+            panelElement.classList.remove('is-syncing');
+        }
 
         const resolveButton = panelElement.querySelector('.btn-resolve');
         if (resolveButton) {
@@ -459,6 +524,7 @@ export class CommentThreadManager {
         }
 
         this.currentThread.error = errorData;
+        this.currentThread.userInfo = userInfo;
     }
 
     /**
