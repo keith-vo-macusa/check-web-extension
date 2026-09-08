@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { resolve, dirname, join } from 'path';
 import {
     copyFileSync,
@@ -111,7 +111,7 @@ function minifyCSSInDir(dir) {
     }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
     build: {
         outDir: 'dist',
         emptyOutDir: true,
@@ -138,7 +138,7 @@ export default defineConfig({
                 copyFileSync('manifest.json', 'dist/manifest.json');
 
                 // Copy JavaScript files (không bundle)
-                const jsFiles = ['background.js', 'content.js', 'content-loader.js'];
+                const jsFiles = [];
                 jsFiles.forEach((file) => {
                     if (existsSync(file)) {
                         copyFileSync(file, join('dist', file));
@@ -157,14 +157,32 @@ export default defineConfig({
                 });
 
                 // Copy directories
-                const dirsToCopy = ['assets', 'lib', 'css', 'js'];
+                const dirsToCopy = ['assets', 'lib', 'css', 'src'];
                 dirsToCopy.forEach((dir) => {
                     copyDir(dir, join('dist', dir));
                 });
 
+                // Thay URL backend bằng VITE_API_BASE_URL trong .env (nếu có).
+                // Build copy source chứ không bundle nên phải thay thủ công ở đây.
+                const envBaseUrl = loadEnv(mode, __dirname, 'VITE_').VITE_API_BASE_URL;
+                if (envBaseUrl) {
+                    const envFile = join('dist', 'src', 'shared', 'config', 'env.js');
+                    if (existsSync(envFile)) {
+                        const source = readFileSync(envFile, 'utf8');
+                        writeFileSync(
+                            envFile,
+                            source.replace(
+                                /export const API_BASE_URL = '[^']*';/,
+                                `export const API_BASE_URL = '${envBaseUrl}';`,
+                            ),
+                        );
+                        console.log(`✓ API_BASE_URL = ${envBaseUrl}`);
+                    }
+                }
+
                 // Minify JS files in dist
                 console.log('\n🔧 Minifying JavaScript files...');
-                await minifyJSInDir('dist/js');
+                await minifyJSInDir('dist/src');
                 for (const file of jsFiles) {
                     const distFile = join('dist', file);
                     if (existsSync(distFile)) {
@@ -180,4 +198,4 @@ export default defineConfig({
             },
         },
     ],
-});
+}));

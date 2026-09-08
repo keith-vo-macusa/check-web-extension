@@ -1,0 +1,184 @@
+import { API_BASE_URL } from './env.js';
+
+export class ConfigurationManager {
+    static BREAKPOINTS = { ALL: 'all', DESKTOP: 'desktop', TABLET: 'tablet', MOBILE: 'mobile' };
+    static BREAKPOINT_THRESHOLDS = {
+        DESKTOP_MIN: 1024,
+        TABLET_MIN: 768,
+        TABLET_MAX: 1023,
+        MOBILE_MAX: 767,
+    };
+    static ERROR_STATUS = { OPEN: 'open', RESOLVED: 'resolved', CLOSED: 'closed' };
+    static ERROR_TYPES = { BORDER: 'border', RECT: 'rect' };
+    static NOTIFICATION_TYPES = { BUG_FOUND: 'bug_found', BUG_FIXED: 'bug_fixed' };
+    static MESSAGES = {
+        bug_found: 'Bạn có chắc muốn gửi thông báo lỗi không?',
+        bug_fixed: 'Bạn có chắc muốn gửi thông báo đã sửa tất cả lỗi không?',
+        remove_error: 'Bạn có chắc muốn xóa lỗi này không?',
+        remove_all_errors: 'Bạn có chắc muốn xóa tất cả lỗi không?',
+        change_status_error: 'Bạn có chắc muốn thay đổi trạng thái của lỗi này không?',
+        loading: 'Đang xử lý...',
+        extension_disconnected: 'Extension mất kết nối với web hiện tại',
+        please_reload: 'Vui lòng reload lại trang',
+        content_script_unavailable: 'Content script không khả dụng',
+        login_required: 'Vui lòng đăng nhập để tiếp tục',
+    };
+    static API = {
+        BASE_URL: API_BASE_URL,
+        ENDPOINTS: {
+            LOGIN: 'api/loginForExt',
+            SEND_NOTIFICATION: 'api/v1/websites/check-wise/ext/notification',
+            GET_DOMAIN_DATA: 'api/v1/websites/check-wise/ext/',
+            SET_DOMAIN_DATA: 'api/v1/websites/check-wise/ext/',
+            BUGS: 'api/v1/websites/check-wise/ext/bugs',
+            BUG_LIST_OPTIONS: 'api/v1/websites/site-check/bug-list/options',
+        },
+        TIMEOUT: 10000,
+    };
+    static UPDATE_CONFIG = {
+        VERSION_CHECK_URL:
+            'https://raw.githubusercontent.com/keith-vo-macusa/check-web-extension/main/manifest.json',
+        CHECK_INTERVAL_MINUTES: 1,
+        RELEASE_URL: 'https://github.com/keith-vo-macusa/check-web-extension/releases/latest',
+    };
+    static ACTIONS = {
+        ACTIVATE: 'activate',
+        DEACTIVATE: 'deactivate',
+        GET_STATE: 'getState',
+        SHOW_ALL_ERRORS: 'showAllErrors',
+        HIDE_ALL_ERRORS: 'hideAllErrors',
+        HIGHLIGHT_ERROR: 'highlightError',
+        CLEAR_ALL_ERRORS: 'clearAllErrors',
+        REMOVE_ERROR: 'removeError',
+        CHECK_FIXED: 'checkFixed',
+        DRAW_OPEN_ERRORS: 'drawOpenErrors',
+        DRAW_RESOLVED_ERRORS: 'drawResolvedErrors',
+        ERROR_ADDED: 'errorAdded',
+        ERROR_DELETED: 'errorDeleted',
+        SET_ERRORS_IN_CONTENT: 'setErrorsInContent',
+        GET_ERRORS: 'getErrors',
+        SET_ERRORS: 'setErrors',
+        SET_UNAUTHORIZED: 'setUnauthorized',
+        CHECK_AUTHORIZED: 'checkAuthorized',
+        REMOVE_UNAUTHORIZED: 'removeUnauthorized',
+        DOM_IS_READY: 'domIsReady',
+        CHECK_FOR_UPDATES: 'checkForUpdates',
+        OPEN_OR_RESIZE_ERROR_WINDOW: 'openOrResizeErrorWindow',
+    };
+    static ADMIN = { PERMISSON: 'SITE_CHECK_QC_ERROR' };
+    static PERMISSION = {
+        SITE_CHECK_QC_ERROR: 'wpm.checkwise.qc', // QC: Người phát hiện/kiểm tra lỗi
+        SITE_CHECK_FIXER: 'wpm.checkwise.member', // Fixer/Assignee: Người sửa lỗi
+    };
+    static UI = {
+        COMMENT_MAX_LENGTH: 500,
+        DRAG_THRESHOLD_PX: 5,
+        MIN_RECT_SIZE_PX: 10,
+        SCROLL_DELAY_MS: 300,
+        HIGHLIGHT_DURATION_MS: 4000,
+        ANIMATION_TIMEOUT_MS: 500,
+        RANGE_BREAKPOINT_PX: 20,
+        DESKTOP_BREAKPOINT_PX: 1140,
+        ERROR_CONTAINER_ID: 'testing-error-container',
+    };
+    static WINDOW_DECORATIONS = {
+        win32: { titleBar: 32, borderHorizontal: 16, borderVertical: 8 },
+        darwin: { titleBar: 28, borderHorizontal: 0, borderVertical: 0 },
+        linux: { titleBar: 35, borderHorizontal: 8, borderVertical: 8 },
+    };
+    static STORAGE_KEYS = {
+        USER_INFO: 'userInfo',
+        IS_AUTHENTICATED: 'isAuthenticated',
+        ERRORS_VISIBLE: 'errorsVisible',
+        RESOLVED_ERRORS_VISIBLE: 'resolvedErrorsVisible',
+        DRAW_OPEN_ERRORS: 'drawOpenErrors',
+        DRAW_RESOLVED_ERRORS: 'drawResolvedErrors',
+        ERROR_WINDOW_ID: 'errorWindowId',
+        UPDATE_AVAILABLE: 'updateAvailable',
+        LATEST_VERSION: 'latestVersion',
+        UPDATE_URL: 'updateUrl',
+        FEEDBACK: 'feedback',
+        ERROR_LOGS: 'errorLogs',
+    };
+    static CSS_CLASSES = {
+        SELECTION_MODE: 'testing-selection-mode',
+        HIGHLIGHT: 'testing-highlight',
+        ERROR_BORDER: 'testing-error-border',
+        ERROR_HIGHLIGHT: 'testing-error-highlight',
+        DRAG_OVERLAY: 'testing-drag-overlay',
+        MODAL_BACKDROP: 'testing-modal-backdrop',
+        COMMENT_MODAL: 'testing-comment-modal',
+        SHOW_ERROR: 'show-error',
+        DRAW_OPEN_ERRORS: 'draw-open-errors',
+        DRAW_RESOLVED_ERRORS: 'draw-resolved-errors',
+        IS_POPUP: 'ext-is-popup',
+    };
+    /**
+     * Build full API URL from a known endpoint key.
+     */
+    static getApiUrl(endpointKey) {
+        const endpointPath = this.API.ENDPOINTS[endpointKey];
+        if (!endpointPath) throw new Error(`Unknown API endpoint: ${endpointKey}`);
+        return this.API.BASE_URL + endpointPath;
+    }
+
+    /**
+     * Build bug API URL, optionally appending bugId.
+     */
+    static getBugUrl(bugId = '') {
+        const base = this.API.BASE_URL + this.API.ENDPOINTS.BUGS;
+        return bugId ? `${base}/${bugId}` : base;
+    }
+
+    /**
+     * Build bug comment API URL, optionally appending commentId.
+     */
+    static getBugCommentUrl(bugId, commentId = '') {
+        const base = `${this.API.BASE_URL}${this.API.ENDPOINTS.BUGS}/${bugId}/comments`;
+        return commentId ? `${base}/${commentId}` : base;
+    }
+
+    /**
+     * Build bug list options URL. Omitting the term returns every active option.
+     */
+    static getBugListOptionsUrl(searchTerm = '') {
+        const base = this.API.BASE_URL + this.API.ENDPOINTS.BUG_LIST_OPTIONS;
+        return searchTerm ? `${base}?search=${encodeURIComponent(searchTerm)}` : base;
+    }
+
+    /**
+     * Resolve breakpoint type for a given viewport width.
+     */
+    static getBreakpointType(viewportWidth) {
+        return viewportWidth >= this.BREAKPOINT_THRESHOLDS.DESKTOP_MIN
+            ? this.BREAKPOINTS.DESKTOP
+            : viewportWidth >= this.BREAKPOINT_THRESHOLDS.TABLET_MIN
+              ? this.BREAKPOINTS.TABLET
+              : this.BREAKPOINTS.MOBILE;
+    }
+
+    /**
+     * Read extension version from manifest.
+     */
+    static getCurrentVersion() {
+        return chrome?.runtime?.getManifest()?.version || '0.0.0';
+    }
+
+    /**
+     * Return default storage values used by the extension.
+     */
+    static getDefaultStorage() {
+        return {
+            [this.STORAGE_KEYS.UPDATE_AVAILABLE]: false,
+            [this.STORAGE_KEYS.LATEST_VERSION]: this.getCurrentVersion(),
+            [this.STORAGE_KEYS.UPDATE_URL]: this.UPDATE_CONFIG.RELEASE_URL,
+        };
+    }
+
+    // /**
+    //  * Check whether the user has extension admin permission.
+    //  */
+    // static isCheckwiseAdmin(userInfo) {
+    //     return userInfo.permissions.some((permission) => permission.name == this.ADMIN.PERMISSON);
+    // }
+}

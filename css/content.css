@@ -797,9 +797,6 @@ body.testing-selection-mode .elementor-element input {
     z-index: 251001;
     pointer-events: auto;
 }
-div:where(.swal2-container) {
-    z-index: 99999999999999 !important;
-}
 .is-hidden {
     display: none !important;
 }
@@ -945,7 +942,7 @@ div:where(.swal2-container) {
     background: #1877f2 !important;
 }
 .bug-list-option.is-selected .bug-list-option-check::after {
-    content: "" !important;
+    content: '' !important;
     position: absolute !important;
     left: 4px !important;
     top: 1px !important;
