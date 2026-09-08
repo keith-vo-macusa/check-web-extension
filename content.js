@@ -8,6 +8,8 @@ import { ErrorRenderer } from './js/domain/ErrorRenderer.js';
 import { CommentThreadManager } from './js/domain/CommentThreadManager.js';
 import { ErrorDataManager } from './js/domain/ErrorDataManager.js';
 import { BugListService } from './js/domain/BugListService.js';
+import { getElementFingerprint, getElementXPath } from './js/shared/elementFingerprint.js';
+import { generateUUID } from './js/shared/id.js';
 
 export default class WebsiteTestingAssistant {
     /**
@@ -298,7 +300,7 @@ export default class WebsiteTestingAssistant {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         const errorData = {
-            id: this.errorDataManager.generateUUID(),
+            id: generateUUID(),
             type,
             timestamp: Date.now(),
             breakpoint: {
@@ -313,7 +315,7 @@ export default class WebsiteTestingAssistant {
             coordinates: null,
             comments: [
                 {
-                    id: this.errorDataManager.generateUUID(),
+                    id: generateUUID(),
                     text: comment,
                     author: await this.getUserInfoBasic(),
                     timestamp: Date.now(),
@@ -324,8 +326,8 @@ export default class WebsiteTestingAssistant {
         };
 
         if (type === ConfigurationManager.ERROR_TYPES.BORDER) {
-            errorData.elementIdentifiers = window.getElementFingerprint?.(element) || {
-                xpath: window.getElementXPath(element),
+            errorData.elementIdentifiers = getElementFingerprint(element) || {
+                xpath: getElementXPath(element),
             };
             errorData.coordinates = this.coordsCalculator.createCombinedCoordinates(
                 element.getBoundingClientRect(),

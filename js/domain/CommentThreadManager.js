@@ -3,6 +3,7 @@ import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { ValidationService } from '../utils/ValidationService.js';
 import { BugListPicker } from './BugListPicker.js';
 import { BugListService } from './BugListService.js';
+import { formatTime, getStatusText } from '../shared/format.js';
 
 export class CommentThreadManager {
     /**
@@ -201,7 +202,7 @@ export class CommentThreadManager {
      * Render thread panel HTML and bind its events.
      */
     renderThreadPanel(panelElement, errorData, userInfo) {
-        const statusText = this.getStatusText(errorData.status);
+        const statusText = getStatusText(errorData.status);
         const statusClass = `status-${errorData.status}`;
         const avatarInitial = (userInfo?.name || 'You').charAt(0).toUpperCase();
         const isResolved = errorData.status === ConfigurationManager.ERROR_STATUS.RESOLVED;
@@ -282,7 +283,7 @@ export class CommentThreadManager {
             .map((comment) => {
                 const authorName = comment.author?.name || 'Unknown';
                 const authorInitial = authorName.charAt(0).toUpperCase();
-                const timeText = this.formatTime(comment.timestamp);
+                const timeText = formatTime(comment.timestamp);
                 const editedText = comment.edited
                     ? '<span class="comment-edited">(đã chỉnh sửa)</span>'
                     : '';
@@ -654,7 +655,7 @@ export class CommentThreadManager {
 
         const statusElement = panelElement.querySelector('.thread-status');
         if (statusElement) {
-            statusElement.textContent = this.getStatusText(errorData.status);
+            statusElement.textContent = getStatusText(errorData.status);
             statusElement.className = `thread-status status-${errorData.status}`;
         }
 
@@ -674,33 +675,6 @@ export class CommentThreadManager {
         this.currentThread.backdrop.remove();
         this.currentThread.panel.remove();
         this.currentThread = null;
-    }
-
-    /**
-     * Get localized status label.
-     */
-    getStatusText(status) {
-        return (
-            {
-                [ConfigurationManager.ERROR_STATUS.OPEN]: 'Mở',
-                [ConfigurationManager.ERROR_STATUS.RESOLVED]: 'Đã giải quyết',
-                [ConfigurationManager.ERROR_STATUS.CLOSED]: 'Đã đóng',
-            }[status] || 'Mở'
-        );
-    }
-
-    /**
-     * Format relative time label for comments.
-     */
-    formatTime(timestamp) {
-        const elapsedMs = Date.now() - timestamp;
-        return elapsedMs < 60000
-            ? 'Vừa xong'
-            : elapsedMs < 3600000
-              ? `${Math.floor(elapsedMs / 60000)} phút trước`
-              : elapsedMs < 86400000
-                ? `${Math.floor(elapsedMs / 3600000)} giờ trước`
-                : `${Math.floor(elapsedMs / 86400000)} ngày trước`;
     }
 
     /**

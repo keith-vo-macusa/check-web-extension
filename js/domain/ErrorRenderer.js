@@ -1,6 +1,7 @@
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { CoordinatesCalculator } from './CoordinatesCalculator.js';
+import { findElementByFingerprint } from '../shared/elementFingerprint.js';
 
 export class ErrorRenderer {
     /**
@@ -198,9 +199,9 @@ export class ErrorRenderer {
         if (!identifiers) return null;
 
         const isFingerprint = identifiers.version !== undefined;
-        if (isFingerprint && typeof window.findElementByFingerprint === 'function') {
+        if (isFingerprint) {
             try {
-                const element = window.findElementByFingerprint(identifiers);
+                const element = findElementByFingerprint(identifiers);
                 if (element) return element;
             } catch (error) {
                 ErrorLogger.warn('Fingerprint lookup failed', { error });

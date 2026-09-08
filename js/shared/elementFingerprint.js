@@ -1,3 +1,10 @@
+/**
+ * Nhận diện và tìm lại element trên trang: XPath, CSS selector, JS path và
+ * fingerprint tổng hợp.
+ *
+ * Tách khỏi js/utils.js — file đó nạp như content script global nên tầng module
+ * không import được, buộc phải viết lại hàm ở nhiều nơi.
+ */
 function xpathLiteral(value) {
     // Builds a valid XPath string literal for any input (including quotes).
     if (value === null || value === undefined) return "''";
@@ -10,7 +17,7 @@ function xpathLiteral(value) {
     return `concat(${parts.map((part) => `'${part}'`).join(', "\'", ')})`;
 }
 
-function getElementXPath(element) {
+export function getElementXPath(element) {
     if (!element || element.nodeType !== 1) return '';
 
     const isUniqueXPath = (xpath) => {
@@ -91,7 +98,7 @@ function getElementXPath(element) {
     return '/' + absoluteSteps.join('/');
 }
 
-function getElementCSSSelector(element) {
+export function getElementCSSSelector(element) {
     if (!element || element.nodeType !== 1) return '';
     if (element.id) return `#${CSS.escape(element.id)}`;
 
@@ -153,7 +160,7 @@ function escapeAttributeValueForDoubleQuotedSelector(value) {
     return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-function getJsPath(element) {
+export function getJsPath(element) {
     if (!element || element.nodeType !== 1) return '';
     if (element.id) return `document.getElementById('${CSS.escape(element.id)}')`;
 
@@ -193,7 +200,7 @@ function getJsPath(element) {
     return `document.querySelector('${selector}')`;
 }
 
-function getElementAttributes(element) {
+export function getElementAttributes(element) {
     const attributes = {};
     ['id', 'class', 'data-testid', 'data-id', 'name', 'type', 'role', 'href'].forEach(
         (attribute) => {
@@ -343,7 +350,7 @@ function getUniqueXPathNode(xpath) {
  * 5. fuzzy: tag + text + class overlap + ancestor with stable id
  * 6. bounding rect (last-known visual position)
  */
-function getElementFingerprint(element) {
+export function getElementFingerprint(element) {
     if (!element || element.nodeType !== 1) return null;
 
     const tag = element.tagName.toLowerCase();
@@ -376,7 +383,7 @@ function getElementFingerprint(element) {
  * Try to recover the original element using a fingerprint. Returns
  * the element or `null` if no candidate looks safe enough.
  */
-function findElementByFingerprint(fingerprint) {
+export function findElementByFingerprint(fingerprint) {
     if (!fingerprint || typeof fingerprint !== 'object') return null;
 
     const tag = (fingerprint.tag || '').toLowerCase();
@@ -582,7 +589,7 @@ function findElementByFingerprint(fingerprint) {
     return null;
 }
 
-function findElementByIdentifiers(identifiers) {
+export function findElementByIdentifiers(identifiers) {
     try {
         const matches = document.querySelectorAll(identifiers.cssSelector);
         if (matches.length === 1) return matches[0];
@@ -613,7 +620,7 @@ function findElementByIdentifiers(identifiers) {
     return null;
 }
 
-function findElementByAttributes(targetInfo) {
+export function findElementByAttributes(targetInfo) {
     const candidates = document.getElementsByTagName(targetInfo.tagName);
     let bestMatch = null;
     let highestScore = 0;
@@ -649,42 +656,3 @@ function findElementByAttributes(targetInfo) {
     if (!bestMatch) console.warn('No element found with sufficient score for:', targetInfo);
     return bestMatch;
 }
-
-function getCurrentBreakpoint(width) {
-    return width >= 1024 ? 'desktop' : width >= 768 && width < 1024 ? 'tablet' : 'mobile';
-}
-
-function formatTime(timestamp) {
-    const elapsedMs = Date.now() - timestamp;
-    return elapsedMs < 60000
-        ? 'Vừa xong'
-        : elapsedMs < 3600000
-          ? `${Math.floor(elapsedMs / 60000)} phút trước`
-          : elapsedMs < 86400000
-            ? `${Math.floor(elapsedMs / 3600000)} giờ trước`
-            : `${Math.floor(elapsedMs / 86400000)} ngày trước`;
-}
-
-function getStatusText(status) {
-    return { open: 'Mở', resolved: 'Đã giải quyết', closed: 'Đã đóng' }[status] || 'Mở';
-}
-
-function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-        const randomValue = (16 * Math.random()) | 0;
-        return (char === 'x' ? randomValue : (randomValue & 3) | 8).toString(16);
-    });
-}
-
-window.getElementXPath = getElementXPath;
-window.getElementCSSSelector = getElementCSSSelector;
-window.getJsPath = getJsPath;
-window.getElementAttributes = getElementAttributes;
-window.findElementByIdentifiers = findElementByIdentifiers;
-window.findElementByAttributes = findElementByAttributes;
-window.getElementFingerprint = getElementFingerprint;
-window.findElementByFingerprint = findElementByFingerprint;
-window.getCurrentBreakpoint = getCurrentBreakpoint;
-window.formatTime = formatTime;
-window.getStatusText = getStatusText;
-window.generateUUID = generateUUID;

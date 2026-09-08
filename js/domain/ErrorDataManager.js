@@ -4,6 +4,7 @@ import { ValidationService } from '../utils/ValidationService.js';
 import { MessagingService } from '../core/MessagingService.js';
 import { BugListService } from './BugListService.js';
 import { ApiClient } from '../core/http/ApiClient.js';
+import { generateUUID } from '../shared/id.js';
 
 export class ErrorDataManager {
     /**
@@ -200,7 +201,7 @@ export class ErrorDataManager {
 
         try {
             const newComment = {
-                id: this.generateUUID(),
+                id: generateUUID(),
                 text: commentText,
                 author: await this.getUserInfoBasic(),
                 timestamp: Date.now(),
@@ -411,16 +412,6 @@ export class ErrorDataManager {
      */
     getCurrentTabErrors() {
         return this.currentTabErrors;
-    }
-
-    /**
-     * Generate UUID v4-like identifier.
-     */
-    generateUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-            const randomValue = (16 * Math.random()) | 0;
-            return (char === 'x' ? randomValue : (randomValue & 3) | 8).toString(16);
-        });
     }
 
     /**
