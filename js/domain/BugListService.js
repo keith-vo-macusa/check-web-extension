@@ -1,6 +1,6 @@
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
-import AuthManager from '../auth.js';
+import { ApiClient } from '../core/http/ApiClient.js';
 
 /**
  * Access to the active bug list options used to categorise a bug.
@@ -13,16 +13,6 @@ import AuthManager from '../auth.js';
 export class BugListService {
     static cachedOptions = null;
     static pendingRequest = null;
-
-    /**
-     * Build common headers including JWT authorization token.
-     */
-    static async getHeaders() {
-        const accessToken = await AuthManager.getAccessToken();
-        const headers = { 'Content-Type': 'application/json' };
-        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-        return headers;
-    }
 
     /**
      * Accept both a bare array and a `{ data: [...] }` envelope.
@@ -44,14 +34,10 @@ export class BugListService {
      * Fetch options from the API. Omitting searchTerm returns the full active list.
      */
     static async requestOptions(searchTerm = '') {
-        const response = await fetch(ConfigurationManager.getBugListOptionsUrl(searchTerm), {
-            method: 'GET',
-            headers: await this.getHeaders(),
-            signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+        const payload = await ApiClient.get(ConfigurationManager.API.ENDPOINTS.BUG_LIST_OPTIONS, {
+            params: searchTerm ? { search: searchTerm } : null,
         });
-        if (!response.ok) throw new Error(`API returned ${response.status}`);
-
-        return this.normalizeOptions(await response.json());
+        return this.normalizeOptions(payload);
     }
 
     /**

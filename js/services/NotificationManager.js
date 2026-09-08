@@ -1,7 +1,7 @@
 import TabManager from './TabManager.js';
-import AlertManager from './AlertManager.js';
-import AuthManager from '../auth.js';
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
+import AlertManager from './AlertManager.js';
+import { ApiClient, ApiError } from '../core/http/ApiClient.js';
 
 export default class NotificationManager {
     /**
@@ -19,25 +19,18 @@ export default class NotificationManager {
             sendNotificationButton.prop('disabled', true);
             AlertManager.loading(ConfigurationManager.MESSAGES.loading);
 
-            const accessToken = await AuthManager.getAccessToken();
-            const headers = { 'Content-Type': 'application/json' };
-            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-            const response = await fetch(ConfigurationManager.getApiUrl('SEND_NOTIFICATION'), {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload),
-            });
-            const responseData = await response.json();
-
-            if (response.ok) {
-                AlertManager.success('Thông báo', responseData.message);
-            } else {
-                AlertManager.error('Thông báo', responseData.message || 'Có lỗi xảy ra');
-            }
+            const responseData = await ApiClient.post(
+                ConfigurationManager.API.ENDPOINTS.SEND_NOTIFICATION,
+                payload,
+            );
+            AlertManager.success('Thông báo', responseData?.message);
         } catch (error) {
             console.error(error);
-            AlertManager.error('Thông báo', 'Có lỗi xảy ra khi gửi thông báo');
+            const message =
+                error instanceof ApiError
+                    ? error.body?.message || 'Có lỗi xảy ra'
+                    : 'Có lỗi xảy ra khi gửi thông báo';
+            AlertManager.error('Thông báo', message);
         } finally {
             sendNotificationButton.prop('disabled', false);
         }

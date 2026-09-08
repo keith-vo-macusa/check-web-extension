@@ -70,20 +70,9 @@ class ErrorManager {
      * Read the domain payload straight from the API server.
      */
     static async fetchErrorsFromApi(domainName) {
-        const endpoint = `${ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA}?domain=${encodeURIComponent(domainName)}`;
-        const url = ConfigurationManager.API.BASE_URL + endpoint;
-        const accessToken = await AuthManager.getAccessToken();
-        const headers = { 'Content-Type': 'application/json' };
-        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-        const apiResponse = await fetch(url, {
-            method: 'GET',
-            headers,
-            signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+        const apiData = await ApiClient.get(ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA, {
+            params: { domain: domainName },
         });
-        if (!apiResponse.ok) throw new Error(`API returned ${apiResponse.status}`);
-
-        const apiData = await apiResponse.json();
         return apiData?.data ?? null;
     }
 

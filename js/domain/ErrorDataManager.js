@@ -3,7 +3,7 @@ import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { ValidationService } from '../utils/ValidationService.js';
 import { MessagingService } from '../core/MessagingService.js';
 import { BugListService } from './BugListService.js';
-import AuthManager from '../auth.js';
+import { ApiClient } from '../core/http/ApiClient.js';
 
 export class ErrorDataManager {
     /**
@@ -14,16 +14,6 @@ export class ErrorDataManager {
         this.currentUrl = currentUrl;
         this.domainName = domainName;
         this.currentTabErrors = [];
-    }
-
-    /**
-     * Build common headers including JWT authorization token.
-     */
-    async getHeaders() {
-        const accessToken = await AuthManager.getAccessToken();
-        const headers = { 'Content-Type': 'application/json' };
-        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-        return headers;
     }
 
     /**
@@ -56,22 +46,11 @@ export class ErrorDataManager {
      */
     async fetchFreshErrors() {
         try {
-            const endpoint = `${ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA}?domain=${encodeURIComponent(this.domainName)}`;
-            const url = ConfigurationManager.API.BASE_URL + endpoint;
-            const headers = await this.getHeaders();
-
-            const response = await fetch(url, {
-                method: 'GET',
-                headers,
-            });
-
-            if (!response.ok) {
-                ErrorLogger.warn('Failed to fetch fresh errors from API', { status: response.status });
-                return this.currentTabErrors;
-            }
-
-            const responseData = await response.json();
-            const domainData = responseData.data || { path: [] };
+            const responseData = await ApiClient.get(
+                ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA,
+                { params: { domain: this.domainName } },
+            );
+            const domainData = responseData?.data || { path: [] };
 
             await MessagingService.sendToBackground({
                 action: ConfigurationManager.ACTIONS.SET_ERRORS,
@@ -100,25 +79,12 @@ export class ErrorDataManager {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const payload = {
+            const responseData = await ApiClient.post(ConfigurationManager.getBugUrl(), {
                 domain: this.domainName,
                 full_url: this.currentUrl,
                 bug: errorData,
-            };
-
-            const response = await fetch(ConfigurationManager.getBugUrl(), {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
             });
 
-            if (!response.ok) {
-                throw new Error(`API returned ${response.status}`);
-            }
-
-            const responseData = await response.json().catch(() => null);
             if (responseData?.data) {
                 if (responseData.data.id) errorData.id = responseData.data.id;
                 if (Array.isArray(responseData.data.comments) && responseData.data.comments.length > 0) {
@@ -144,23 +110,11 @@ export class ErrorDataManager {
      */
     async updateError(errorData) {
         try {
-            const headers = await this.getHeaders();
-            const payload = {
+            await ApiClient.put(ConfigurationManager.getBugUrl(errorData.id), {
                 domain: this.domainName,
                 full_url: this.currentUrl,
                 bug: errorData,
-            };
-
-            const response = await fetch(ConfigurationManager.getBugUrl(errorData.id), {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
             });
-
-            if (!response.ok) {
-                throw new Error(`API returned ${response.status}`);
-            }
 
             const currentTabIndex = this.currentTabErrors.findIndex(
                 (currentError) => currentError.id === errorData.id,
@@ -205,22 +159,10 @@ export class ErrorDataManager {
      */
     async deleteError(errorId) {
         try {
-            const headers = await this.getHeaders();
-            const payload = {
+            await ApiClient.delete(ConfigurationManager.getBugUrl(errorId), {
                 domain: this.domainName,
                 full_url: this.currentUrl,
-            };
-
-            const response = await fetch(ConfigurationManager.getBugUrl(errorId), {
-                method: 'DELETE',
-                headers,
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
             });
-
-            if (!response.ok) {
-                throw new Error(`API returned ${response.status}`);
-            }
 
             this.currentTabErrors = this.currentTabErrors.filter(
                 (currentError) => currentError.id !== errorId,
@@ -255,25 +197,15 @@ export class ErrorDataManager {
                 editedAt: null,
             };
 
-            const headers = await this.getHeaders();
-            const payload = {
-                domain: this.domainName,
-                full_url: this.currentUrl,
-                comment: newComment,
-            };
+            const responseData = await ApiClient.post(
+                ConfigurationManager.getBugCommentUrl(errorData.id),
+                {
+                    domain: this.domainName,
+                    full_url: this.currentUrl,
+                    comment: newComment,
+                },
+            );
 
-            const response = await fetch(ConfigurationManager.getBugCommentUrl(errorData.id), {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
-            });
-
-            if (!response.ok) {
-                throw new Error(`API returned ${response.status}`);
-            }
-
-            const responseData = await response.json().catch(() => null);
             if (responseData?.data) {
                 newComment.id = responseData.data.id ?? newComment.id;
                 if (responseData.data.author) newComment.author = responseData.data.author;
@@ -324,26 +256,14 @@ export class ErrorDataManager {
                 editedAt: new Date().toISOString(),
             };
 
-            const headers = await this.getHeaders();
-            const payload = {
-                domain: this.domainName,
-                full_url: this.currentUrl,
-                comment: updatedComment,
-            };
-
-            const response = await fetch(
+            await ApiClient.put(
                 ConfigurationManager.getBugCommentUrl(errorData.id, comment.id),
                 {
-                    method: 'PUT',
-                    headers,
-                    body: JSON.stringify(payload),
-                    signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+                    domain: this.domainName,
+                    full_url: this.currentUrl,
+                    comment: updatedComment,
                 },
             );
-
-            if (!response.ok) {
-                throw new Error(`API returned ${response.status}`);
-            }
 
             comment.text = commentText;
             comment.edited = true;
@@ -369,25 +289,13 @@ export class ErrorDataManager {
             const comment = errorData.comments.find((item) => String(item.id) === String(commentId));
             const actualCommentId = comment?.id ?? commentId;
 
-            const headers = await this.getHeaders();
-            const payload = {
-                domain: this.domainName,
-                full_url: this.currentUrl,
-            };
-
-            const response = await fetch(
+            await ApiClient.delete(
                 ConfigurationManager.getBugCommentUrl(errorData.id, actualCommentId),
                 {
-                    method: 'DELETE',
-                    headers,
-                    body: JSON.stringify(payload),
-                    signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+                    domain: this.domainName,
+                    full_url: this.currentUrl,
                 },
             );
-
-            if (!response.ok) {
-                throw new Error(`API returned ${response.status}`);
-            }
 
             errorData.comments = errorData.comments.filter(
                 (item) =>

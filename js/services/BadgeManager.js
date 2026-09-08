@@ -3,7 +3,7 @@ import { TabsService } from '../core/TabsService.js';
 import { MessagingService } from '../core/MessagingService.js';
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
-import AuthManager from '../auth.js';
+import { ApiClient } from '../core/http/ApiClient.js';
 
 export class BadgeManager {
     /**
@@ -199,32 +199,11 @@ export class BadgeManager {
      * Fetch error data for domain and sync local/cache/content-script state.
      */
     async fetchDataFromAPI(domainName, tabId) {
-        const endpoint = `${ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA}?domain=${domainName}`;
-        const url = ConfigurationManager.API.BASE_URL + endpoint;
         try {
-            const accessToken = await AuthManager.getAccessToken();
-            const headers = { 'Content-Type': 'application/json' };
-            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-            const response = await fetch(url, {
-                method: 'GET',
-                headers,
-                signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
-            });
-
-            if (!response.ok)
-                return void (response.status >= 400 && response.status < 500
-                    ? ErrorLogger.warn('Client error fetching domain data', {
-                          domain: domainName,
-                          status: response.status,
-                      })
-                    : response.status >= 500 &&
-                      ErrorLogger.error('Server error fetching domain data', {
-                          domain: domainName,
-                          status: response.status,
-                      }));
-
-            const responseData = await response.json();
+            const responseData = await ApiClient.get(
+                ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA,
+                { params: { domain: domainName } },
+            );
             await this.setErrors(domainName, responseData.data);
             await this.updateBadge(domainName, tabId);
             this.removeUnauthorized(domainName);
@@ -336,18 +315,10 @@ export class BadgeManager {
 
             if (!found) return { success: false, message: 'Error not found' };
 
-            const accessToken = await AuthManager.getAccessToken();
-            const headers = { 'Content-Type': 'application/json' };
-            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-            const response = await fetch(ConfigurationManager.getBugUrl(errorId), {
-                method: 'DELETE',
-                headers,
-                body: JSON.stringify({ domain: domainName, full_url: fullUrl }),
-                signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+            await ApiClient.delete(ConfigurationManager.getBugUrl(errorId), {
+                domain: domainName,
+                full_url: fullUrl,
             });
-
-            if (!response.ok) throw new Error(`API returned ${response.status}`);
 
             await this.setErrors(domainName, errorsData);
             this.notifyContentScript();
@@ -424,18 +395,11 @@ export class BadgeManager {
 
             if (!found || !targetError) return { success: false, message: 'Error not found' };
 
-            const accessToken = await AuthManager.getAccessToken();
-            const headers = { 'Content-Type': 'application/json' };
-            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-            const response = await fetch(ConfigurationManager.getBugUrl(errorId), {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify({ domain: domainName, full_url: fullUrl, bug: targetError }),
-                signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+            await ApiClient.put(ConfigurationManager.getBugUrl(errorId), {
+                domain: domainName,
+                full_url: fullUrl,
+                bug: targetError,
             });
-
-            if (!response.ok) throw new Error(`API returned ${response.status}`);
 
             await this.setErrors(domainName, errorsData);
             this.notifyContentScript();
@@ -451,34 +415,6 @@ export class BadgeManager {
         }
     }
 
-    /**
-     * Persist domain errors to backend API.
-     */
-    async updateErrorsToAPI(domainName, errorsData) {
-        try {
-            const accessToken = await AuthManager.getAccessToken();
-            const headers = { 'Content-Type': 'application/json' };
-            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-            const response = await fetch(
-                ConfigurationManager.API.BASE_URL +
-                    ConfigurationManager.API.ENDPOINTS.SET_DOMAIN_DATA,
-                {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ domain: domainName, path: errorsData.path }),
-                    signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
-                },
-            );
-
-            if (!response.ok) throw new Error(`API returned ${response.status}`);
-            ErrorLogger.info('Errors updated to API successfully', { domain: domainName });
-            return true;
-        } catch (error) {
-            ErrorLogger.error('Failed to update errors to API', { domain: domainName, error });
-            return false;
-        }
-    }
 }
 
 export async function handleBadgeAndErrors(message, sender, sendResponse) {
