@@ -4,6 +4,7 @@ import { MessagingService } from '../core/MessagingService.js';
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { ApiClient } from '../core/http/ApiClient.js';
+import { DomainErrorCache } from '../domain/DomainErrorCache.js';
 
 export class BadgeManager {
     /**
@@ -11,7 +12,7 @@ export class BadgeManager {
      */
     constructor() {
         if (BadgeManager.instance) return BadgeManager.instance;
-        this.errors = new Map();
+        this.cache = new DomainErrorCache();
         this.unauthorizedDomains = new Set();
         this.setupListeners();
         BadgeManager.instance = this;
@@ -85,7 +86,7 @@ export class BadgeManager {
                     sendResponse({ success: true });
                     break;
                 case ConfigurationManager.ACTIONS.GET_ERRORS:
-                    sendResponse(this.getErrors(domainName));
+                    sendResponse(await this.getErrors(domainName));
                     break;
                 case ConfigurationManager.ACTIONS.SET_UNAUTHORIZED:
                     this.setUnauthorized(domainName);
@@ -99,7 +100,7 @@ export class BadgeManager {
                     sendResponse({ success: true });
                     break;
                 case ConfigurationManager.ACTIONS.DOM_IS_READY:
-                    this.getErrors(domainName);
+                    await this.getErrors(domainName);
                     if (sender?.tab?.id) {
                         await MessagingService.sendToContentScript(
                             { action: ConfigurationManager.ACTIONS.SET_ERRORS_IN_CONTENT },
@@ -131,18 +132,10 @@ export class BadgeManager {
      * Count OPEN status errors in all domain paths.
      */
     countOpenErrors(domainErrors) {
-        return domainErrors?.path
-            ? domainErrors.path.reduce(
-                  (count, pathItem) =>
-                      count +
-                      (
-                          pathItem.data?.filter(
-                              (error) => error.status === ConfigurationManager.ERROR_STATUS.OPEN,
-                          ) || []
-                      ).length,
-                  0,
-              )
-            : 0;
+        return DomainErrorCache.countOpenErrors(
+            domainErrors,
+            ConfigurationManager.ERROR_STATUS.OPEN,
+        );
     }
 
     /**
@@ -172,7 +165,7 @@ export class BadgeManager {
                 }
             }
 
-            const errorsData = this.getErrors(domainName);
+            const errorsData = await this.getErrors(domainName);
             const openErrorsCount = this.countOpenErrors(errorsData);
             await chrome.action.setBadgeText({
                 tabId: targetTabId,
@@ -239,7 +232,7 @@ export class BadgeManager {
      * Set cached errors for a domain.
      */
     async setErrors(domainName, errorsData) {
-        this.errors.set(domainName, errorsData);
+        await this.cache.set(domainName, errorsData);
         ErrorLogger.debug('Errors set for domain', {
             domain: domainName,
             errorCount: errorsData?.path?.length || 0,
@@ -249,8 +242,8 @@ export class BadgeManager {
     /**
      * Get cached domain errors.
      */
-    getErrors(domainName) {
-        return this.errors.get(domainName) || { path: [] };
+    async getErrors(domainName) {
+        return await this.cache.get(domainName);
     }
 
     /**
@@ -277,27 +270,11 @@ export class BadgeManager {
     }
 
     /**
-     * Clear all cached errors.
-     */
-    clearAllErrors() {
-        this.errors.clear();
-        ErrorLogger.info('All errors cleared');
-    }
-
-    /**
-     * Clear unauthorized domain cache.
-     */
-    clearAllUnauthorized() {
-        this.unauthorizedDomains.clear();
-        ErrorLogger.info('All unauthorized domains cleared');
-    }
-
-    /**
      * Remove one error from domain payload and persist.
      */
     async removeError(domainName, errorId) {
         try {
-            const errorsData = this.getErrors(domainName);
+            const errorsData = await this.getErrors(domainName);
             if (!errorsData?.path) return { success: false, message: 'Domain data not found' };
 
             let found = false;
@@ -339,7 +316,7 @@ export class BadgeManager {
      */
     async clearAllErrorsForDomain(domainName) {
         try {
-            const errorsData = this.getErrors(domainName);
+            const errorsData = await this.getErrors(domainName);
             const deletions = (errorsData?.path ?? []).flatMap((pathItem) =>
                 (pathItem.data ?? []).map((error) => ({
                     errorId: error.id,
@@ -418,7 +395,7 @@ export class BadgeManager {
      */
     async toggleErrorStatus(domainName, errorId) {
         try {
-            const errorsData = this.getErrors(domainName);
+            const errorsData = await this.getErrors(domainName);
             if (!errorsData?.path) return { success: false, message: 'Domain data not found' };
 
             let found = false;
