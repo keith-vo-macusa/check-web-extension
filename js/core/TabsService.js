@@ -78,10 +78,7 @@ export class TabsService {
                 createdTab
             );
         } catch (error) {
-            return (
-                ErrorLogger.error('Failed to create tab', { url, options, error }),
-                null
-            );
+            return (ErrorLogger.error('Failed to create tab', { url, options, error }), null);
         }
     }
 
@@ -104,10 +101,7 @@ export class TabsService {
                 updatedTab
             );
         } catch (error) {
-            return (
-                ErrorLogger.error('Failed to update tab', { tabId, updateInfo, error }),
-                null
-            );
+            return (ErrorLogger.error('Failed to update tab', { tabId, updateInfo, error }), null);
         }
     }
 

@@ -153,8 +153,8 @@ export class ConfigurationManager {
         return viewportWidth >= this.BREAKPOINT_THRESHOLDS.DESKTOP_MIN
             ? this.BREAKPOINTS.DESKTOP
             : viewportWidth >= this.BREAKPOINT_THRESHOLDS.TABLET_MIN
-                ? this.BREAKPOINTS.TABLET
-                : this.BREAKPOINTS.MOBILE;
+              ? this.BREAKPOINTS.TABLET
+              : this.BREAKPOINTS.MOBILE;
     }
 
     /**

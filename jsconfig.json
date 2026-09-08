@@ -9,6 +9,12 @@
         "noImplicitAny": false,
         "types": ["chrome"]
     },
-    "include": ["js/**/*.js", "background.js", "content.js", "content-loader.js", "scripts/**/*.mjs"],
+    "include": [
+        "js/**/*.js",
+        "background.js",
+        "content.js",
+        "content-loader.js",
+        "scripts/**/*.mjs"
+    ],
     "exclude": ["node_modules", "dist", "lib", "assets"]
 }

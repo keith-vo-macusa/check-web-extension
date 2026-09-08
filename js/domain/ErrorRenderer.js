@@ -129,7 +129,9 @@ export class ErrorRenderer {
 
         const coordinates = errorData.coordinates;
         if (coordinates.responsive) {
-            const pxCoordinates = this.coordsCalculator.convertResponsiveToPx(coordinates.responsive);
+            const pxCoordinates = this.coordsCalculator.convertResponsiveToPx(
+                coordinates.responsive,
+            );
             overlayElement.style.left = `${pxCoordinates.left}px`;
             overlayElement.style.top = `${pxCoordinates.top - this.coordsCalculator.adminBarHeight}px`;
             overlayElement.style.width = `${pxCoordinates.width}px`;
@@ -154,15 +156,14 @@ export class ErrorRenderer {
         const isCachedElementValid =
             cachedElement && cachedElement.nodeType === 1 && document.contains(cachedElement);
 
-        const isReLookup =
-            targetElementOverride === undefined && !isCachedElementValid;
+        const isReLookup = targetElementOverride === undefined && !isCachedElementValid;
 
         const targetElement =
             targetElementOverride !== undefined
                 ? targetElementOverride
                 : isCachedElementValid
-                    ? cachedElement
-                    : this.findErrorElement(errorData);
+                  ? cachedElement
+                  : this.findErrorElement(errorData);
 
         // If we re-located the element (DOM changed), refresh cache so next render
         // can use it without an extra lookup.
@@ -325,7 +326,10 @@ export class ErrorRenderer {
      */
     toggleOpenErrorsVisibility(isVisible) {
         if (!this.container) return;
-        this.container.classList.toggle(ConfigurationManager.CSS_CLASSES.DRAW_OPEN_ERRORS, isVisible);
+        this.container.classList.toggle(
+            ConfigurationManager.CSS_CLASSES.DRAW_OPEN_ERRORS,
+            isVisible,
+        );
     }
 
     /**

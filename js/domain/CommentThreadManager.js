@@ -283,7 +283,9 @@ export class CommentThreadManager {
                 const authorName = comment.author?.name || 'Unknown';
                 const authorInitial = authorName.charAt(0).toUpperCase();
                 const timeText = this.formatTime(comment.timestamp);
-                const editedText = comment.edited ? '<span class="comment-edited">(đã chỉnh sửa)</span>' : '';
+                const editedText = comment.edited
+                    ? '<span class="comment-edited">(đã chỉnh sửa)</span>'
+                    : '';
                 const isOwnComment =
                     (comment.author?.id != null &&
                         userInfo?.id != null &&
@@ -324,7 +326,8 @@ export class CommentThreadManager {
         const sendReplyButton = panelElement.querySelector('.btn-reply-send');
         const addReply = async () => {
             const commentText = replyInput.value.trim();
-            if (!ValidationService.validateComment(commentText).valid || !this.onCommentAdded) return;
+            if (!ValidationService.validateComment(commentText).valid || !this.onCommentAdded)
+                return;
 
             const currentError = getError();
             replyInput.disabled = true;
@@ -426,7 +429,12 @@ export class CommentThreadManager {
 
             if (event.target.classList.contains('btn-delete-comment')) {
                 const commentId = event.target.dataset.commentId;
-                await this.confirmDeleteComment(panelElement, currentError, commentId, event.target);
+                await this.confirmDeleteComment(
+                    panelElement,
+                    currentError,
+                    commentId,
+                    event.target,
+                );
             }
         });
     }
@@ -481,7 +489,10 @@ export class CommentThreadManager {
 
         const performSave = async () => {
             const updatedText = editInput.value.trim();
-            if (!ValidationService.validateComment(updatedText).valid || updatedText === originalText) {
+            if (
+                !ValidationService.validateComment(updatedText).valid ||
+                updatedText === originalText
+            ) {
                 this.cancelEdit(commentText, editForm, commentActions);
                 return;
             }
@@ -504,7 +515,10 @@ export class CommentThreadManager {
         saveEditButton.addEventListener('click', performSave);
 
         editInput.addEventListener('keydown', (event) => {
-            if ((event.key === 'Enter' && !event.shiftKey) || (event.key === 'Enter' && event.ctrlKey)) {
+            if (
+                (event.key === 'Enter' && !event.shiftKey) ||
+                (event.key === 'Enter' && event.ctrlKey)
+            ) {
                 event.preventDefault();
                 performSave();
             } else if (event.key === 'Escape') {
@@ -566,7 +580,9 @@ export class CommentThreadManager {
     getCommentsSkeleton(itemCount = 3) {
         const items = Array.from({ length: itemCount }, (unusedValue, index) => {
             const extraLine =
-                index % 2 === 0 ? '<div class="skeleton-block skeleton-line skeleton-line-short"></div>' : '';
+                index % 2 === 0
+                    ? '<div class="skeleton-block skeleton-line skeleton-line-short"></div>'
+                    : '';
             return `
                 <div class="comment-skeleton">
                     <div class="skeleton-block skeleton-avatar"></div>

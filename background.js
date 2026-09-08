@@ -20,7 +20,9 @@ async function createOffscreen() {
  * Handle extension installation/update lifecycle.
  */
 chrome.runtime.onInstalled.addListener(() => {
-    console.log(`Website Testing Assistant ${ConfigurationManager.getCurrentVersion()} installed/updated`);
+    console.log(
+        `Website Testing Assistant ${ConfigurationManager.getCurrentVersion()} installed/updated`,
+    );
     checkForUpdates();
     setupUpdateCheck();
 });
@@ -31,14 +33,18 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'checkForUpdates') {
         checkForUpdates().then(() => {
-            chrome.storage.local.get(['updateAvailable', 'latestVersion', 'updateUrl'], (storage) => {
-                sendResponse({
-                    updateAvailable: storage.updateAvailable || false,
-                    currentVersion: ConfigurationManager.getCurrentVersion(),
-                    latestVersion: storage.latestVersion || ConfigurationManager.getCurrentVersion(),
-                    updateUrl: storage.updateUrl,
-                });
-            });
+            chrome.storage.local.get(
+                ['updateAvailable', 'latestVersion', 'updateUrl'],
+                (storage) => {
+                    sendResponse({
+                        updateAvailable: storage.updateAvailable || false,
+                        currentVersion: ConfigurationManager.getCurrentVersion(),
+                        latestVersion:
+                            storage.latestVersion || ConfigurationManager.getCurrentVersion(),
+                        updateUrl: storage.updateUrl,
+                    });
+                },
+            );
         });
         return true;
     }

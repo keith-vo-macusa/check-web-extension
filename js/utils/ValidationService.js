@@ -32,8 +32,10 @@ export class ValidationService {
     }
 
     static hasRequiredProperties(target, requiredProperties) {
-        return !(!target || typeof target !== 'object') &&
-            requiredProperties.every((property) => target.hasOwnProperty(property));
+        return (
+            !(!target || typeof target !== 'object') &&
+            requiredProperties.every((property) => target.hasOwnProperty(property))
+        );
     }
 
     static isValidUUID(uuid) {
@@ -65,7 +67,8 @@ export class ValidationService {
         if (missingFields.length > 0) {
             return { valid: false, error: `Missing required fields: ${missingFields.join(', ')}` };
         }
-        if (!this.isValidUUID(errorData.id)) return { valid: false, error: 'Invalid error ID format' };
+        if (!this.isValidUUID(errorData.id))
+            return { valid: false, error: 'Invalid error ID format' };
         if (!['border', 'rect'].includes(errorData.type)) {
             return { valid: false, error: 'Invalid error type' };
         }
@@ -87,12 +90,7 @@ export class ValidationService {
     }
 
     static validateAndSanitize(input, options = {}) {
-        const {
-            required = true,
-            minLength = 0,
-            maxLength = Infinity,
-            allowHtml = false,
-        } = options;
+        const { required = true, minLength = 0, maxLength = Infinity, allowHtml = false } = options;
 
         if (required && !this.isNonEmptyString(input, minLength, maxLength))
             return {

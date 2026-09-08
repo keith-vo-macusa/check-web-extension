@@ -60,7 +60,9 @@ export class BadgeManager {
             try {
                 const domainName = new URL(tab.url).origin;
                 this.setUnauthorized(domainName);
-                const userInfo = await StorageService.getSafe(ConfigurationManager.STORAGE_KEYS.USER_INFO);
+                const userInfo = await StorageService.getSafe(
+                    ConfigurationManager.STORAGE_KEYS.USER_INFO,
+                );
                 if (!userInfo?.email) return;
                 await this.fetchDataFromAPI(domainName, tabId);
             } catch (error) {
@@ -149,7 +151,9 @@ export class BadgeManager {
     async updateBadge(domainName, tabId = null) {
         try {
             await chrome.action.setBadgeText({ text: '' });
-            const userInfo = await StorageService.getSafe(ConfigurationManager.STORAGE_KEYS.USER_INFO);
+            const userInfo = await StorageService.getSafe(
+                ConfigurationManager.STORAGE_KEYS.USER_INFO,
+            );
             if (!userInfo?.email) return;
 
             let targetTabId = tabId;
@@ -460,7 +464,6 @@ export class BadgeManager {
             return { success: false, message: error.message };
         }
     }
-
 }
 
 export async function handleBadgeAndErrors(message, sender, sendResponse) {

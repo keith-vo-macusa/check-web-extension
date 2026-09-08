@@ -27,7 +27,9 @@ export class ErrorDataManager {
             });
 
             if (response?.path) {
-                const currentPathData = response.path.find((pathItem) => pathItem.full_url === this.currentUrl);
+                const currentPathData = response.path.find(
+                    (pathItem) => pathItem.full_url === this.currentUrl,
+                );
                 this.currentTabErrors = currentPathData ? currentPathData.data : [];
                 ErrorLogger.info('Errors fetched successfully', {
                     count: this.currentTabErrors.length,
@@ -58,9 +60,13 @@ export class ErrorDataManager {
                 domainName: this.domainName,
             });
 
-            const currentPathData = domainData.path?.find((pathItem) => pathItem.full_url === this.currentUrl);
+            const currentPathData = domainData.path?.find(
+                (pathItem) => pathItem.full_url === this.currentUrl,
+            );
             this.currentTabErrors = currentPathData ? currentPathData.data : [];
-            ErrorLogger.info('Fresh errors loaded from server', { count: this.currentTabErrors.length });
+            ErrorLogger.info('Fresh errors loaded from server', {
+                count: this.currentTabErrors.length,
+            });
             return this.currentTabErrors;
         } catch (error) {
             ErrorLogger.error('Failed to fetch fresh errors', { error });
@@ -87,7 +93,10 @@ export class ErrorDataManager {
 
             if (responseData?.data) {
                 if (responseData.data.id) errorData.id = responseData.data.id;
-                if (Array.isArray(responseData.data.comments) && responseData.data.comments.length > 0) {
+                if (
+                    Array.isArray(responseData.data.comments) &&
+                    responseData.data.comments.length > 0
+                ) {
                     errorData.comments = responseData.data.comments;
                 }
                 if (Array.isArray(responseData.data.bug_list_ids)) {
@@ -137,7 +146,9 @@ export class ErrorDataManager {
      * Reverts the local value when the API call fails.
      */
     async updateBugList(errorData, bugListIds) {
-        const previousIds = Array.isArray(errorData.bug_list_ids) ? [...errorData.bug_list_ids] : undefined;
+        const previousIds = Array.isArray(errorData.bug_list_ids)
+            ? [...errorData.bug_list_ids]
+            : undefined;
         errorData.bug_list_ids = BugListService.sanitizeIds(bugListIds);
 
         const isUpdated = await this.updateError(errorData);
@@ -235,7 +246,9 @@ export class ErrorDataManager {
         }
 
         try {
-            const comment = errorData.comments.find((item) => String(item.id) === String(commentId));
+            const comment = errorData.comments.find(
+                (item) => String(item.id) === String(commentId),
+            );
             if (!comment) {
                 ErrorLogger.warn('Comment not found', { commentId, comments: errorData.comments });
                 return false;
@@ -256,14 +269,11 @@ export class ErrorDataManager {
                 editedAt: new Date().toISOString(),
             };
 
-            await ApiClient.put(
-                ConfigurationManager.getBugCommentUrl(errorData.id, comment.id),
-                {
-                    domain: this.domainName,
-                    full_url: this.currentUrl,
-                    comment: updatedComment,
-                },
-            );
+            await ApiClient.put(ConfigurationManager.getBugCommentUrl(errorData.id, comment.id), {
+                domain: this.domainName,
+                full_url: this.currentUrl,
+                comment: updatedComment,
+            });
 
             comment.text = commentText;
             comment.edited = true;
@@ -286,7 +296,9 @@ export class ErrorDataManager {
      */
     async deleteComment(errorData, commentId) {
         try {
-            const comment = errorData.comments.find((item) => String(item.id) === String(commentId));
+            const comment = errorData.comments.find(
+                (item) => String(item.id) === String(commentId),
+            );
             const actualCommentId = comment?.id ?? commentId;
 
             await ApiClient.delete(
@@ -423,7 +435,9 @@ export class ErrorDataManager {
      */
     async getUserInfoBasic() {
         try {
-            const storage = await chrome.storage.local.get([ConfigurationManager.STORAGE_KEYS.USER_INFO]);
+            const storage = await chrome.storage.local.get([
+                ConfigurationManager.STORAGE_KEYS.USER_INFO,
+            ]);
             const userInfo = storage[ConfigurationManager.STORAGE_KEYS.USER_INFO] || null;
             if (!userInfo) return null;
 

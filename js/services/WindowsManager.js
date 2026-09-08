@@ -139,10 +139,7 @@ async function applyInnerSize(windowId, tabId, targetInnerSize, requestId) {
 
         const widthDiff = targetInnerSize.width - measuredSize.width;
         const heightDiff = targetInnerSize.height - measuredSize.height;
-        if (
-            Math.abs(widthDiff) <= SIZE_TOLERANCE_PX &&
-            Math.abs(heightDiff) <= SIZE_TOLERANCE_PX
-        ) {
+        if (Math.abs(widthDiff) <= SIZE_TOLERANCE_PX && Math.abs(heightDiff) <= SIZE_TOLERANCE_PX) {
             return;
         }
 
@@ -190,9 +187,7 @@ async function highlightWithoutContentScript(tabId, errorId) {
             target: { tabId },
             args: [errorId, ConfigurationManager.CSS_CLASSES.ERROR_HIGHLIGHT],
             func: (targetErrorId, highlightClass) => {
-                const overlayElement = document.querySelector(
-                    `[data-error-id="${targetErrorId}"]`,
-                );
+                const overlayElement = document.querySelector(`[data-error-id="${targetErrorId}"]`);
                 if (!overlayElement) return false;
 
                 overlayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });

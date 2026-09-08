@@ -298,34 +298,35 @@ export default class WebsiteTestingAssistant {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         const errorData = {
-                id: this.errorDataManager.generateUUID(),
-                type,
-                timestamp: Date.now(),
-                breakpoint: {
-                    type: ConfigurationManager.getBreakpointType(viewportWidth),
-                    width: viewportWidth,
-                    height: viewportHeight,
+            id: this.errorDataManager.generateUUID(),
+            type,
+            timestamp: Date.now(),
+            breakpoint: {
+                type: ConfigurationManager.getBreakpointType(viewportWidth),
+                width: viewportWidth,
+                height: viewportHeight,
+            },
+            url: this.currentUrl,
+            status: ConfigurationManager.ERROR_STATUS.OPEN,
+            bug_list_ids: BugListService.sanitizeIds(bugListIds),
+            elementIdentifiers: null,
+            coordinates: null,
+            comments: [
+                {
+                    id: this.errorDataManager.generateUUID(),
+                    text: comment,
+                    author: await this.getUserInfoBasic(),
+                    timestamp: Date.now(),
+                    edited: false,
+                    editedAt: null,
                 },
-                url: this.currentUrl,
-                status: ConfigurationManager.ERROR_STATUS.OPEN,
-                bug_list_ids: BugListService.sanitizeIds(bugListIds),
-                elementIdentifiers: null,
-                coordinates: null,
-                comments: [
-                    {
-                        id: this.errorDataManager.generateUUID(),
-                        text: comment,
-                        author: await this.getUserInfoBasic(),
-                        timestamp: Date.now(),
-                        edited: false,
-                        editedAt: null,
-                    },
-                ],
-            };
+            ],
+        };
 
         if (type === ConfigurationManager.ERROR_TYPES.BORDER) {
-            errorData.elementIdentifiers =
-                window.getElementFingerprint?.(element) || { xpath: window.getElementXPath(element) };
+            errorData.elementIdentifiers = window.getElementFingerprint?.(element) || {
+                xpath: window.getElementXPath(element),
+            };
             errorData.coordinates = this.coordsCalculator.createCombinedCoordinates(
                 element.getBoundingClientRect(),
             );

@@ -7,7 +7,7 @@ function xpathLiteral(value) {
 
     // Contains both single and double quotes -> concat('a', "'", 'b', ...)
     const parts = str.split("'");
-    return `concat(${parts.map((part) => `'${part}'`).join(", \"'\", ")})`;
+    return `concat(${parts.map((part) => `'${part}'`).join(', "\'", ')})`;
 }
 
 function getElementXPath(element) {
@@ -63,9 +63,7 @@ function getElementXPath(element) {
     if (anchorId) {
         const anchorXPath = `//*[@id=${xpathLiteral(anchorId)}]`;
         const anchoredXPath =
-            relativeSteps.length > 0
-                ? `${anchorXPath}//${relativeSteps.join('/')}`
-                : anchorXPath;
+            relativeSteps.length > 0 ? `${anchorXPath}//${relativeSteps.join('/')}` : anchorXPath;
         if (isUniqueXPath(anchoredXPath)) return anchoredXPath;
     }
 
@@ -102,7 +100,8 @@ function getElementCSSSelector(element) {
         const classNames = element.className
             .split(' ')
             .filter((className) => className.trim() && !className.startsWith('testing-'));
-        if (classNames.length > 0) selector = `.${classNames.map((className) => CSS.escape(className)).join('.')}`;
+        if (classNames.length > 0)
+            selector = `.${classNames.map((className) => CSS.escape(className)).join('.')}`;
     }
 
     if (!selector) selector = element.tagName.toLowerCase();
@@ -163,7 +162,8 @@ function getJsPath(element) {
         const classNames = element.className
             .split(' ')
             .filter((className) => className.trim() && !className.startsWith('testing-'));
-        if (classNames.length > 0) selector = `.${classNames.map((className) => CSS.escape(className)).join('.')}`;
+        if (classNames.length > 0)
+            selector = `.${classNames.map((className) => CSS.escape(className)).join('.')}`;
     }
 
     if (!selector) selector = element.tagName.toLowerCase();
@@ -195,9 +195,12 @@ function getJsPath(element) {
 
 function getElementAttributes(element) {
     const attributes = {};
-    ['id', 'class', 'data-testid', 'data-id', 'name', 'type', 'role', 'href'].forEach((attribute) => {
-        if (element.hasAttribute(attribute)) attributes[attribute] = element.getAttribute(attribute);
-    });
+    ['id', 'class', 'data-testid', 'data-id', 'name', 'type', 'role', 'href'].forEach(
+        (attribute) => {
+            if (element.hasAttribute(attribute))
+                attributes[attribute] = element.getAttribute(attribute);
+        },
+    );
     return attributes;
 }
 
@@ -377,7 +380,8 @@ function findElementByFingerprint(fingerprint) {
     if (!fingerprint || typeof fingerprint !== 'object') return null;
 
     const tag = (fingerprint.tag || '').toLowerCase();
-    const matchesTag = (element) => !tag || (element && element.tagName && element.tagName.toLowerCase() === tag);
+    const matchesTag = (element) =>
+        !tag || (element && element.tagName && element.tagName.toLowerCase() === tag);
 
     if (fingerprint.stableId) {
         try {
@@ -402,7 +406,10 @@ function findElementByFingerprint(fingerprint) {
                 const selector =
                     (tag || '*') +
                     attributeEntries
-                        .map(([name, value]) => `[${name}="${escapeAttributeValueForDoubleQuotedSelector(value)}"]`)
+                        .map(
+                            ([name, value]) =>
+                                `[${name}="${escapeAttributeValueForDoubleQuotedSelector(value)}"]`,
+                        )
                         .join('');
                 const matches = document.querySelectorAll(selector);
                 if (matches.length === 1 && matchesTag(matches[0])) return matches[0];
@@ -424,7 +431,8 @@ function findElementByFingerprint(fingerprint) {
                 XPathResult.FIRST_ORDERED_NODE_TYPE,
                 null,
             );
-            if (result.singleNodeValue && matchesTag(result.singleNodeValue)) return result.singleNodeValue;
+            if (result.singleNodeValue && matchesTag(result.singleNodeValue))
+                return result.singleNodeValue;
         } catch {}
     }
 
@@ -448,13 +456,19 @@ function findElementByFingerprint(fingerprint) {
     let bestFuzzyRectDistance = Infinity;
     const FUZZY_SCORE_THRESHOLD = 8;
 
-    const hasStableRect =
-        !!(fingerprint.rect && fingerprint.rect.width && fingerprint.rect.height && fingerprint.rect.left != null && fingerprint.rect.top != null);
-    const targetRect =
-        hasStableRect && fingerprint.rect ? fingerprint.rect : null;
+    const hasStableRect = !!(
+        fingerprint.rect &&
+        fingerprint.rect.width &&
+        fingerprint.rect.height &&
+        fingerprint.rect.left != null &&
+        fingerprint.rect.top != null
+    );
+    const targetRect = hasStableRect && fingerprint.rect ? fingerprint.rect : null;
     const targetCenterX = hasStableRect ? targetRect.left + targetRect.width / 2 : null;
     const targetCenterY = hasStableRect ? targetRect.top + targetRect.height / 2 : null;
-    const scrollX = hasStableRect ? window.pageXOffset || document.documentElement.scrollLeft : null;
+    const scrollX = hasStableRect
+        ? window.pageXOffset || document.documentElement.scrollLeft
+        : null;
     const scrollY = hasStableRect ? window.pageYOffset || document.documentElement.scrollTop : null;
 
     const computeRectDistance = (candidate) => {
@@ -463,9 +477,11 @@ function findElementByFingerprint(fingerprint) {
         if (!rect.width || !rect.height) return Infinity;
 
         const widthRatio =
-            Math.max(rect.width, targetRect.width) / Math.max(1, Math.min(rect.width, targetRect.width));
+            Math.max(rect.width, targetRect.width) /
+            Math.max(1, Math.min(rect.width, targetRect.width));
         const heightRatio =
-            Math.max(rect.height, targetRect.height) / Math.max(1, Math.min(rect.height, targetRect.height));
+            Math.max(rect.height, targetRect.height) /
+            Math.max(1, Math.min(rect.height, targetRect.height));
         if (widthRatio > 2 || heightRatio > 2) return Infinity;
 
         const candidateCenterX = rect.left + rect.width / 2 + scrollX;
@@ -477,7 +493,9 @@ function findElementByFingerprint(fingerprint) {
         let score = 0;
 
         const candidateClasses = getStableClassList(candidate);
-        const overlappingClasses = candidateClasses.filter((className) => targetClassSet.has(className)).length;
+        const overlappingClasses = candidateClasses.filter((className) =>
+            targetClassSet.has(className),
+        ).length;
         score += overlappingClasses * 3;
 
         for (const [name, value] of Object.entries(fingerprint.attributes || {})) {
@@ -490,7 +508,8 @@ function findElementByFingerprint(fingerprint) {
             .substring(0, TEXT_PREVIEW_LIMIT);
         if (targetText && candidateText) {
             if (candidateText === targetText) score += 6;
-            else if (candidateText.includes(targetText) || targetText.includes(candidateText)) score += 2;
+            else if (candidateText.includes(targetText) || targetText.includes(candidateText))
+                score += 2;
         }
 
         if (targetAncestor && targetAncestor.stableId) {
@@ -537,7 +556,8 @@ function findElementByFingerprint(fingerprint) {
             if (!rect.width || !rect.height) continue;
 
             const widthRatio =
-                Math.max(rect.width, target.width) / Math.max(1, Math.min(rect.width, target.width));
+                Math.max(rect.width, target.width) /
+                Math.max(1, Math.min(rect.width, target.width));
             const heightRatio =
                 Math.max(rect.height, target.height) /
                 Math.max(1, Math.min(rect.height, target.height));
@@ -545,7 +565,10 @@ function findElementByFingerprint(fingerprint) {
 
             const candidateCenterX = rect.left + rect.width / 2 + scrollX;
             const candidateCenterY = rect.top + rect.height / 2 + scrollY;
-            const distance = Math.hypot(candidateCenterX - targetCenterX, candidateCenterY - targetCenterY);
+            const distance = Math.hypot(
+                candidateCenterX - targetCenterX,
+                candidateCenterY - targetCenterY,
+            );
 
             if (distance < closestDistance) {
                 closestDistance = distance;
@@ -609,7 +632,10 @@ function findElementByAttributes(targetInfo) {
             const targetPreview = targetInfo.textContent.trim().substring(0, 50);
             if (preview === targetPreview) {
                 score += 5;
-            } else if (preview.includes(targetInfo.textContent) || targetInfo.textContent.includes(preview)) {
+            } else if (
+                preview.includes(targetInfo.textContent) ||
+                targetInfo.textContent.includes(preview)
+            ) {
                 score += 2;
             }
         }

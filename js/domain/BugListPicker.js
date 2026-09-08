@@ -80,11 +80,8 @@ export class BugListPicker {
             this.renderDropdown();
         } catch {
             if (this.isDestroyed) return;
-            this.setStatus(
-                'error',
-                'Không tải được danh sách loại lỗi.',
-                'Thử lại',
-                () => this.loadOptions({ forceReload: true }),
+            this.setStatus('error', 'Không tải được danh sách loại lỗi.', 'Thử lại', () =>
+                this.loadOptions({ forceReload: true }),
             );
         }
     }
@@ -92,12 +89,14 @@ export class BugListPicker {
     bindEvents() {
         // Giữ focus ở input khi bấm vào vùng trống của control hoặc vào dropdown,
         // nếu không blur sẽ đóng dropdown trước khi click kịp chạy.
-        this.rootElement.querySelector('.bug-list-picker-control').addEventListener('mousedown', (event) => {
-            if (event.target === this.searchInput) return;
-            event.preventDefault();
-            this.searchInput.focus();
-            this.openDropdown();
-        });
+        this.rootElement
+            .querySelector('.bug-list-picker-control')
+            .addEventListener('mousedown', (event) => {
+                if (event.target === this.searchInput) return;
+                event.preventDefault();
+                this.searchInput.focus();
+                this.openDropdown();
+            });
 
         this.dropdownElement.addEventListener('mousedown', (event) => event.preventDefault());
 
@@ -160,7 +159,11 @@ export class BugListPicker {
             return;
         }
 
-        if (event.key === 'Backspace' && this.searchInput.value === '' && this.selectedIds.length > 0) {
+        if (
+            event.key === 'Backspace' &&
+            this.searchInput.value === '' &&
+            this.selectedIds.length > 0
+        ) {
             event.preventDefault();
             this.toggleOption(this.selectedIds[this.selectedIds.length - 1]);
             this.renderDropdown();
@@ -215,9 +218,10 @@ export class BugListPicker {
         if (this.highlightedIndex >= this.visibleOptions.length) this.highlightedIndex = 0;
 
         if (this.visibleOptions.length === 0) {
-            const message = this.allOptions.length === 0
-                ? 'Chưa có loại lỗi nào đang hoạt động'
-                : 'Không tìm thấy loại lỗi phù hợp';
+            const message =
+                this.allOptions.length === 0
+                    ? 'Chưa có loại lỗi nào đang hoạt động'
+                    : 'Không tìm thấy loại lỗi phù hợp';
             this.dropdownElement.innerHTML = `<div class="bug-list-empty">${message}</div>`;
             return;
         }

@@ -945,7 +945,7 @@ div:where(.swal2-container) {
     background: #1877f2 !important;
 }
 .bug-list-option.is-selected .bug-list-option-check::after {
-    content: "" !important;
+    content: '' !important;
     position: absolute !important;
     left: 4px !important;
     top: 1px !important;

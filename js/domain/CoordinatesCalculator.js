@@ -95,15 +95,15 @@ export class CoordinatesCalculator {
         const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
         const scrollY = window.pageYOffset || document.documentElement.scrollTop;
         const absoluteCoordinates = {
-                left: rect.left + scrollX,
-                top: rect.top + scrollY,
-                width: rect.width,
-                height: rect.height,
-                viewportWidth: window.innerWidth,
-                viewportHeight: window.innerHeight,
-                scrollX,
-                scrollY,
-            };
+            left: rect.left + scrollX,
+            top: rect.top + scrollY,
+            width: rect.width,
+            height: rect.height,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+            scrollX,
+            scrollY,
+        };
         const responsiveCoordinates = this.convertPxToResponsive(absoluteCoordinates);
         return { ...absoluteCoordinates, responsive: responsiveCoordinates };
     }
@@ -115,8 +115,8 @@ export class CoordinatesCalculator {
         try {
             const hasOpener = window.opener !== null;
             const hasSmallWindowSize =
-                    window.outerWidth < 0.8 * screen.availWidth ||
-                    window.outerHeight < 0.8 * screen.availHeight;
+                window.outerWidth < 0.8 * screen.availWidth ||
+                window.outerHeight < 0.8 * screen.availHeight;
             const hasHiddenBrowserChrome = !window.menubar?.visible || !window.toolbar?.visible;
             return hasOpener || hasSmallWindowSize || hasHiddenBrowserChrome;
         } catch (error) {

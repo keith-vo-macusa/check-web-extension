@@ -16,10 +16,7 @@ export class WindowsService {
         try {
             return await chrome.windows.get(windowId, options);
         } catch (error) {
-            return (
-                ErrorLogger.error('Failed to get window', { windowId, options, error }),
-                null
-            );
+            return (ErrorLogger.error('Failed to get window', { windowId, options, error }), null);
         }
     }
 
@@ -42,10 +39,7 @@ export class WindowsService {
                 createdWindow
             );
         } catch (error) {
-            return (
-                ErrorLogger.error('Failed to create window', { createData, error }),
-                null
-            );
+            return (ErrorLogger.error('Failed to create window', { createData, error }), null);
         }
     }
 
@@ -134,10 +128,7 @@ export class WindowsService {
         try {
             return await chrome.windows.getCurrent(options);
         } catch (error) {
-            return (
-                ErrorLogger.error('Failed to get current window', { options, error }),
-                null
-            );
+            return (ErrorLogger.error('Failed to get current window', { options, error }), null);
         }
     }
 }

@@ -261,7 +261,9 @@ class UIManager {
 
         try {
             await TabManager.sendMessage({
-                action: this.state.isActive ? ConfigurationManager.ACTIONS.ACTIVATE : ConfigurationManager.ACTIONS.DEACTIVATE,
+                action: this.state.isActive
+                    ? ConfigurationManager.ACTIONS.ACTIVATE
+                    : ConfigurationManager.ACTIONS.DEACTIVATE,
             });
         } catch {
             console.log('Cannot toggle mode - content script not available');
@@ -278,7 +280,9 @@ class UIManager {
 
         try {
             await TabManager.sendMessage({
-                action: isVisible ? ConfigurationManager.ACTIONS.SHOW_ALL_ERRORS : ConfigurationManager.ACTIONS.HIDE_ALL_ERRORS,
+                action: isVisible
+                    ? ConfigurationManager.ACTIONS.SHOW_ALL_ERRORS
+                    : ConfigurationManager.ACTIONS.HIDE_ALL_ERRORS,
             });
         } catch {
             console.log('Cannot toggle errors visibility - content script not available');
@@ -291,24 +295,27 @@ class UIManager {
     }
 
     async handleClearAll() {
-        AlertManager.confirm('Xóa tất cả lỗi', ConfigurationManager.MESSAGES.remove_all_errors, 'Xóa', 'Hủy').then(
-            async (result) => {
-                if (result.isConfirmed)
-                    try {
-                        AlertManager.loading(ConfigurationManager.MESSAGES.loading);
-                        const response = await ErrorManager.clearAllErrors();
-                        if (response?.success) {
-                            this.refreshErrorsList();
-                        } else {
-                            console.error('Error clearing all errors:', response?.message);
-                        }
-                        AlertManager.close();
-                    } catch {
-                        console.log('Cannot clear errors - content script not available');
-                        AlertManager.close();
+        AlertManager.confirm(
+            'Xóa tất cả lỗi',
+            ConfigurationManager.MESSAGES.remove_all_errors,
+            'Xóa',
+            'Hủy',
+        ).then(async (result) => {
+            if (result.isConfirmed)
+                try {
+                    AlertManager.loading(ConfigurationManager.MESSAGES.loading);
+                    const response = await ErrorManager.clearAllErrors();
+                    if (response?.success) {
+                        this.refreshErrorsList();
+                    } else {
+                        console.error('Error clearing all errors:', response?.message);
                     }
-            },
-        );
+                    AlertManager.close();
+                } catch {
+                    console.log('Cannot clear errors - content script not available');
+                    AlertManager.close();
+                }
+        });
     }
 
     async handleDrawOpenErrors(event) {
@@ -486,7 +493,10 @@ class UIManager {
 
         // Options chưa tải được thì mọi id đều "chưa biết tên" — đừng tô đỏ như tag hỏng.
         const isOptionsLoaded = BugListService.cachedOptions !== null;
-        const chips = BugListService.resolveSelected(BugListService.cachedOptions ?? [], selectedIds)
+        const chips = BugListService.resolveSelected(
+            BugListService.cachedOptions ?? [],
+            selectedIds,
+        )
             .map((option) => {
                 const safeName = this.escapeHtml(option.name);
                 const unknownClass = option.isUnknown && isOptionsLoaded ? ' is-unknown' : '';
@@ -539,25 +549,28 @@ class UIManager {
     setupErrorItemEventHandlers(errorItem, error) {
         errorItem.find('.delete-error-btn').click(async (event) => {
             event.stopPropagation();
-            AlertManager.confirm('Xóa lỗi', ConfigurationManager.MESSAGES.remove_error, 'Xóa', 'Hủy').then(
-                async (result) => {
-                    if (result.isConfirmed)
-                        try {
-                            AlertManager.loading(ConfigurationManager.MESSAGES.loading);
-                            const response = await ErrorManager.deleteError(error.id);
-                            AlertManager.close();
-                            if (response?.success) {
-                                this.refreshErrorsList();
-                                return;
-                            }
-                            throw new Error(response?.message);
-                        } catch (deleteError) {
-                            AlertManager.close();
-                            console.error('Error deleting error:', deleteError);
-                            AlertManager.error('Error deleting error:', deleteError);
+            AlertManager.confirm(
+                'Xóa lỗi',
+                ConfigurationManager.MESSAGES.remove_error,
+                'Xóa',
+                'Hủy',
+            ).then(async (result) => {
+                if (result.isConfirmed)
+                    try {
+                        AlertManager.loading(ConfigurationManager.MESSAGES.loading);
+                        const response = await ErrorManager.deleteError(error.id);
+                        AlertManager.close();
+                        if (response?.success) {
+                            this.refreshErrorsList();
+                            return;
                         }
-                },
-            );
+                        throw new Error(response?.message);
+                    } catch (deleteError) {
+                        AlertManager.close();
+                        console.error('Error deleting error:', deleteError);
+                        AlertManager.error('Error deleting error:', deleteError);
+                    }
+            });
         });
 
         errorItem.find('.btn-toogle-check-fixed').click(async (event) => {
@@ -647,7 +660,8 @@ $(document).ready(async function () {
     const sendNotification = async (userInfo, notificationType) => {
         AlertManager.confirm(
             'Gửi thông báo',
-            ConfigurationManager.MESSAGES[notificationType] || 'Bạn có chắc muốn gửi thông báo không?',
+            ConfigurationManager.MESSAGES[notificationType] ||
+                'Bạn có chắc muốn gửi thông báo không?',
             'Gửi',
             'Hủy',
         ).then(async (result) => {
@@ -736,7 +750,9 @@ $(document).ready(async function () {
         uiManager = new UIManager(popupState);
 
         try {
-            const contentState = await TabManager.sendMessage({ action: ConfigurationManager.ACTIONS.GET_STATE });
+            const contentState = await TabManager.sendMessage({
+                action: ConfigurationManager.ACTIONS.GET_STATE,
+            });
             if (contentState) {
                 popupState.setActive(contentState.isActive);
                 uiManager.updateUI();

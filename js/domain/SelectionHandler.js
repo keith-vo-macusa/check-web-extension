@@ -254,7 +254,9 @@ export class SelectionHandler {
     removeHighlight() {
         document
             .querySelectorAll(`.${ConfigurationManager.CSS_CLASSES.HIGHLIGHT}`)
-            .forEach((element) => element.classList.remove(ConfigurationManager.CSS_CLASSES.HIGHLIGHT));
+            .forEach((element) =>
+                element.classList.remove(ConfigurationManager.CSS_CLASSES.HIGHLIGHT),
+            );
     }
 
     /**
