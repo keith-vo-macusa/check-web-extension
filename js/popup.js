@@ -4,6 +4,8 @@ import AlertManager from './services/AlertManager.js';
 import NotificationManager from './services/NotificationManager.js';
 import { ConfigurationManager } from './config/ConfigurationManager.js';
 import { BugListService } from './domain/BugListService.js';
+import { ApiClient } from './core/http/ApiClient.js';
+import { buildErrorsSignature } from './shared/errorsSignature.js';
 
 /** Bỏ qua revalidate trong khoảng này sau khi người dùng mở cửa sổ lỗi. */
 const REVALIDATE_SUPPRESS_MS = 3000;
