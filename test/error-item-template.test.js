@@ -7,7 +7,6 @@ let renderBugListTags;
 let renderStatusBadge;
 let renderErrorsSkeleton;
 let renderErrorsSummary;
-let renderEmptyState;
 let BugListService;
 
 before(async () => {
@@ -18,7 +17,6 @@ before(async () => {
         renderStatusBadge,
         renderErrorsSkeleton,
         renderErrorsSummary,
-        renderEmptyState,
     } = await import('../src/popup/ErrorItemTemplate.js'));
     ({ BugListService } = await import('../src/shared/BugListService.js'));
 });
@@ -132,39 +130,19 @@ describe('renderErrorsSkeleton', () => {
 });
 
 describe('renderErrorsSummary', () => {
-    test('đếm riêng open và resolved', () => {
+    test('đếm open và resolved', () => {
         const errors = [
             error(),
             error({ status: 'resolved' }),
             error({ status: 'resolved' }),
             error({ status: undefined }),
         ];
-        const output = render(renderErrorsSummary(errors));
-        assert.match(output, /<b>2<\/b>\s*đang mở/);
-        assert.match(output, /<b>2<\/b>\s*đã giải quyết/);
+        const output = render(renderErrorsSummary(errors, 'Tất cả breakpoint'));
+        assert.ok(output.includes('Tổng số lỗi: 4'));
+        assert.ok(output.includes('Errors: 2 - Resolved: 2/4'));
     });
 
-    test('danh sách rỗng ra hai số 0', () => {
-        const output = render(renderErrorsSummary([]));
-        assert.equal((output.match(/<b>0<\/b>/g) ?? []).length, 2);
-    });
-});
-
-describe('renderEmptyState', () => {
-    // Trước đây danh sách rỗng chỉ hiện "Tổng số lỗi: 0", không nói phải làm gì.
-    test('chưa lọc: hướng dẫn cách tạo lỗi đầu tiên', () => {
-        const output = render(renderEmptyState('all'));
-        assert.ok(output.includes('Trang này chưa có lỗi nào'));
-        assert.ok(output.includes('Bắt đầu chọn lỗi'));
-    });
-
-    test('đang lọc breakpoint: nói rõ là do bộ lọc', () => {
-        const output = render(renderEmptyState('mobile'));
-        assert.ok(output.includes('breakpoint này'));
-        assert.ok(!output.includes('Trang này chưa có lỗi nào'));
-    });
-
-    test('thiếu tham số coi như chưa lọc', () => {
-        assert.ok(render(renderEmptyState(undefined)).includes('Trang này chưa có lỗi nào'));
+    test('escape nhãn breakpoint', () => {
+        assert.ok(!render(renderErrorsSummary([], '<b>x')).includes('<b>x'));
     });
 });

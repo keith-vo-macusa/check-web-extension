@@ -203,6 +203,12 @@ body.testing-selection-mode .elementor-element input {
     align-items: center !important;
     gap: 8px !important;
 }
+.thread-heading {
+    font-weight: 700 !important;
+    color: #050505 !important;
+    font-size: 15px !important;
+    letter-spacing: -0.2px !important;
+}
 .thread-status {
     padding: 4px 8px !important;
     border-radius: 12px !important;
@@ -566,6 +572,15 @@ body.testing-selection-mode .elementor-element input {
 .btn-resolve.resolved:hover {
     background: #1b5e20 !important;
 }
+.btn-delete {
+    background: #fce8e6 !important;
+    color: #d93025 !important;
+    padding: 6px 10px !important;
+}
+.btn-delete:hover {
+    background: #f28b82 !important;
+    color: #fff !important;
+}
 .edit-form {
     margin-top: 8px !important;
 }
@@ -781,6 +796,9 @@ body.testing-selection-mode .elementor-element input {
 .testing-error-border {
     z-index: 251001;
     pointer-events: auto;
+}
+div:where(.swal2-container) {
+    z-index: 99999999999999 !important;
 }
 .is-hidden {
     display: none !important;
@@ -1090,150 +1108,4 @@ body.testing-selection-mode .elementor-element input {
 }
 body #testing-error-container .testing-error-border.testing-error-highlight {
     display: block !important;
-}
-/* --- Thread header ------------------------------------------------------- */
-/* Delete used to sit directly beside close, both of them plain text buttons, so
-   the destructive action was one slip away from the harmless one. It is an icon
-   button now, separated from close by a divider. */
-.thread-comment-count {
-    font-size: 12px !important;
-    color: #65676b !important;
-}
-.thread-header-divider {
-    width: 1px !important;
-    height: 20px !important;
-    margin: 0 2px !important;
-    background: rgba(0, 0, 0, 0.12) !important;
-    flex-shrink: 0 !important;
-}
-.btn-delete {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 30px !important;
-    height: 30px !important;
-    padding: 0 !important;
-    border: none !important;
-    border-radius: 6px !important;
-    background: 0 0 !important;
-    color: #9aa0a6 !important;
-    cursor: pointer !important;
-    transition: 0.2s !important;
-}
-.btn-delete svg {
-    width: 16px !important;
-    height: 16px !important;
-    fill: currentColor !important;
-    display: block !important;
-}
-.btn-delete:hover {
-    background: #fce8e6 !important;
-    color: #d93025 !important;
-}
-/* --- Confirm dialog ------------------------------------------------------ */
-/* Every declaration is !important because this renders inside the host page and
-   has to survive whatever CSS that page ships. */
-.testing-confirm {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    z-index: 2147483647 !important;
-    box-sizing: border-box !important;
-    width: 380px !important;
-    max-width: 90vw !important;
-    padding: 20px !important;
-    background: #fff !important;
-    border-radius: 12px !important;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24) !important;
-    font-family:
-        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif !important;
-    text-align: left !important;
-    display: grid !important;
-    grid-template-columns: auto 1fr !important;
-    gap: 4px 14px !important;
-    animation: 0.15s ease-out threadSlideIn !important;
-}
-.testing-confirm * {
-    box-sizing: border-box !important;
-}
-.testing-confirm-icon {
-    grid-row: 1 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 40px !important;
-    height: 40px !important;
-    border-radius: 50% !important;
-    background: #fce8e6 !important;
-    color: #d93025 !important;
-}
-.testing-confirm-icon svg {
-    width: 20px !important;
-    height: 20px !important;
-    fill: currentColor !important;
-    display: block !important;
-}
-.testing-confirm-body {
-    grid-row: 1 !important;
-    min-width: 0 !important;
-}
-.testing-confirm-title {
-    margin: 0 0 4px !important;
-    padding: 0 !important;
-    font-size: 16px !important;
-    font-weight: 600 !important;
-    line-height: 1.3 !important;
-    color: #050505 !important;
-    text-transform: none !important;
-    letter-spacing: normal !important;
-}
-.testing-confirm-text {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 13px !important;
-    font-weight: 400 !important;
-    line-height: 1.5 !important;
-    color: #65676b !important;
-    text-transform: none !important;
-}
-.testing-confirm-actions {
-    grid-column: 1 / -1 !important;
-    display: flex !important;
-    justify-content: flex-end !important;
-    gap: 8px !important;
-    margin-top: 18px !important;
-}
-.testing-confirm-actions button {
-    min-width: 84px !important;
-    margin: 0 !important;
-    padding: 8px 16px !important;
-    border: 1px solid transparent !important;
-    border-radius: 8px !important;
-    font-family: inherit !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    line-height: 1.2 !important;
-    text-transform: none !important;
-    letter-spacing: normal !important;
-    cursor: pointer !important;
-    transition: 0.15s !important;
-}
-.testing-confirm-cancel {
-    background: #e4e6eb !important;
-    color: #050505 !important;
-}
-.testing-confirm-cancel:hover {
-    background: #d8dadf !important;
-}
-.testing-confirm-ok {
-    background: #d93025 !important;
-    color: #fff !important;
-}
-.testing-confirm-ok:hover {
-    background: #b3261e !important;
-}
-.testing-confirm-actions button:focus-visible {
-    outline: 2px solid #1877f2 !important;
-    outline-offset: 2px !important;
 }

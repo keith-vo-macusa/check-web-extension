@@ -8,7 +8,6 @@ import {
     renderErrorItemBody,
     renderErrorsSkeleton,
     renderErrorsSummary,
-    renderEmptyState,
 } from './ErrorItemTemplate.js';
 import { html } from '../shared/ui/html.js';
 
@@ -86,8 +85,37 @@ export class UIManager {
         });
     }
 
-    /** Markup của bộ lọc nằm sẵn trong popup.html; ở đây chỉ gắn sự kiện. */
     setupBreakpointFilters() {
+        $('#controls').append(
+            String(html`
+                <div class="breakpoint-filters">
+                    <button
+                        class="filter-btn active"
+                        data-breakpoint="${ConfigurationManager.BREAKPOINTS.ALL}"
+                    >
+                        Tất cả
+                    </button>
+                    <button
+                        class="filter-btn"
+                        data-breakpoint="${ConfigurationManager.BREAKPOINTS.DESKTOP}"
+                    >
+                        Desktop
+                    </button>
+                    <button
+                        class="filter-btn"
+                        data-breakpoint="${ConfigurationManager.BREAKPOINTS.TABLET}"
+                    >
+                        Tablet
+                    </button>
+                    <button
+                        class="filter-btn"
+                        data-breakpoint="${ConfigurationManager.BREAKPOINTS.MOBILE}"
+                    >
+                        Mobile
+                    </button>
+                </div>
+            `),
+        );
         $('.filter-btn').click((event) => this.handleBreakpointFilter(event));
     }
 
@@ -286,12 +314,12 @@ export class UIManager {
     }
 
     renderErrorsList(container, errors) {
-        if (errors.length === 0) {
-            container.append(String(renderEmptyState(this.state.selectedBreakpoint)));
-            return;
-        }
+        const breakpointLabel =
+            this.state.selectedBreakpoint === ConfigurationManager.BREAKPOINTS.ALL
+                ? 'Tất cả breakpoint'
+                : `Breakpoint ${this.state.selectedBreakpoint}`;
 
-        container.append(String(renderErrorsSummary(errors)));
+        container.append(String(renderErrorsSummary(errors, breakpointLabel)));
         errors.forEach((error, index) => this.renderErrorItem(container, error, index));
     }
 
