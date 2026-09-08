@@ -44,7 +44,7 @@ export class BadgeManager {
         try {
             const tab = await TabsService.getTab(tabId);
             if (!tab?.url) return;
-            const domainName = new URL(tab.url).hostname;
+            const domainName = new URL(tab.url).origin;
             await this.updateBadge(domainName, tabId);
         } catch (error) {
             ErrorLogger.error('Failed to handle tab activated', { tabId, error });
@@ -58,7 +58,7 @@ export class BadgeManager {
     async handleTabUpdated(tabId, changeInfo, tab) {
         if (changeInfo.status === 'loading' && tab?.url)
             try {
-                const domainName = new URL(tab.url).hostname;
+                const domainName = new URL(tab.url).origin;
                 this.setUnauthorized(domainName);
                 const userInfo = await StorageService.getSafe(ConfigurationManager.STORAGE_KEYS.USER_INFO);
                 if (!userInfo?.email) return;
@@ -158,7 +158,7 @@ export class BadgeManager {
                 if (!activeTab) return;
                 targetTabId = activeTab.id;
                 try {
-                    if (new URL(activeTab.url).hostname !== domainName) return;
+                    if (new URL(activeTab.url).origin !== domainName) return;
                 } catch (error) {
                     ErrorLogger.warn('Failed to parse active tab URL', {
                         url: activeTab.url,
@@ -318,28 +318,41 @@ export class BadgeManager {
             if (!errorsData?.path) return { success: false, message: 'Domain data not found' };
 
             let found = false;
+            let fullUrl = '';
             for (const pathItem of errorsData.path) {
                 const index = pathItem.data?.findIndex((error) => error.id === errorId);
                 if (index !== -1) {
+                    fullUrl = pathItem.full_url;
                     pathItem.data.splice(index, 1);
                     found = true;
                     if (pathItem.data.length === 0) {
                         const pathIndex = errorsData.path.indexOf(pathItem);
                         errorsData.path.splice(pathIndex, 1);
                     }
-                    ErrorLogger.info('Error removed', { errorId });
+                    ErrorLogger.info('Error removed from cache', { errorId });
                     break;
                 }
             }
 
             if (!found) return { success: false, message: 'Error not found' };
-            if (await this.updateErrorsToAPI(domainName, errorsData)) {
-                await this.setErrors(domainName, errorsData);
-                this.notifyContentScript();
-                await this.updateBadge(domainName);
-                return { success: true };
-            }
-            return { success: false, message: 'Failed to update API' };
+
+            const accessToken = await AuthManager.getAccessToken();
+            const headers = { 'Content-Type': 'application/json' };
+            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+            const response = await fetch(ConfigurationManager.getBugUrl(errorId), {
+                method: 'DELETE',
+                headers,
+                body: JSON.stringify({ domain: domainName, full_url: fullUrl }),
+                signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+            });
+
+            if (!response.ok) throw new Error(`API returned ${response.status}`);
+
+            await this.setErrors(domainName, errorsData);
+            this.notifyContentScript();
+            await this.updateBadge(domainName);
+            return { success: true };
         } catch (error) {
             ErrorLogger.error('Failed to remove error', { domain: domainName, errorId, error });
             return { success: false, message: error.message };
@@ -352,14 +365,11 @@ export class BadgeManager {
     async clearAllErrorsForDomain(domainName) {
         try {
             const emptyErrors = { path: [] };
-            if (await this.updateErrorsToAPI(domainName, emptyErrors)) {
-                await this.setErrors(domainName, emptyErrors);
-                this.notifyContentScript();
-                await this.updateBadge(domainName);
-                ErrorLogger.info('All errors cleared for domain', { domain: domainName });
-                return { success: true };
-            }
-            return { success: false, message: 'Failed to update API' };
+            await this.setErrors(domainName, emptyErrors);
+            this.notifyContentScript();
+            await this.updateBadge(domainName);
+            ErrorLogger.info('All errors cleared for domain locally', { domain: domainName });
+            return { success: true };
         } catch (error) {
             ErrorLogger.error('Failed to clear all errors', { domain: domainName, error });
             return { success: false, message: error.message };
@@ -391,16 +401,19 @@ export class BadgeManager {
             if (!errorsData?.path) return { success: false, message: 'Domain data not found' };
 
             let found = false;
+            let targetError = null;
+            let fullUrl = '';
             for (const pathItem of errorsData.path) {
-                const targetError = pathItem.data?.find((error) => error.id === errorId);
+                targetError = pathItem.data?.find((error) => error.id === errorId);
                 if (targetError) {
+                    fullUrl = pathItem.full_url;
                     const oldStatus = targetError.status;
                     targetError.status =
                         targetError.status === ConfigurationManager.ERROR_STATUS.OPEN
                             ? ConfigurationManager.ERROR_STATUS.RESOLVED
                             : ConfigurationManager.ERROR_STATUS.OPEN;
                     found = true;
-                    ErrorLogger.info('Error status toggled', {
+                    ErrorLogger.info('Error status toggled in cache', {
                         errorId,
                         oldStatus,
                         newStatus: targetError.status,
@@ -409,14 +422,25 @@ export class BadgeManager {
                 }
             }
 
-            if (!found) return { success: false, message: 'Error not found' };
-            if (await this.updateErrorsToAPI(domainName, errorsData)) {
-                await this.setErrors(domainName, errorsData);
-                this.notifyContentScript();
-                await this.updateBadge(domainName);
-                return { success: true };
-            }
-            return { success: false, message: 'Failed to update API' };
+            if (!found || !targetError) return { success: false, message: 'Error not found' };
+
+            const accessToken = await AuthManager.getAccessToken();
+            const headers = { 'Content-Type': 'application/json' };
+            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+            const response = await fetch(ConfigurationManager.getBugUrl(errorId), {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({ domain: domainName, full_url: fullUrl, bug: targetError }),
+                signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+            });
+
+            if (!response.ok) throw new Error(`API returned ${response.status}`);
+
+            await this.setErrors(domainName, errorsData);
+            this.notifyContentScript();
+            await this.updateBadge(domainName);
+            return { success: true };
         } catch (error) {
             ErrorLogger.error('Failed to toggle error status', {
                 domain: domainName,

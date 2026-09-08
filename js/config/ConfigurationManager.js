@@ -22,12 +22,14 @@ export class ConfigurationManager {
         login_required: 'Vui lòng đăng nhập để tiếp tục',
     };
     static API = {
-        BASE_URL: 'https://wpm.macusaone.com/',
+        BASE_URL: 'http://127.0.0.1:8000/',
         ENDPOINTS: {
             LOGIN: 'api/loginForExt',
             SEND_NOTIFICATION: 'api/v1/websites/check-wise/ext/notification',
             GET_DOMAIN_DATA: 'api/v1/websites/check-wise/ext/',
             SET_DOMAIN_DATA: 'api/v1/websites/check-wise/ext/',
+            BUGS: 'api/v1/websites/check-wise/ext/bugs',
+            BUG_LIST_OPTIONS: 'api/v1/websites/site-check/bug-list/options',
         },
         TIMEOUT: 10000,
     };
@@ -119,14 +121,38 @@ export class ConfigurationManager {
     }
 
     /**
+     * Build bug API URL, optionally appending bugId.
+     */
+    static getBugUrl(bugId = '') {
+        const base = this.API.BASE_URL + this.API.ENDPOINTS.BUGS;
+        return bugId ? `${base}/${bugId}` : base;
+    }
+
+    /**
+     * Build bug comment API URL, optionally appending commentId.
+     */
+    static getBugCommentUrl(bugId, commentId = '') {
+        const base = `${this.API.BASE_URL}${this.API.ENDPOINTS.BUGS}/${bugId}/comments`;
+        return commentId ? `${base}/${commentId}` : base;
+    }
+
+    /**
+     * Build bug list options URL. Omitting the term returns every active option.
+     */
+    static getBugListOptionsUrl(searchTerm = '') {
+        const base = this.API.BASE_URL + this.API.ENDPOINTS.BUG_LIST_OPTIONS;
+        return searchTerm ? `${base}?search=${encodeURIComponent(searchTerm)}` : base;
+    }
+
+    /**
      * Resolve breakpoint type for a given viewport width.
      */
     static getBreakpointType(viewportWidth) {
         return viewportWidth >= this.BREAKPOINT_THRESHOLDS.DESKTOP_MIN
             ? this.BREAKPOINTS.DESKTOP
             : viewportWidth >= this.BREAKPOINT_THRESHOLDS.TABLET_MIN
-              ? this.BREAKPOINTS.TABLET
-              : this.BREAKPOINTS.MOBILE;
+                ? this.BREAKPOINTS.TABLET
+                : this.BREAKPOINTS.MOBILE;
     }
 
     /**

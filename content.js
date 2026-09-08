@@ -7,6 +7,7 @@ import { SelectionHandler } from './js/domain/SelectionHandler.js';
 import { ErrorRenderer } from './js/domain/ErrorRenderer.js';
 import { CommentThreadManager } from './js/domain/CommentThreadManager.js';
 import { ErrorDataManager } from './js/domain/ErrorDataManager.js';
+import { BugListService } from './js/domain/BugListService.js';
 
 export default class WebsiteTestingAssistant {
     /**
@@ -14,7 +15,7 @@ export default class WebsiteTestingAssistant {
      */
     constructor() {
         this.currentUrl = window.location.href;
-        this.domainName = window.location.hostname;
+        this.domainName = window.location.origin;
         this.userInfo = null;
         this.hasAdminBar = false;
         this.adminBarHeight = 0;
@@ -36,9 +37,11 @@ export default class WebsiteTestingAssistant {
             this.handleCommentDeleted.bind(this),
             this.handleErrorStatusToggled.bind(this),
             this.handleErrorDeleted.bind(this),
+            this.handleBugListUpdated.bind(this),
         );
         this.errorDataManager = new ErrorDataManager(this.currentUrl, this.domainName);
 
+        this.pendingHighlightErrorId = null;
         this.drawOpenErrors = false;
         this.drawResolvedErrors = false;
         this.allErrorsVisible = false;
@@ -155,6 +158,11 @@ export default class WebsiteTestingAssistant {
                 );
                 sendResponse({ success: true });
                 break;
+            case ConfigurationManager.ACTIONS.HIGHLIGHT_ERROR:
+                // Trả success ngay cả khi overlay chưa vẽ xong: đã nhận thì background
+                // ngừng retry, phần còn lại do displayExistingErrors lo.
+                sendResponse({ success: true, pending: !this.highlightError(message.errorId) });
+                break;
             case ConfigurationManager.ACTIONS.SET_ERRORS_IN_CONTENT:
                 this.refreshErrors();
                 sendResponse({ success: true });
@@ -204,9 +212,10 @@ export default class WebsiteTestingAssistant {
     handleElementSelected(element) {
         this.commentThreadManager.showCommentInputModal(
             false,
-            async (comment) => {
+            async (comment, bugListIds) => {
                 await this.reportError({
                     comment,
+                    bugListIds,
                     type: ConfigurationManager.ERROR_TYPES.BORDER,
                     element,
                 });
@@ -219,9 +228,10 @@ export default class WebsiteTestingAssistant {
         this.selectedRect = coordinates;
         this.commentThreadManager.showCommentInputModal(
             true,
-            async (comment) => {
+            async (comment, bugListIds) => {
                 await this.reportError({
                     comment,
+                    bugListIds,
                     type: ConfigurationManager.ERROR_TYPES.RECT,
                     coordinates,
                 });
@@ -233,20 +243,40 @@ export default class WebsiteTestingAssistant {
         );
     }
 
-    handleErrorClick(errorData, borderElement) {
-        this.commentThreadManager.showCommentThread(errorData, borderElement);
+    async handleErrorClick(errorData, borderElement) {
+        await this.commentThreadManager.showCommentThread(errorData, borderElement);
+
+        const openedPanel = this.commentThreadManager.getCurrentThread()?.panel;
+        if (!openedPanel) return;
+
+        this.commentThreadManager.setThreadSyncing(openedPanel, true);
+        try {
+            const freshErrors = await this.errorDataManager.fetchFreshErrors();
+            const freshError = freshErrors.find((e) => e.id === errorData.id);
+            const currentThread = this.commentThreadManager.getCurrentThread();
+            if (freshError && currentThread?.error?.id === errorData.id && currentThread?.panel) {
+                await this.commentThreadManager.refreshThreadPanel(currentThread.panel, freshError);
+            }
+        } catch (error) {
+            ErrorLogger.debug('Failed to reload fresh error on click', { error });
+        } finally {
+            this.commentThreadManager.setThreadSyncing(openedPanel, false);
+        }
     }
 
     async handleCommentAdded(errorData, comment) {
-        await this.errorDataManager.addComment(errorData, comment);
+        const isAdded = await this.errorDataManager.addComment(errorData, comment);
+        if (!isAdded) throw new Error('Không thể gửi bình luận');
     }
 
     async handleCommentEdited(errorData, commentId, commentText) {
-        await this.errorDataManager.editComment(errorData, commentId, commentText);
+        const isEdited = await this.errorDataManager.editComment(errorData, commentId, commentText);
+        if (!isEdited) throw new Error('Không thể chỉnh sửa bình luận');
     }
 
     async handleCommentDeleted(errorData, commentId) {
-        await this.errorDataManager.deleteComment(errorData, commentId);
+        const isDeleted = await this.errorDataManager.deleteComment(errorData, commentId);
+        if (!isDeleted) throw new Error('Không thể xóa bình luận');
     }
 
     async handleErrorStatusToggled(errorData) {
@@ -259,7 +289,12 @@ export default class WebsiteTestingAssistant {
         this.errorRenderer.removeErrorBorder(errorData.id);
     }
 
-    async reportError({ comment, type, element = null, coordinates = null }) {
+    async handleBugListUpdated(errorData, bugListIds) {
+        const isUpdated = await this.errorDataManager.updateBugList(errorData, bugListIds);
+        if (!isUpdated) throw new Error('Không thể cập nhật loại lỗi');
+    }
+
+    async reportError({ comment, bugListIds = [], type, element = null, coordinates = null }) {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         const errorData = {
@@ -273,6 +308,7 @@ export default class WebsiteTestingAssistant {
                 },
                 url: this.currentUrl,
                 status: ConfigurationManager.ERROR_STATUS.OPEN,
+                bug_list_ids: BugListService.sanitizeIds(bugListIds),
                 elementIdentifiers: null,
                 coordinates: null,
                 comments: [
@@ -303,6 +339,19 @@ export default class WebsiteTestingAssistant {
         }
     }
 
+    /**
+     * Highlight one error overlay. When the overlay has not been rendered yet the
+     * request is queued and replayed by displayExistingErrors().
+     */
+    highlightError(errorId) {
+        if (!errorId) return false;
+
+        document.body.classList.add(ConfigurationManager.CSS_CLASSES.IS_POPUP);
+        const didHighlight = this.errorRenderer.highlightError(errorId);
+        this.pendingHighlightErrorId = didHighlight ? null : errorId;
+        return didHighlight;
+    }
+
     displayExistingErrors() {
         const currentTabErrors = this.errorDataManager.getCurrentTabErrors();
         currentTabErrors.forEach((errorData) => {
@@ -310,6 +359,12 @@ export default class WebsiteTestingAssistant {
         });
         this.updateErrorVisibility();
         ErrorLogger.info('Existing errors displayed', { count: currentTabErrors.length });
+
+        if (this.pendingHighlightErrorId) {
+            const targetErrorId = this.pendingHighlightErrorId;
+            this.pendingHighlightErrorId = null;
+            this.highlightError(targetErrorId);
+        }
     }
 
     showAllErrors() {

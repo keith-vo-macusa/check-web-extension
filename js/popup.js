@@ -10,6 +10,10 @@ import {
 import AlertManager from './services/AlertManager.js';
 import NotificationManager from './services/NotificationManager.js';
 import { ConfigurationManager } from './config/ConfigurationManager.js';
+import { BugListService } from './domain/BugListService.js';
+
+/** Bỏ qua revalidate trong khoảng này sau khi người dùng mở cửa sổ lỗi. */
+const REVALIDATE_SUPPRESS_MS = 3000;
 
 class PopupState {
     constructor() {
@@ -56,21 +60,76 @@ class PopupState {
 }
 
 class ErrorManager {
-    static async loadErrors() {
-        const currentTab = await TabManager.getCurrentTab();
-        if (!currentTab || !currentTab[0]) return [];
+    /**
+     * Flatten a domain payload ({ path: [{ full_url, data }] }) into a flat error list.
+     */
+    static flattenErrors(domainData) {
+        const allErrors = [];
+        domainData?.path?.forEach((pathItem) => {
+            if (Array.isArray(pathItem?.data)) {
+                allErrors.push(...pathItem.data);
+            }
+        });
+        return allErrors;
+    }
 
+    /**
+     * Read the domain payload straight from the API server.
+     */
+    static async fetchErrorsFromApi(domainName) {
+        const endpoint = `${ConfigurationManager.API.ENDPOINTS.GET_DOMAIN_DATA}?domain=${encodeURIComponent(domainName)}`;
+        const url = ConfigurationManager.API.BASE_URL + endpoint;
+        const accessToken = await AuthManager.getAccessToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+        const apiResponse = await fetch(url, {
+            method: 'GET',
+            headers,
+            signal: AbortSignal.timeout(ConfigurationManager.API.TIMEOUT),
+        });
+        if (!apiResponse.ok) throw new Error(`API returned ${apiResponse.status}`);
+
+        const apiData = await apiResponse.json();
+        return apiData?.data ?? null;
+    }
+
+    /**
+     * Errors already cached in the background worker. Instant, may be stale.
+     */
+    static async loadCachedErrors() {
         const domainName = await TabManager.getCurrentTabDomain();
+        if (!domainName) return [];
+
         const response = await TabManager.sendMessageToBackground({
             action: 'getErrors',
             domainName,
         });
+        return this.flattenErrors(response);
+    }
 
-        const allErrors = [];
-        response?.path?.forEach((pathItem) => {
-            allErrors.push(...pathItem.data);
-        });
-        return allErrors;
+    /**
+     * Always hit the server, refresh the background cache, and fall back to
+     * that cache when the request fails.
+     */
+    static async loadFreshErrors() {
+        const domainName = await TabManager.getCurrentTabDomain();
+        if (!domainName) return [];
+
+        try {
+            const domainData = await this.fetchErrorsFromApi(domainName);
+            if (!domainData) throw new Error('Empty API payload');
+
+            await TabManager.sendMessageToBackground({
+                action: ConfigurationManager.ACTIONS.SET_ERRORS,
+                errors: domainData,
+                domainName,
+            });
+            return this.flattenErrors(domainData);
+        } catch (error) {
+            console.error('Failed to fetch errors in popup, falling back to cache', error);
+            return await this.loadCachedErrors();
+        }
     }
 
     static async deleteError(errorId) {
@@ -96,6 +155,26 @@ class ErrorManager {
         });
     }
 
+    /**
+     * Cheap fingerprint of everything the list actually renders. Equal signature
+     * means a re-render would produce identical DOM.
+     */
+    static buildErrorsSignature(errors) {
+        return errors
+            .map((error) =>
+                [
+                    error.id,
+                    error.status ?? 'open',
+                    error.comments?.length ?? 0,
+                    error.comments?.[error.comments.length - 1]?.text ?? '',
+                    (error.bug_list_ids ?? []).join('.'),
+                    error.breakpoint?.type ?? '',
+                    error.url ?? '',
+                ].join(':'),
+            )
+            .join('|');
+    }
+
     static sortErrors(errors) {
         const statusOrder = { open: 1, resolved: 2, closed: 3 };
         return errors.sort((first, second) => {
@@ -111,6 +190,10 @@ class ErrorManager {
 class UIManager {
     constructor(state) {
         this.state = state;
+        this.refreshRequestId = 0;
+        this.lastErrors = [];
+        this.lastErrorsSignature = '';
+        this.suppressRevalidateUntil = 0;
         this.setupUI();
         this.setupEventListeners();
         this.setupBreakpointFilters();
@@ -177,9 +260,9 @@ class UIManager {
         $('#drawOpenErrors').change((event) => this.handleDrawOpenErrors(event));
         $('#drawResolvedErrors').change((event) => this.handleDrawResolvedErrors(event));
 
-        window.addEventListener('focus', () => this.refreshErrorsList());
+        window.addEventListener('focus', () => this.revalidateErrorsList());
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) this.refreshErrorsList();
+            if (!document.hidden) this.revalidateErrorsList();
         });
     }
 
@@ -280,7 +363,8 @@ class UIManager {
         $('.filter-btn').removeClass('active');
         $(event.target).addClass('active');
         this.state.setSelectedBreakpoint($(event.target).data('breakpoint'));
-        this.refreshErrorsList();
+        // Lọc breakpoint là thao tác client-side, không cần gọi lại server.
+        this.displayErrors(this.lastErrors);
     }
 
     updateUI() {
@@ -310,9 +394,75 @@ class UIManager {
         }
     }
 
-    async refreshErrorsList() {
-        const errors = await ErrorManager.loadErrors();
+    /**
+     * Paint cached errors right away, then replace them with server data.
+     * Late responses from a superseded call are discarded.
+     */
+    /**
+     * Reload from the server.
+     *
+     * @param {object} options
+     * @param {boolean} options.showSkeleton Skeleton chỉ dành cho refresh do người
+     *   dùng chủ động gây ra. Revalidate ngầm phải im lặng.
+     */
+    async refreshErrorsList({ showSkeleton = true } = {}) {
+        const requestId = ++this.refreshRequestId;
+        if (showSkeleton) this.showErrorsLoading();
+
+        // Options tải song song để chip loại lỗi có tên ngay ở lần vẽ đầu tiên.
+        const [errors] = await Promise.all([
+            ErrorManager.loadFreshErrors(),
+            BugListService.loadOptions().catch(() => null),
+        ]);
+        if (requestId !== this.refreshRequestId) return;
+
+        // Dữ liệu y hệt thì đừng vẽ lại: vẽ lại là mất vị trí cuộn và nháy màn hình.
+        const signature = ErrorManager.buildErrorsSignature(errors);
+        const isUnchanged = signature === this.lastErrorsSignature;
+        this.lastErrors = errors;
+        this.lastErrorsSignature = signature;
+
+        if (isUnchanged && !showSkeleton) return;
         this.displayErrors(errors);
+    }
+
+    /**
+     * Kiểm tra lại dữ liệu khi popup được focus lại — không skeleton, không vẽ lại
+     * nếu không có gì đổi. Bỏ qua ngay sau khi người dùng bấm mở cửa sổ lỗi.
+     */
+    revalidateErrorsList() {
+        if (Date.now() < this.suppressRevalidateUntil) return;
+        this.refreshErrorsList({ showSkeleton: false });
+    }
+
+    /**
+     * Skeleton rows sized like real error items, so the list does not jump
+     * when server data replaces them.
+     */
+    showErrorsLoading() {
+        const rowCount = Math.min(Math.max(this.lastErrors.length, 3), 5);
+        const rows = Array.from(
+            { length: rowCount },
+            () => `
+            <div class="error-item error-skeleton">
+                <div class="error-row">
+                    <div class="error-main">
+                        <div class="skeleton-block skeleton-line skeleton-topline"></div>
+                        <div class="skeleton-block skeleton-line skeleton-text"></div>
+                        <div class="skeleton-block skeleton-line skeleton-bottomline"></div>
+                    </div>
+                    <div class="error-actions">
+                        <div class="skeleton-block skeleton-action"></div>
+                        <div class="skeleton-block skeleton-action"></div>
+                    </div>
+                </div>
+            </div>
+        `,
+        ).join('');
+
+        $('#errorsList').html(
+            `<div class="errors-loading" role="status" aria-label="Đang tải danh sách lỗi">${rows}</div>`,
+        );
     }
 
     displayErrors(errors) {
@@ -344,25 +494,48 @@ class UIManager {
         errors.forEach((error, index) => this.renderErrorItem(container, error, index));
     }
 
+    /**
+     * Bug list tags of an error, resolved to names via the cached options.
+     * Ids no longer active stay visible (styled as unknown) instead of vanishing.
+     */
+    buildBugListMarkup(error) {
+        const selectedIds = BugListService.sanitizeIds(error.bug_list_ids);
+        if (selectedIds.length === 0) return '';
+
+        // Options chưa tải được thì mọi id đều "chưa biết tên" — đừng tô đỏ như tag hỏng.
+        const isOptionsLoaded = BugListService.cachedOptions !== null;
+        const chips = BugListService.resolveSelected(BugListService.cachedOptions ?? [], selectedIds)
+            .map((option) => {
+                const safeName = this.escapeHtml(option.name);
+                const unknownClass = option.isUnknown && isOptionsLoaded ? ' is-unknown' : '';
+                return `<span class="error-bug-tag${unknownClass}" title="${safeName}">${safeName}</span>`;
+            })
+            .join('');
+
+        return `<div class="error-bug-list">${chips}</div>`;
+    }
+
     renderErrorItem(container, error, index) {
         const errorItem = $('<div>').addClass('error-item');
         if (error.status === 'resolved') errorItem.addClass('resolved');
         if (error.status === 'closed') errorItem.addClass('closed');
         if (!error.status || error.status === 'open') errorItem.addClass('open');
 
-        const timestamp = new Date(error.timestamp).toLocaleString('vi-VN');
-        const lastComment = error.comments[error.comments.length - 1];
+        const timestamp = error.timestamp ? new Date(error.timestamp).toLocaleString('vi-VN') : '';
+        const comments = Array.isArray(error.comments) ? error.comments : [];
+        const lastComment = comments.length > 0 ? comments[comments.length - 1] : null;
         const statusBadge = this.createStatusBadge(error.status);
         const isResolved = error.status === 'resolved';
         const resolvedClass = isResolved ? 'bg-success' : '';
         const commentText = this.escapeHtml(lastComment?.text || '');
-        const commentsCount = error.comments?.length || 0;
+        const commentsCount = comments.length;
         const breakpointType = error.breakpoint ? error.breakpoint.type : 'all';
         const breakpointWidth = error.breakpoint ? `${error.breakpoint.width}px` : '';
         const safeUrl = this.escapeHtml(error.url || '');
+        const bugListMarkup = this.buildBugListMarkup(error);
 
         errorItem.html(
-            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        <span class="error-time">${timestamp}</span>\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-x' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash"></i>\n                    </button>\n                </div>\n            </div>\n        `,
+            `\n            <div class="error-row">\n                <div class="error-main">\n                    <div class="error-topline">\n                        <span class="error-number">#${index + 1}</span>\n                        ${statusBadge}\n                        <span class="error-meta-pill">${commentsCount} comment</span>\n                        ${timestamp ? `<span class="error-time">${timestamp}</span>` : ''}\n                    </div>\n\n                    <div class="error-comment">${commentText || '<span class="error-empty">Không có nội dung</span>'}</div>\n\n                    ${bugListMarkup}\n                    <div class="error-bottomline">\n                        <span class="breakpoint-type">${breakpointType}</span>\n                        ${breakpointWidth ? `<span class="breakpoint-width">${breakpointWidth}</span>` : ''}\n                        ${safeUrl ? `<span class="error-url" title="${safeUrl}">${safeUrl}</span>` : ''}\n                    </div>\n                </div>\n\n                <div class="error-actions">\n                    <button class="btn-toogle-check-fixed ${resolvedClass}" data-fixed="${isResolved}" title="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}" aria-label="${isResolved ? 'Bỏ đánh dấu đã giải quyết' : 'Đánh dấu đã giải quyết'}">\n                        <i class="fa-solid ${isResolved ? 'fa-x' : 'fa-check'}"></i>\n                    </button>\n                    <button class="delete-error-btn" title="Xóa lỗi này" aria-label="Xóa lỗi này">\n                        <i class="fa-solid fa-trash"></i>\n                    </button>\n                </div>\n            </div>\n        `,
         );
 
         this.setupErrorItemEventHandlers(errorItem, error);
@@ -437,17 +610,26 @@ class UIManager {
         });
 
         errorItem.click(async () => {
+            if (!error.url) {
+                AlertManager.error('Lỗi này không có URL để mở');
+                return;
+            }
+
+            // Mở cửa sổ lỗi sẽ cướp rồi trả lại focus cho popup; đừng để cú focus
+            // đó kích hoạt revalidate và làm nháy danh sách.
+            this.suppressRevalidateUntil = Date.now() + REVALIDATE_SUPPRESS_MS;
+
             try {
-                TabManager.sendMessageToBackground({
+                await TabManager.sendMessageToBackground({
                     action: 'openOrResizeErrorWindow',
                     url: error.url,
                     width: error.breakpoint?.width,
                     height: error.breakpoint?.height,
                     errorId: error.id,
                 });
-                AlertManager.close();
-            } catch {
-                console.log('Cannot highlight error - content script not available');
+            } catch (openError) {
+                console.error('Cannot open error window', openError);
+            } finally {
                 AlertManager.close();
             }
         });
@@ -463,7 +645,9 @@ $(document).ready(async function () {
         );
 
     chrome.runtime.onMessage.addListener((message) => {
-        if (message.action === 'errorAdded' && uiManager) uiManager.refreshErrorsList();
+        // Sự kiện nền, không phải người dùng bấm — cập nhật im lặng.
+        if (message.action === 'errorAdded' && uiManager)
+            uiManager.refreshErrorsList({ showSkeleton: false });
     });
 
     const domainName = await TabManager.getCurrentTabDomain();

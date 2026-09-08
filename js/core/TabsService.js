@@ -169,14 +169,14 @@ export class TabsService {
     }
 
     /**
-     * Return the domain of the active tab URL.
+     * Return the domain origin (protocol + host) of the active tab URL.
      */
     static async getCurrentDomain() {
         const currentUrl = await this.getCurrentUrl();
         if (!currentUrl) return null;
 
         try {
-            return new URL(currentUrl).hostname;
+            return new URL(currentUrl).origin;
         } catch (error) {
             return (
                 ErrorLogger.error('Failed to parse URL for domain', { url: currentUrl, error }),

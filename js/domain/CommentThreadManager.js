@@ -1,6 +1,8 @@
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { ValidationService } from '../utils/ValidationService.js';
+import { BugListPicker } from './BugListPicker.js';
+import { BugListService } from './BugListService.js';
 
 export class CommentThreadManager {
     /**
@@ -18,6 +20,7 @@ export class CommentThreadManager {
         onCommentDeleted,
         onErrorResolved,
         onErrorDeleted,
+        onBugListUpdated,
     ) {
         this.getUserInfo = getUserInfo;
         this.onCommentAdded = onCommentAdded;
@@ -25,7 +28,10 @@ export class CommentThreadManager {
         this.onCommentDeleted = onCommentDeleted;
         this.onErrorResolved = onErrorResolved;
         this.onErrorDeleted = onErrorDeleted;
+        this.onBugListUpdated = onBugListUpdated;
         this.currentThread = null;
+        this.inputModalPicker = null;
+        this.threadBugListPicker = null;
     }
 
     /**
@@ -90,7 +96,26 @@ export class CommentThreadManager {
 
         const modal = document.createElement('div');
         modal.className = ConfigurationManager.CSS_CLASSES.COMMENT_MODAL;
-        modal.innerHTML = `\n            <div class="testing-modal-header">\n                <h3>Thêm bình luận</h3>\n                <button class="testing-modal-close" data-action="cancel" aria-label="Đóng">×</button>\n            </div>\n            <div class="testing-modal-body">\n                <div class="testing-comment-input-wrap">\n                    <textarea placeholder="Mô tả lỗi hoặc ghi chú..." maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>\n                    <button class="testing-modal-send btn-inside-input btn-send-icon" data-action="save" aria-label="Lưu bình luận" title="Lưu">\n                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">\n                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>\n                        </svg>\n                    </button>\n                </div>\n            </div>\n        `;
+        modal.innerHTML = `
+            <div class="testing-modal-header">
+                <h3>Thêm bình luận</h3>
+                <button class="testing-modal-close" data-action="cancel" aria-label="Đóng">×</button>
+            </div>
+            <div class="testing-modal-body">
+                <div class="testing-modal-bug-list"></div>
+                <div class="testing-comment-input-wrap">
+                    <textarea placeholder="Mô tả lỗi hoặc ghi chú..." maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>
+                    <button class="testing-modal-send btn-inside-input btn-send-icon" data-action="save" aria-label="Lưu bình luận" title="Lưu">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        this.inputModalPicker = new BugListPicker({ label: 'Loại lỗi' });
+        this.inputModalPicker.mount(modal.querySelector('.testing-modal-bug-list'));
 
         const textarea = modal.querySelector('textarea');
         const cancelButton = modal.querySelector('[data-action="cancel"]');
@@ -111,10 +136,11 @@ export class CommentThreadManager {
                 return;
             }
 
+            const bugListIds = this.inputModalPicker?.getSelectedIds() ?? [];
             cancelButton.disabled = true;
             this.setButtonLoading(saveButton, true);
             try {
-                if (onSave) await Promise.resolve(onSave(commentText));
+                if (onSave) await Promise.resolve(onSave(commentText, bugListIds));
                 this.closeCommentInputModal();
             } catch (error) {
                 ErrorLogger.error('Failed to save comment', error);
@@ -135,6 +161,10 @@ export class CommentThreadManager {
      * Close "add comment" modal if currently open.
      */
     closeCommentInputModal() {
+        if (this.inputModalPicker) {
+            this.inputModalPicker.destroy();
+            this.inputModalPicker = null;
+        }
         if (!this.currentInputModal) return;
         this.currentInputModal.backdrop.remove();
         this.currentInputModal.modal.remove();
@@ -176,9 +206,72 @@ export class CommentThreadManager {
         const avatarInitial = (userInfo?.name || 'You').charAt(0).toUpperCase();
         const isResolved = errorData.status === ConfigurationManager.ERROR_STATUS.RESOLVED;
 
-        panelElement.innerHTML = `\n            <div class="thread-header">\n                <div class="thread-title">\n                    <div class="thread-heading">Bình luận</div>\n                    <div class="thread-status ${statusClass}">${statusText}</div>\n                </div>\n                <div class="thread-header-actions">\n                    <button class="btn-resolve ${isResolved ? 'resolved' : ''}" data-error-id="${errorData.id}">\n                        ${isResolved ? '✓ Đã giải quyết' : 'Đánh dấu đã giải quyết'}\n                    </button>\n                    <button class="btn-delete" data-error-id="${errorData.id}" aria-label="Xóa">Xóa</button>\n                    <button class="thread-close" aria-label="Đóng">×</button>\n                </div>\n            </div>\n            <div class="thread-content">\n                <div class="comments-list" id="comments-${errorData.id}">\n                    ${this.renderComments(errorData.comments, userInfo)}\n                </div>\n                <div class="thread-actions">\n                    <div class="reply-form">\n                        <div class="reply-composer">\n                            <div class="comment-avatar reply-avatar">\n                                <div class="avatar-circle">${avatarInitial}</div>\n                            </div>\n                            <div class="reply-box">\n                                <div class="reply-input-wrap">\n                                    <textarea placeholder="Viết bình luận..." class="reply-input"\n                                              maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>\n                                    <button class="btn-reply-send btn-inside-input btn-send-icon" style="border-radius: 50% !important;" aria-label="Gửi bình luận" title="Gửi">\n                                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">\n                                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>\n                                        </svg>\n                                    </button>\n                                </div>\n                            </div>\n                        </div>\n                    </div>\n                </div>\n            </div>\n        `;
+        panelElement.innerHTML = `\n            <div class="thread-header">\n                <div class="thread-title">\n                    <div class="thread-heading">Bình luận</div>\n                    <div class="thread-status ${statusClass}">${statusText}</div>\n                </div>\n                <div class="thread-header-actions">\n                    <button class="btn-resolve ${isResolved ? 'resolved' : ''}" data-error-id="${errorData.id}">\n                        ${isResolved ? '✓ Đã giải quyết' : 'Đánh dấu đã giải quyết'}\n                    </button>\n                    <button class="btn-delete" data-error-id="${errorData.id}" aria-label="Xóa">Xóa</button>\n                    <button class="thread-close" aria-label="Đóng">×</button>\n                </div>\n            </div>\n            <div class="thread-bug-list">\n                <div class="thread-bug-list-view">\n                    <span class="thread-bug-list-title">Loại lỗi</span>\n                    <div class="thread-bug-list-chips"></div>\n                    <button type="button" class="btn-edit-bug-list">Sửa</button>\n                </div>\n                <div class="thread-bug-list-edit is-hidden">\n                    <div class="thread-bug-list-picker"></div>\n                    <div class="thread-bug-list-actions">\n                        <button type="button" class="btn-bug-list-cancel">Hủy</button>\n                        <button type="button" class="btn-bug-list-save">Lưu loại lỗi</button>\n                    </div>\n                </div>\n            </div>\n            <div class="thread-content">\n                <div class="comments-list" id="comments-${errorData.id}">\n                    ${this.renderComments(errorData.comments, userInfo)}\n                </div>\n                <div class="thread-actions">\n                    <div class="reply-form">\n                        <div class="reply-composer">\n                            <div class="comment-avatar reply-avatar">\n                                <div class="avatar-circle">${avatarInitial}</div>\n                            </div>\n                            <div class="reply-box">\n                                <div class="reply-input-wrap">\n                                    <textarea placeholder="Viết bình luận..." class="reply-input"\n                                              maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>\n                                    <button class="btn-reply-send btn-inside-input btn-send-icon" style="border-radius: 50% !important;" aria-label="Gửi bình luận" title="Gửi">\n                                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">\n                                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>\n                                        </svg>\n                                    </button>\n                                </div>\n                            </div>\n                        </div>\n                    </div>\n                </div>\n            </div>\n        `;
 
         this.bindThreadEvents(panelElement, errorData);
+        this.renderBugListRow(panelElement, errorData);
+    }
+
+    /**
+     * Fill the read-only bug list chips. Loads options first so ids render as names.
+     */
+    async renderBugListRow(panelElement, errorData) {
+        const chipsElement = panelElement.querySelector('.thread-bug-list-chips');
+        if (!chipsElement) return;
+
+        const selectedIds = BugListService.sanitizeIds(errorData.bug_list_ids);
+        if (selectedIds.length === 0) {
+            chipsElement.innerHTML = '<span class="thread-bug-list-empty">Chưa gắn loại lỗi</span>';
+            return;
+        }
+
+        if (BugListService.cachedOptions === null) {
+            await BugListService.loadOptions().catch(() => null);
+            if (!panelElement.isConnected) return;
+        }
+
+        chipsElement.innerHTML = BugListService.resolveSelected(
+            BugListService.cachedOptions ?? [],
+            selectedIds,
+        )
+            .map((option) => {
+                const safeName = ValidationService.sanitizeHtml(option.name);
+                return `<span class="thread-bug-list-chip" title="${safeName}">${safeName}</span>`;
+            })
+            .join('');
+    }
+
+    /**
+     * Swap the bug list row into edit mode with a fresh picker.
+     */
+    async openBugListEditor(panelElement, errorData) {
+        const viewElement = panelElement.querySelector('.thread-bug-list-view');
+        const editElement = panelElement.querySelector('.thread-bug-list-edit');
+        const pickerHost = panelElement.querySelector('.thread-bug-list-picker');
+        if (!viewElement || !editElement || !pickerHost) return;
+
+        this.destroyThreadBugListPicker();
+        pickerHost.innerHTML = '';
+        viewElement.classList.add('is-hidden');
+        editElement.classList.remove('is-hidden');
+
+        this.threadBugListPicker = new BugListPicker({
+            label: 'Loại lỗi',
+            selectedIds: BugListService.sanitizeIds(errorData.bug_list_ids),
+        });
+        await this.threadBugListPicker.mount(pickerHost);
+    }
+
+    closeBugListEditor(panelElement) {
+        this.destroyThreadBugListPicker();
+        panelElement.querySelector('.thread-bug-list-view')?.classList.remove('is-hidden');
+        panelElement.querySelector('.thread-bug-list-edit')?.classList.add('is-hidden');
+    }
+
+    destroyThreadBugListPicker() {
+        if (!this.threadBugListPicker) return;
+        this.threadBugListPicker.destroy();
+        this.threadBugListPicker = null;
     }
 
     /**
@@ -191,10 +284,21 @@ export class CommentThreadManager {
                 const authorInitial = authorName.charAt(0).toUpperCase();
                 const timeText = this.formatTime(comment.timestamp);
                 const editedText = comment.edited ? '<span class="comment-edited">(đã chỉnh sửa)</span>' : '';
-                const isOwnComment = comment.author?.id === userInfo?.id;
-                const replyAction = `\n                    <button class="btn-reply-comment" data-comment-id="${comment.id}">Trả lời</button>\n                `;
+                const isOwnComment =
+                    (comment.author?.id != null &&
+                        userInfo?.id != null &&
+                        String(comment.author.id) === String(userInfo.id)) ||
+                    (comment.author?.email &&
+                        userInfo?.email &&
+                        comment.author.email.toLowerCase() === userInfo.email.toLowerCase());
+                const replyAction = `
+                    <button class="btn-reply-comment" data-comment-id="${comment.id}">Trả lời</button>
+                `;
                 const ownerActions = isOwnComment
-                    ? `\n                <button class="btn-edit-comment" data-comment-id="${comment.id}">Chỉnh sửa</button>\n                <button class="btn-delete-comment" data-comment-id="${comment.id}">Xóa</button>\n            `
+                    ? `
+                <button class="btn-edit-comment" data-comment-id="${comment.id}">Chỉnh sửa</button>
+                <button class="btn-delete-comment" data-comment-id="${comment.id}">Xóa</button>
+            `
                     : '';
                 const sanitizedText = ValidationService.sanitizeHtml(comment.text);
                 const linkifiedText = ValidationService.linkify(sanitizedText);
@@ -208,6 +312,10 @@ export class CommentThreadManager {
      * Bind all interactions inside thread panel.
      */
     bindThreadEvents(panelElement, errorData) {
+        // Panel có thể được vẽ lại bằng dữ liệu mới từ server (refreshThreadPanel),
+        // nên handler phải luôn đọc error object hiện tại thay vì object lúc bind.
+        const getError = () => this.currentThread?.error ?? errorData;
+
         panelElement.querySelector('.thread-close').addEventListener('click', () => {
             this.closeCommentThread();
         });
@@ -218,11 +326,12 @@ export class CommentThreadManager {
             const commentText = replyInput.value.trim();
             if (!ValidationService.validateComment(commentText).valid || !this.onCommentAdded) return;
 
+            const currentError = getError();
             replyInput.disabled = true;
             this.setButtonLoading(sendReplyButton, true);
             try {
-                await this.onCommentAdded(errorData, commentText);
-                await this.refreshThreadPanel(panelElement, errorData);
+                await this.onCommentAdded(currentError, commentText);
+                await this.refreshThreadPanel(panelElement, currentError);
                 replyInput.value = '';
                 const commentsList = panelElement.querySelector('.comments-list');
                 if (commentsList) commentsList.scrollTop = commentsList.scrollHeight;
@@ -246,27 +355,58 @@ export class CommentThreadManager {
         const resolveButton = panelElement.querySelector('.btn-resolve');
         resolveButton.addEventListener('click', async () => {
             if (this.onErrorResolved) {
+                const currentError = getError();
                 this.setButtonLoading(resolveButton, true, { text: 'Đang xử lý...' });
                 try {
-                    await this.onErrorResolved(errorData);
+                    await this.onErrorResolved(currentError);
                 } catch (error) {
                     ErrorLogger.error('Failed to resolve error', error);
                 } finally {
                     this.setButtonLoading(resolveButton, false);
                 }
-                await this.refreshThreadPanel(panelElement, errorData);
+                await this.refreshThreadPanel(panelElement, currentError);
             }
         });
 
         const deleteButton = panelElement.querySelector('.btn-delete');
         deleteButton.addEventListener('click', () => {
-            this.confirmDeleteError(errorData, deleteButton);
+            this.confirmDeleteError(getError(), deleteButton);
+        });
+
+        panelElement.querySelector('.btn-edit-bug-list')?.addEventListener('click', () => {
+            this.openBugListEditor(panelElement, getError());
+        });
+
+        panelElement.querySelector('.btn-bug-list-cancel')?.addEventListener('click', () => {
+            this.closeBugListEditor(panelElement);
+        });
+
+        const saveBugListButton = panelElement.querySelector('.btn-bug-list-save');
+        saveBugListButton?.addEventListener('click', async () => {
+            if (!this.onBugListUpdated || !this.threadBugListPicker) return;
+
+            const currentError = getError();
+            const selectedIds = this.threadBugListPicker.getSelectedIds();
+            this.setButtonLoading(saveBugListButton, true, { text: 'Đang lưu...' });
+            try {
+                await this.onBugListUpdated(currentError, selectedIds);
+                this.closeBugListEditor(panelElement);
+                await this.renderBugListRow(panelElement, currentError);
+            } catch (error) {
+                ErrorLogger.error('Failed to update bug list', error);
+            } finally {
+                this.setButtonLoading(saveBugListButton, false);
+            }
         });
 
         panelElement.addEventListener('click', async (event) => {
+            const currentError = getError();
+
             if (event.target.classList.contains('btn-reply-comment')) {
                 const commentId = event.target.dataset.commentId;
-                const targetComment = errorData.comments.find((comment) => comment.id === commentId);
+                const targetComment = currentError.comments.find(
+                    (comment) => String(comment.id) === String(commentId),
+                );
                 const replyTargetName = targetComment?.author?.name || 'Unknown';
                 const replyBox = panelElement.querySelector('.reply-input');
                 if (replyBox) {
@@ -281,12 +421,12 @@ export class CommentThreadManager {
 
             if (event.target.classList.contains('btn-edit-comment')) {
                 const commentId = event.target.dataset.commentId;
-                await this.editComment(panelElement, errorData, commentId);
+                await this.editComment(panelElement, currentError, commentId);
             }
 
             if (event.target.classList.contains('btn-delete-comment')) {
                 const commentId = event.target.dataset.commentId;
-                await this.confirmDeleteComment(panelElement, errorData, commentId, event.target);
+                await this.confirmDeleteComment(panelElement, currentError, commentId, event.target);
             }
         });
     }
@@ -295,31 +435,51 @@ export class CommentThreadManager {
      * Switch comment into inline edit mode.
      */
     async editComment(panelElement, errorData, commentId) {
-        if (!errorData.comments.find((comment) => comment.id === commentId)) return;
+        const targetComment = errorData.comments.find(
+            (comment) => String(comment.id) === String(commentId),
+        );
+        if (!targetComment) return;
 
         const commentItem = panelElement.querySelector(`[data-comment-id="${commentId}"]`);
+        if (!commentItem) return;
+
         const commentText = commentItem.querySelector('.comment-text');
         const commentActions = commentItem.querySelector('.comment-actions');
-        const originalText = commentText.dataset.original;
+        const originalText = targetComment.text;
         const editForm = document.createElement('div');
         editForm.className = 'edit-form';
-        editForm.innerHTML = `\n            <div class="edit-input-wrap">\n                <textarea class="edit-input" maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}">${originalText}</textarea>\n                <button class="btn-edit-save btn-inside-input btn-send-icon" style="border-radius: 50% !important;" aria-label="Lưu chỉnh sửa" title="Lưu">\n                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">\n                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>\n                    </svg>\n                </button>\n            </div>\n            <div class="edit-buttons">\n                <button class="btn-edit-cancel">Hủy</button>\n            </div>\n        `;
+        editForm.innerHTML = `
+            <div class="edit-input-wrap">
+                <textarea class="edit-input" maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>
+                <button class="btn-edit-save btn-inside-input btn-send-icon" style="border-radius: 50% !important;" aria-label="Lưu chỉnh sửa" title="Lưu">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="edit-buttons">
+                <button class="btn-edit-cancel">Hủy</button>
+            </div>
+        `;
+
+        const editInput = editForm.querySelector('.edit-input');
+        editInput.value = originalText;
 
         commentText.style.display = 'none';
         if (commentActions) commentActions.style.display = 'none';
         commentText.parentNode.appendChild(editForm);
 
-        const editInput = editForm.querySelector('.edit-input');
         editInput.focus();
         editInput.setSelectionRange(editInput.value.length, editInput.value.length);
 
-        editForm.querySelector('.btn-edit-cancel').addEventListener('click', () => {
+        const cancelEditButton = editForm.querySelector('.btn-edit-cancel');
+        const saveEditButton = editForm.querySelector('.btn-edit-save');
+
+        cancelEditButton.addEventListener('click', () => {
             this.cancelEdit(commentText, editForm, commentActions);
         });
 
-        const saveEditButton = editForm.querySelector('.btn-edit-save');
-        const cancelEditButton = editForm.querySelector('.btn-edit-cancel');
-        saveEditButton.addEventListener('click', async () => {
+        const performSave = async () => {
             const updatedText = editInput.value.trim();
             if (!ValidationService.validateComment(updatedText).valid || updatedText === originalText) {
                 this.cancelEdit(commentText, editForm, commentActions);
@@ -331,14 +491,25 @@ export class CommentThreadManager {
             cancelEditButton.disabled = true;
             this.setButtonLoading(saveEditButton, true);
             try {
-                await this.onCommentEdited(errorData, commentId, updatedText);
+                await this.onCommentEdited(errorData, targetComment.id, updatedText);
                 await this.refreshThreadPanel(panelElement, errorData);
             } catch (error) {
                 ErrorLogger.error('Failed to edit comment', error);
-            } finally {
                 editInput.disabled = false;
                 cancelEditButton.disabled = false;
                 this.setButtonLoading(saveEditButton, false);
+            }
+        };
+
+        saveEditButton.addEventListener('click', performSave);
+
+        editInput.addEventListener('keydown', (event) => {
+            if ((event.key === 'Enter' && !event.shiftKey) || (event.key === 'Enter' && event.ctrlKey)) {
+                event.preventDefault();
+                performSave();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                this.cancelEdit(commentText, editForm, commentActions);
             }
         });
     }
@@ -390,6 +561,59 @@ export class CommentThreadManager {
     }
 
     /**
+     * Skeleton placeholder markup shown while comments are loading.
+     */
+    getCommentsSkeleton(itemCount = 3) {
+        const items = Array.from({ length: itemCount }, (unusedValue, index) => {
+            const extraLine =
+                index % 2 === 0 ? '<div class="skeleton-block skeleton-line skeleton-line-short"></div>' : '';
+            return `
+                <div class="comment-skeleton">
+                    <div class="skeleton-block skeleton-avatar"></div>
+                    <div class="skeleton-bubble">
+                        <div class="skeleton-block skeleton-line skeleton-line-name"></div>
+                        <div class="skeleton-block skeleton-line skeleton-line-text"></div>
+                        ${extraLine}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `<div class="comments-skeleton" role="status" aria-label="Đang tải bình luận">${items}</div>`;
+    }
+
+    /**
+     * Swap the comments list for a skeleton while fresh data is being fetched.
+     * Turning it off without an intervening refreshThreadPanel restores the cached comments.
+     */
+    setThreadSyncing(panelElement, isSyncing) {
+        if (!panelElement) return;
+
+        const commentsList = panelElement.querySelector('.comments-list');
+        if (!commentsList) return;
+
+        if (isSyncing) {
+            if (commentsList.dataset.syncing === 'true') return;
+            commentsList.dataset.syncing = 'true';
+            panelElement.classList.add('is-syncing');
+            commentsList.innerHTML = this.getCommentsSkeleton();
+            return;
+        }
+
+        panelElement.classList.remove('is-syncing');
+        if (commentsList.dataset.syncing !== 'true') return;
+
+        // Skeleton vẫn còn nghĩa là refreshThreadPanel chưa chạy (fetch lỗi) —
+        // vẽ lại từ dữ liệu cache đang có thay vì để trống.
+        delete commentsList.dataset.syncing;
+        if (!this.currentThread) return;
+        commentsList.innerHTML = this.renderComments(
+            this.currentThread.error.comments,
+            this.currentThread.userInfo,
+        );
+    }
+
+    /**
      * Refresh thread panel content without closing panel.
      */
     async refreshThreadPanel(panelElement, errorData) {
@@ -399,7 +623,11 @@ export class CommentThreadManager {
         if (!userInfo) return;
 
         const commentsList = panelElement.querySelector('.comments-list');
-        if (commentsList) commentsList.innerHTML = this.renderComments(errorData.comments, userInfo);
+        if (commentsList) {
+            commentsList.innerHTML = this.renderComments(errorData.comments, userInfo);
+            delete commentsList.dataset.syncing;
+            panelElement.classList.remove('is-syncing');
+        }
 
         const resolveButton = panelElement.querySelector('.btn-resolve');
         if (resolveButton) {
@@ -415,12 +643,17 @@ export class CommentThreadManager {
         }
 
         this.currentThread.error = errorData;
+        this.currentThread.userInfo = userInfo;
+
+        // Chỉ vẽ lại chip khi không ở chế độ sửa, tránh nuốt lựa chọn đang dở.
+        if (!this.threadBugListPicker) await this.renderBugListRow(panelElement, errorData);
     }
 
     /**
      * Close thread panel and remove backdrop.
      */
     closeCommentThread() {
+        this.destroyThreadBugListPicker();
         if (!this.currentThread) return;
         this.currentThread.backdrop.remove();
         this.currentThread.panel.remove();
