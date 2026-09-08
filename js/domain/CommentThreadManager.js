@@ -1,9 +1,11 @@
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { ValidationService } from '../utils/ValidationService.js';
-import { BugListPicker } from './BugListPicker.js';
 import { BugListService } from './BugListService.js';
+import { BugListPicker } from './BugListPicker.js';
 import { formatTime, getStatusText } from '../shared/format.js';
+import { CommentInputModal } from '../ui/content/CommentInputModal.js';
+import { setButtonLoading } from '../ui/shared/buttonLoading.js';
 
 export class CommentThreadManager {
     /**
@@ -38,145 +40,20 @@ export class CommentThreadManager {
         this.onErrorDeleted = onErrorDeleted;
         this.onBugListUpdated = onBugListUpdated;
         this.currentThread = null;
-        this.inputModalPicker = null;
+        this.inputModal = new CommentInputModal();
         this.threadBugListPicker = null;
     }
 
     /**
-     * Return loading spinner markup for async buttons.
-     */
-    getSpinnerSvg() {
-        return '\n            <svg class="btn-loading-spinner" viewBox="0 0 24 24" aria-hidden="true" focusable="false">\n                <circle cx="12" cy="12" r="9"></circle>\n            </svg>\n        ';
-    }
-
-    /**
-     * Toggle loading state for action buttons.
-     */
-    setButtonLoading(button, isLoading, options) {
-        if (!button) return;
-
-        if (isLoading) {
-            if (!button.dataset.originalHtml) button.dataset.originalHtml = button.innerHTML;
-            if (button.dataset.originalDisabled === undefined) {
-                button.dataset.originalDisabled = String(!!button.disabled);
-            }
-
-            button.disabled = true;
-            button.classList.add('is-loading');
-            button.setAttribute('aria-busy', 'true');
-
-            const isIconButton =
-                button.classList.contains('btn-send-icon') ||
-                button.classList.contains('btn-inside-input') ||
-                button.classList.contains('testing-modal-send');
-
-            if (isIconButton) {
-                button.innerHTML = this.getSpinnerSvg();
-            } else {
-                button.textContent = options?.text || 'Đang xử lý...';
-            }
-            return;
-        }
-
-        button.classList.remove('is-loading');
-        button.removeAttribute('aria-busy');
-        if (button.dataset.originalHtml) {
-            button.innerHTML = button.dataset.originalHtml;
-            delete button.dataset.originalHtml;
-        }
-
-        if (button.dataset.originalDisabled !== undefined) {
-            button.disabled = button.dataset.originalDisabled === 'true';
-            delete button.dataset.originalDisabled;
-        } else {
-            button.disabled = false;
-        }
-    }
-
-    /**
-     * Show modal for creating a new comment.
+     * Modal thêm bình luận nay là component riêng; giữ hai hàm này làm mặt tiền
+     * cho content.js khỏi phải biết cả hai đối tượng.
      */
     showCommentInputModal(isRect, onSave, onCancel) {
-        this.closeCommentInputModal();
-
-        const backdrop = document.createElement('div');
-        backdrop.className = ConfigurationManager.CSS_CLASSES.MODAL_BACKDROP;
-
-        const modal = document.createElement('div');
-        modal.className = ConfigurationManager.CSS_CLASSES.COMMENT_MODAL;
-        modal.innerHTML = `
-            <div class="testing-modal-header">
-                <h3>Thêm bình luận</h3>
-                <button class="testing-modal-close" data-action="cancel" aria-label="Đóng">×</button>
-            </div>
-            <div class="testing-modal-body">
-                <div class="testing-modal-bug-list"></div>
-                <div class="testing-comment-input-wrap">
-                    <textarea placeholder="Mô tả lỗi hoặc ghi chú..." maxlength="${ConfigurationManager.UI.COMMENT_MAX_LENGTH}"></textarea>
-                    <button class="testing-modal-send btn-inside-input btn-send-icon" data-action="save" aria-label="Lưu bình luận" title="Lưu">
-                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        `;
-
-        this.inputModalPicker = new BugListPicker({ label: 'Loại lỗi' });
-        this.inputModalPicker.mount(modal.querySelector('.testing-modal-bug-list'));
-
-        const textarea = modal.querySelector('textarea');
-        const cancelButton = modal.querySelector('[data-action="cancel"]');
-        const saveButton = modal.querySelector('[data-action="save"]');
-        const closeModal = () => {
-            this.closeCommentInputModal();
-            if (onCancel) onCancel();
-        };
-
-        cancelButton.addEventListener('click', closeModal);
-        backdrop.addEventListener('click', (event) => {
-            if (event.target === backdrop) closeModal();
-        });
-        saveButton.addEventListener('click', async () => {
-            const commentText = textarea.value.trim();
-            if (!ValidationService.validateComment(commentText).valid) {
-                textarea.focus();
-                return;
-            }
-
-            const bugListIds = this.inputModalPicker?.getSelectedIds() ?? [];
-            cancelButton.disabled = true;
-            this.setButtonLoading(saveButton, true);
-            try {
-                if (onSave) await Promise.resolve(onSave(commentText, bugListIds));
-                this.closeCommentInputModal();
-            } catch (error) {
-                ErrorLogger.error('Failed to save comment', error);
-                cancelButton.disabled = false;
-                this.setButtonLoading(saveButton, false);
-                textarea.focus();
-            }
-        });
-
-        document.body.appendChild(backdrop);
-        document.body.appendChild(modal);
-        textarea.focus();
-        this.currentInputModal = { backdrop, modal };
-        ErrorLogger.debug('Comment input modal shown', { isRect });
+        this.inputModal.open({ isRect, onSave, onCancel });
     }
 
-    /**
-     * Close "add comment" modal if currently open.
-     */
     closeCommentInputModal() {
-        if (this.inputModalPicker) {
-            this.inputModalPicker.destroy();
-            this.inputModalPicker = null;
-        }
-        if (!this.currentInputModal) return;
-        this.currentInputModal.backdrop.remove();
-        this.currentInputModal.modal.remove();
-        this.currentInputModal = null;
+        this.inputModal.close();
     }
 
     /**
@@ -344,7 +221,7 @@ export class CommentThreadManager {
 
             const currentError = getError();
             replyInput.disabled = true;
-            this.setButtonLoading(sendReplyButton, true);
+            setButtonLoading(sendReplyButton, true);
             try {
                 await this.onCommentAdded(currentError, commentText);
                 await this.refreshThreadPanel(panelElement, currentError);
@@ -355,7 +232,7 @@ export class CommentThreadManager {
                 ErrorLogger.error('Failed to add comment', error);
             } finally {
                 replyInput.disabled = false;
-                this.setButtonLoading(sendReplyButton, false);
+                setButtonLoading(sendReplyButton, false);
                 replyInput.focus();
             }
         };
@@ -372,13 +249,13 @@ export class CommentThreadManager {
         resolveButton.addEventListener('click', async () => {
             if (this.onErrorResolved) {
                 const currentError = getError();
-                this.setButtonLoading(resolveButton, true, { text: 'Đang xử lý...' });
+                setButtonLoading(resolveButton, true, { text: 'Đang xử lý...' });
                 try {
                     await this.onErrorResolved(currentError);
                 } catch (error) {
                     ErrorLogger.error('Failed to resolve error', error);
                 } finally {
-                    this.setButtonLoading(resolveButton, false);
+                    setButtonLoading(resolveButton, false);
                 }
                 await this.refreshThreadPanel(panelElement, currentError);
             }
@@ -403,7 +280,7 @@ export class CommentThreadManager {
 
             const currentError = getError();
             const selectedIds = this.threadBugListPicker.getSelectedIds();
-            this.setButtonLoading(saveBugListButton, true, { text: 'Đang lưu...' });
+            setButtonLoading(saveBugListButton, true, { text: 'Đang lưu...' });
             try {
                 await this.onBugListUpdated(currentError, selectedIds);
                 this.closeBugListEditor(panelElement);
@@ -411,7 +288,7 @@ export class CommentThreadManager {
             } catch (error) {
                 ErrorLogger.error('Failed to update bug list', error);
             } finally {
-                this.setButtonLoading(saveBugListButton, false);
+                setButtonLoading(saveBugListButton, false);
             }
         });
 
@@ -513,7 +390,7 @@ export class CommentThreadManager {
             if (!this.onCommentEdited) return;
             editInput.disabled = true;
             cancelEditButton.disabled = true;
-            this.setButtonLoading(saveEditButton, true);
+            setButtonLoading(saveEditButton, true);
             try {
                 await this.onCommentEdited(errorData, targetComment.id, updatedText);
                 await this.refreshThreadPanel(panelElement, errorData);
@@ -521,7 +398,7 @@ export class CommentThreadManager {
                 ErrorLogger.error('Failed to edit comment', error);
                 editInput.disabled = false;
                 cancelEditButton.disabled = false;
-                this.setButtonLoading(saveEditButton, false);
+                setButtonLoading(saveEditButton, false);
             }
         };
 
@@ -555,14 +432,14 @@ export class CommentThreadManager {
      */
     async confirmDeleteComment(panelElement, errorData, commentId, triggerButton) {
         if (confirm('Bạn có chắc muốn xóa comment này?') && this.onCommentDeleted) {
-            this.setButtonLoading(triggerButton, true, { text: 'Đang xóa...' });
+            setButtonLoading(triggerButton, true, { text: 'Đang xóa...' });
             try {
                 await this.onCommentDeleted(errorData, commentId);
                 await this.refreshThreadPanel(panelElement, errorData);
             } catch (error) {
                 ErrorLogger.error('Failed to delete comment', error);
             } finally {
-                this.setButtonLoading(triggerButton, false);
+                setButtonLoading(triggerButton, false);
             }
         }
     }
@@ -573,13 +450,13 @@ export class CommentThreadManager {
     async confirmDeleteError(errorData, triggerButton) {
         if (confirm('Bạn có chắc muốn xóa lỗi này?')) {
             if (this.onErrorDeleted) {
-                this.setButtonLoading(triggerButton, true, { text: 'Đang xóa...' });
+                setButtonLoading(triggerButton, true, { text: 'Đang xóa...' });
                 try {
                     await Promise.resolve(this.onErrorDeleted(errorData));
                     this.closeCommentThread();
                 } catch (error) {
                     ErrorLogger.error('Failed to delete error', error);
-                    this.setButtonLoading(triggerButton, false);
+                    setButtonLoading(triggerButton, false);
                 }
             } else {
                 this.closeCommentThread();
