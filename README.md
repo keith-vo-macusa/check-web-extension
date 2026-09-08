@@ -46,10 +46,16 @@ giao diện, thêm comment, quản lý trạng thái lỗi và đồng bộ vớ
 | **Manifest V3**          | Chrome Extension API mới nhất  |
 | **ES6 Modules**          | Modern JavaScript architecture |
 | **Vite**                 | Build tool                     |
-| **jQuery 3.7.1**         | DOM manipulation (popup)       |
-| **SweetAlert2**          | Beautiful modals               |
-| **Chrome Storage API**   | Lưu trữ local                  |
+| **jQuery 3.7.1**         | DOM cho popup (chỉ popup)      |
+| **SweetAlert2**          | Modal cho popup (chỉ popup)    |
+| **Chrome Storage API**   | Lưu trữ local + session        |
 | **Chrome Messaging API** | Giao tiếp giữa components      |
+| **node:test**            | Test, không cần dependency     |
+| **Prettier**             | Format, kiểm tra trong CI      |
+
+> Content script **không nạp thư viện nào**. jQuery và SweetAlert2 chỉ được popup nạp qua thẻ
+> `<script>` của nó — trước đây cả hai bị inject vào mọi trang người dùng ghé (192KB) dù không dùng
+> tới.
 
 ---
 
@@ -95,9 +101,9 @@ check-web-extension/
 │   │   ├── index.js                # entry: đăng nhập, lắp ráp
 │   │   ├── PopupController.js      # gắn sự kiện, vẽ danh sách
 │   │   ├── PopupState.js           # trạng thái hiển thị
-│   │   ├── errorItemTemplate.js    # markup dòng lỗi (thuần chuỗi)
-│   │   ├── popupErrors.js          # cổng dữ liệu: API + cache nền
-│   │   ├── errorsSignature.js      # vân tay để bỏ render thừa
+│   │   ├── ErrorItemTemplate.js    # markup dòng lỗi (thuần chuỗi)
+│   │   ├── PopupErrors.js          # cổng dữ liệu: API + cache nền
+│   │   ├── ErrorsSignature.js      # vân tay để bỏ render thừa
 │   │   ├── AlertManager.js · NotificationManager.js · TabManager.js
 │   │
 │   ├── login/index.js
@@ -135,78 +141,81 @@ check-web-extension/
 ### Component Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CHROME EXTENSION                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────┐     Messages     ┌─────────────────────────┐   │
-│  │   Popup     │ ◄──────────────► │    Background Script    │   │
-│  │  (popup.js) │                  │    (Service Worker)     │   │
-│  └─────────────┘                  └───────────┬─────────────┘   │
-│         │                                     │                   │
-│         │                                     │ API Calls         │
-│         │                                     ▼                   │
-│         │                         ┌─────────────────────────┐   │
-│         │                         │   Backend API Server     │   │
-│         │                         │  (wpm.macusaone.com)     │   │
-│         │                         └─────────────────────────┘   │
-│         │                                     │                   │
-│         │              Messages               │                   │
-│         └──────────────────┬──────────────────┘                   │
-│                            ▼                                       │
-│                  ┌─────────────────────────────────────────┐     │
-│                  │           Content Script                 │     │
-│                  │  ┌─────────────────────────────────┐    │     │
-│                  │  │   WebsiteTestingAssistant       │    │     │
-│                  │  │                                  │    │     │
-│                  │  │  ├── ErrorDataManager           │    │     │
-│                  │  │  ├── ErrorRenderer              │    │     │
-│                  │  │  ├── SelectionHandler           │    │     │
-│                  │  │  ├── CommentModal               │    │     │
-│                  │  │  └── CommentThreadManager       │    │     │
-│                  │  └─────────────────────────────────┘    │     │
-│                  └─────────────────────────────────────────┘     │
-│                                    │                               │
-│                                    ▼                               │
-│                          ┌─────────────────┐                      │
-│                          │   Target Website │                      │
-│                          │  (DOM injection) │                      │
-│                          └─────────────────┘                      │
-│                                                                   │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                          CHROME EXTENSION                             │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  ┌──────────────────────┐   Messages   ┌───────────────────────────┐ │
+│  │  Popup               │ ◄──────────► │  Background (SW)          │ │
+│  │  src/popup/index.js  │              │  src/background/index.js  │ │
+│  │  ├── PopupController │              │  ├── BadgeManager         │ │
+│  │  ├── PopupState      │              │  ├── DomainErrorCache ────┼─┼─► storage.session
+│  │  └── PopupErrors     │              │  ├── WindowsManager       │ │   (sống qua SW restart)
+│  └──────────┬───────────┘              │  └── UpdateChecker        │ │
+│             │                          └─────────────┬─────────────┘ │
+│             │                                        │               │
+│             │        ┌───────────────────────────────┴─────────────┐ │
+│             └───────►│  shared/http/ApiClient                      │ │
+│                      │  nơi duy nhất gọi backend: token, timeout,  │ │
+│                      │  ApiError { status, body }                  │ │
+│                      └───────────────────┬─────────────────────────┘ │
+│                                          ▼                           │
+│                            ┌─────────────────────────┐               │
+│                            │   Backend API Server    │               │
+│                            │   (wpm.macusaone.com)   │               │
+│                            └─────────────────────────┘               │
+│                                                                       │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  Content Script — src/content/loader.js → index.js            │   │
+│  │                                                                │   │
+│  │   ErrorStore ◄── nguồn sự thật duy nhất cho lỗi của tab       │   │
+│  │      ▲  │  subscribe()                                        │   │
+│  │      │  └──────────────► ErrorRenderer  (vẽ overlay)          │   │
+│  │      │                                                         │   │
+│  │   ErrorDataManager  (CRUD qua ApiClient, đồng bộ store)        │   │
+│  │   SelectionHandler  (chọn element / kéo vùng)                  │   │
+│  │   CommentThreadManager ──► ui/ CommentList · CommentInputModal │   │
+│  │                                ThreadBugListRow · BugListPicker│   │
+│  └────────────────────────────┬───────────────────────────────────┘   │
+│                               ▼                                       │
+│                     ┌───────────────────┐                            │
+│                     │   Target Website  │                            │
+│                     │   (DOM injection) │                            │
+│                     └───────────────────┘                            │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
 
+Tạo một lỗi mới:
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         DATA FLOW                                │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│   User Action                                                     │
-│       │                                                           │
-│       ▼                                                           │
-│   SelectionHandler ──► CommentModal ──► ErrorDataManager         │
-│                                              │                    │
-│                                              ▼                    │
-│                                    ┌─────────────────┐           │
-│                                    │ MessagingService │           │
-│                                    └────────┬────────┘           │
-│                                              │                    │
-│                            ┌─────────────────┼─────────────────┐ │
-│                            ▼                 ▼                  ▼ │
-│                    Background Script    Chrome Storage    API Server
-│                            │                 │                  │ │
-│                            └─────────────────┼──────────────────┘ │
-│                                              │                    │
-│                                              ▼                    │
-│                                       ErrorRenderer               │
-│                                              │                    │
-│                                              ▼                    │
-│                                    DOM (Error Markers)            │
-│                                                                   │
-└─────────────────────────────────────────────────────────────────┘
+User chọn element / kéo vùng
+        │
+        ▼
+SelectionHandler ──► CommentInputModal  (nội dung + loại lỗi)
+                            │
+                            ▼
+                     ErrorDataManager
+                            │
+              ┌─────────────┴─────────────┐
+              ▼                           ▼
+   ApiClient.post(/ext/bugs)      ErrorStore.upsert()
+              │                           │
+              ▼                           │ notify subscribers
+        Backend API                       ▼
+              │                     ErrorRenderer.updateAllErrorBorders()
+              ▼                           │
+   MessagingService ──► Background        ▼
+   (SET_ERRORS)         DomainErrorCache   DOM overlay
+                              │
+                              ▼
+                        storage.session + badge
 ```
+
+Điểm cần nhớ: **ErrorStore là nơi duy nhất giữ lỗi của tab**. Không view nào tự ôm bản sao — chúng
+`subscribe()` và vẽ lại khi store báo. Trước đây mỗi nơi giữ một bản, và đó là nguồn gốc của bug
+"sửa/xoá bình luận không ăn".
 
 ---
 
@@ -240,6 +249,7 @@ check-web-extension/
       "height": 10.2  // vh
     }
   },
+  "bug_list_ids": [1, 4, 8],        // Loại lỗi gắn kèm (tùy chọn)
   "comments": [
     {
       "id": "comment-uuid",
@@ -258,11 +268,17 @@ check-web-extension/
 
 ### API Data Structure (per domain)
 
+Lỗi được nhóm theo từng URL trong domain, không phải một mảng phẳng:
+
 ```javascript
 {
-  "domain": "example.com",
-  "errors": [ /* Array of Error objects */ ],
-  "lastUpdated": "2024-01-29T10:00:00Z"
+  "domain": "https://example.com",   // origin, có cả protocol
+  "path": [
+    {
+      "full_url": "https://example.com/trang-a",
+      "data": [ /* Array of Error objects */ ]
+    }
+  ]
 }
 ```
 
@@ -287,14 +303,22 @@ check-web-extension/
 
 ## API Endpoints
 
-| Method | Endpoint                                       | Description            |
-| ------ | ---------------------------------------------- | ---------------------- |
-| `POST` | `/api/loginForExt`                             | Đăng nhập              |
-| `GET`  | `/api/v1/websites/check-wise/ext/{domain}`     | Lấy errors theo domain |
-| `PUT`  | `/api/v1/websites/check-wise/ext/{domain}`     | Cập nhật errors        |
-| `POST` | `/api/v1/websites/check-wise/ext/notification` | Gửi thông báo lỗi      |
+| Method   | Endpoint                                                 | Mục đích                       |
+| -------- | -------------------------------------------------------- | ------------------------------ |
+| `POST`   | `/api/loginForExt`                                       | Đăng nhập                      |
+| `GET`    | `/api/v1/websites/check-wise/ext/?domain=<origin>`       | Lấy toàn bộ lỗi của domain     |
+| `POST`   | `/api/v1/websites/check-wise/ext/bugs`                   | Tạo lỗi                        |
+| `PUT`    | `/api/v1/websites/check-wise/ext/bugs/{bugId}`           | Cập nhật lỗi / đổi trạng thái  |
+| `DELETE` | `/api/v1/websites/check-wise/ext/bugs/{bugId}`           | Xóa lỗi                        |
+| `POST`   | `/api/v1/websites/check-wise/ext/bugs/{id}/comments`     | Thêm bình luận                 |
+| `PUT`    | `/api/v1/websites/check-wise/ext/bugs/{id}/comments/{c}` | Sửa bình luận                  |
+| `DELETE` | `/api/v1/websites/check-wise/ext/bugs/{id}/comments/{c}` | Xóa bình luận                  |
+| `GET`    | `/api/v1/websites/site-check/bug-list/options?search=`   | Danh sách loại lỗi đang active |
+| `POST`   | `/api/v1/websites/check-wise/ext/notification`           | Gửi thông báo                  |
 
-**Base URL**: `https://wpm.macusaone.com/`
+Lưu ý: endpoint loại lỗi nằm dưới `site-check`, khác `check-wise` của các endpoint còn lại.
+
+**Base URL** khai báo tại `src/shared/config/env.js` — xem mục Scripts bên dưới.
 
 ---
 
@@ -311,59 +335,83 @@ check-web-extension/
 
 ## Core Services
 
-### StorageService
+### ApiClient — `src/shared/http/ApiClient.js`
 
-Wrapper cho Chrome Storage API với Promise-based interface.
+Nơi **duy nhất** gọi backend. Tự gắn Bearer token, luôn có timeout, và ném `ApiError` mang theo
+status thay vì nuốt lỗi thành `false`.
 
 ```javascript
-import { StorageService } from './core/StorageService.js';
+import { ApiClient, ApiError } from '../shared/http/ApiClient.js';
 
-// Get
+const data = await ApiClient.get('api/v1/.../ext/', { params: { domain } });
+await ApiClient.post(ConfigurationManager.getBugUrl(), { domain, full_url, bug });
+await ApiClient.delete(url, { domain, full_url }); // DELETE vẫn gửi được body
+
+try {
+    await ApiClient.put(url, payload);
+} catch (error) {
+    if (error instanceof ApiError && error.status === 422) {
+        console.log(error.body.message);
+    }
+}
+```
+
+### ErrorStore — `src/content/ErrorStore.js`
+
+Nguồn sự thật duy nhất cho danh sách lỗi của tab. `resolve()` là điểm mấu chốt: đưa vào một object
+có thể đã cũ, nhận về object đang sống trong store — chốt chặn cho cả họ bug "panel vẽ từ bản này,
+handler ghi vào bản kia".
+
+```javascript
+store.setAll(errors);
+store.upsert(error);
+store.remove(errorId);
+
+const live = store.resolve(maybeStaleError);
+const unsubscribe = store.subscribe((errors) => renderer.updateAllErrorBorders(errors));
+```
+
+### StorageService — `src/shared/chrome/StorageService.js`
+
+```javascript
 const data = await StorageService.get('key');
 const safe = await StorageService.getSafe('key', defaultValue);
-
-// Set
 await StorageService.set({ key: value });
-
-// Remove
 await StorageService.remove('key');
 ```
 
-### MessagingService
-
-Giao tiếp giữa popup, background, và content script.
+### MessagingService — `src/shared/chrome/MessagingService.js`
 
 ```javascript
-import { MessagingService } from './core/MessagingService.js';
-
-// Send to background
 const response = await MessagingService.sendToBackground({ action: 'getState' });
-
-// Send to content script
 await MessagingService.sendToContentScript({ action: 'activate' });
-
-// Add listener
-const cleanup = MessagingService.addListener((message, sender) => {
-    // Handle message
-});
+const cleanup = MessagingService.addListener((message, sender) => {});
 ```
 
-### ConfigurationManager
-
-Centralized configuration và constants.
+### ConfigurationManager — `src/shared/config/ConfigurationManager.js`
 
 ```javascript
-import { ConfigurationManager } from './config/ConfigurationManager.js';
-
-// Constants
 ConfigurationManager.ERROR_STATUS.OPEN; // 'open'
 ConfigurationManager.ACTIONS.ACTIVATE; // 'activate'
-ConfigurationManager.API.BASE_URL; // 'https://wpm.macusaone.com/'
+ConfigurationManager.API.BASE_URL; // đọc từ src/shared/config/env.js
 
-// Helper methods
-ConfigurationManager.getApiUrl('LOGIN');
+ConfigurationManager.getBugUrl(bugId);
+ConfigurationManager.getBugCommentUrl(bugId, commentId);
+ConfigurationManager.getBugListOptionsUrl(searchTerm);
 ConfigurationManager.getBreakpointType(window.innerWidth);
-ConfigurationManager.isCheckwiseAdmin(userInfo);
+```
+
+### html — `src/shared/ui/html.js`
+
+Tagged template escape mặc định. Muốn chèn HTML thô phải nói rõ bằng `raw()`.
+
+```javascript
+html`
+    <div title="${name}">${text}</div>
+`; // name, text được escape
+html`
+    <div>${raw(linkifiedText)}</div>
+`; // cố ý giữ nguyên thẻ
 ```
 
 ---
@@ -388,15 +436,30 @@ document.addEventListener('mousemove', (e) => {
 ## Scripts
 
 ```bash
-# Development (watch mode)
-npm run dev
-
-# Production build
-npm run build
-
-# Clean build
-npm run build:clean
+npm run dev          # Build watch mode -> dist/
+npm run build        # Build production -> dist/
+npm test             # 131 test (node:test, không cần dependency)
+npm run format       # Prettier ghi đè
+npm run check        # env + paths + undef + format + test  <- chạy trước khi commit
 ```
+
+`npm run check` gồm bốn lớp, mỗi lớp sinh ra sau một lần bị lọt lỗi thật:
+
+| Lệnh           | Bắt cái gì                                                                     |
+| -------------- | ------------------------------------------------------------------------------ |
+| `check:env`    | `env.js` bị để localhost khi commit                                            |
+| `check:paths`  | Đường dẫn dạng **chuỗi** trỏ vào file không tồn tại (`getURL`, manifest, HTML) |
+| `check:undef`  | Định danh không tồn tại — thiếu import, gõ sai tên                             |
+| `format:check` | Lệch format                                                                    |
+
+### Đổi backend URL khi dev
+
+Build copy source chứ không bundle, nên `import.meta.env` không dùng được lúc chạy. URL nằm ở **một
+dòng duy nhất** trong `src/shared/config/env.js`.
+
+- **Dev**: sửa dòng đó thành `http://127.0.0.1:8000/`, hoặc đặt `VITE_API_BASE_URL` trong `.env` rồi
+  `npm run dev` và load thư mục `dist/`.
+- **Commit**: `check:env` sẽ fail nếu file đó không trỏ production.
 
 ---
 
@@ -432,8 +495,9 @@ git push origin v1.2.0
 ### Pre-release checklist
 
 - [ ] Bump version trong `manifest.json`
+- [ ] `npm run check` xanh (env + paths + undef + format + test)
 - [ ] Chạy build local: `npm run build`
-- [ ] Smoke test nhanh extension (login, popup, chọn lỗi, gửi message background/content)
+- [ ] Smoke test: login → chọn element → bình luận → gắn loại lỗi → popup → xóa tất cả → badge
 - [ ] Commit + push code lên `main`
 - [ ] Tạo và push tag phát hành: `v<version>`
 
@@ -454,17 +518,16 @@ git push origin v1.2.0
     npm install
     ```
 
-3. **Build**
+3. **Load in Chrome**
+    - Mở `chrome://extensions/`
+    - Bật "Developer mode"
+    - "Load unpacked" → chọn **thư mục gốc dự án** (manifest nằm ở đó)
 
-    ```bash
-    npm run build
-    ```
+    Cách này trỏ vào backend **production**. Muốn chạy với localhost thì `npm run dev` rồi load thư
+    mục `dist/` — xem mục Scripts.
 
-4. **Load in Chrome**
-    - Open `chrome://extensions/`
-    - Enable "Developer mode"
-    - Click "Load unpacked"
-    - Select the project folder
+> Sau khi đổi `manifest.json`, phải **Remove rồi Load unpacked lại**; nút Reload có thể không nhận
+> đường dẫn mới.
 
 ---
 
@@ -481,12 +544,14 @@ Extension sử dụng `ErrorLogger` với các log levels:
 
 ### Common Issues
 
-| Vấn đề                          | Nguyên nhân                | Giải pháp              |
-| ------------------------------- | -------------------------- | ---------------------- |
-| "Extension context invalidated" | Extension bị reload        | Refresh trang web      |
-| "Content script not available"  | Content script chưa inject | Refresh trang web      |
-| Errors không hiển thị           | Toggle visibility tắt      | Bật toggle trong popup |
-| API call failed                 | Token hết hạn              | Đăng nhập lại          |
+| Vấn đề                          | Nguyên nhân                 | Giải pháp                                |
+| ------------------------------- | --------------------------- | ---------------------------------------- |
+| "Extension context invalidated" | Extension bị reload         | Refresh trang web                        |
+| "Content script not available"  | Content script chưa inject  | Refresh trang web                        |
+| Errors không hiển thị           | Toggle visibility tắt       | Bật toggle trong popup                   |
+| API call failed                 | Token hết hạn               | Đăng nhập lại                            |
+| Badge về 0 sau vài phút         | Service worker ngủ          | Đã vá: cache ghi xuống `storage.session` |
+| Gọi API bị chặn trên site https | `env.js` đang trỏ localhost | Xem mục Scripts                          |
 
 ---
 
