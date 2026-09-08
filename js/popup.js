@@ -12,6 +12,9 @@ import NotificationManager from './services/NotificationManager.js';
 import { ConfigurationManager } from './config/ConfigurationManager.js';
 import { BugListService } from './domain/BugListService.js';
 
+/** Bỏ qua revalidate trong khoảng này sau khi người dùng mở cửa sổ lỗi. */
+const REVALIDATE_SUPPRESS_MS = 3000;
+
 class PopupState {
     constructor() {
         this.isActive = false;
@@ -152,6 +155,26 @@ class ErrorManager {
         });
     }
 
+    /**
+     * Cheap fingerprint of everything the list actually renders. Equal signature
+     * means a re-render would produce identical DOM.
+     */
+    static buildErrorsSignature(errors) {
+        return errors
+            .map((error) =>
+                [
+                    error.id,
+                    error.status ?? 'open',
+                    error.comments?.length ?? 0,
+                    error.comments?.[error.comments.length - 1]?.text ?? '',
+                    (error.bug_list_ids ?? []).join('.'),
+                    error.breakpoint?.type ?? '',
+                    error.url ?? '',
+                ].join(':'),
+            )
+            .join('|');
+    }
+
     static sortErrors(errors) {
         const statusOrder = { open: 1, resolved: 2, closed: 3 };
         return errors.sort((first, second) => {
@@ -169,6 +192,8 @@ class UIManager {
         this.state = state;
         this.refreshRequestId = 0;
         this.lastErrors = [];
+        this.lastErrorsSignature = '';
+        this.suppressRevalidateUntil = 0;
         this.setupUI();
         this.setupEventListeners();
         this.setupBreakpointFilters();
@@ -235,9 +260,9 @@ class UIManager {
         $('#drawOpenErrors').change((event) => this.handleDrawOpenErrors(event));
         $('#drawResolvedErrors').change((event) => this.handleDrawResolvedErrors(event));
 
-        window.addEventListener('focus', () => this.refreshErrorsList());
+        window.addEventListener('focus', () => this.revalidateErrorsList());
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) this.refreshErrorsList();
+            if (!document.hidden) this.revalidateErrorsList();
         });
     }
 
@@ -373,9 +398,16 @@ class UIManager {
      * Paint cached errors right away, then replace them with server data.
      * Late responses from a superseded call are discarded.
      */
-    async refreshErrorsList() {
+    /**
+     * Reload from the server.
+     *
+     * @param {object} options
+     * @param {boolean} options.showSkeleton Skeleton chỉ dành cho refresh do người
+     *   dùng chủ động gây ra. Revalidate ngầm phải im lặng.
+     */
+    async refreshErrorsList({ showSkeleton = true } = {}) {
         const requestId = ++this.refreshRequestId;
-        this.showErrorsLoading();
+        if (showSkeleton) this.showErrorsLoading();
 
         // Options tải song song để chip loại lỗi có tên ngay ở lần vẽ đầu tiên.
         const [errors] = await Promise.all([
@@ -384,8 +416,23 @@ class UIManager {
         ]);
         if (requestId !== this.refreshRequestId) return;
 
+        // Dữ liệu y hệt thì đừng vẽ lại: vẽ lại là mất vị trí cuộn và nháy màn hình.
+        const signature = ErrorManager.buildErrorsSignature(errors);
+        const isUnchanged = signature === this.lastErrorsSignature;
         this.lastErrors = errors;
+        this.lastErrorsSignature = signature;
+
+        if (isUnchanged && !showSkeleton) return;
         this.displayErrors(errors);
+    }
+
+    /**
+     * Kiểm tra lại dữ liệu khi popup được focus lại — không skeleton, không vẽ lại
+     * nếu không có gì đổi. Bỏ qua ngay sau khi người dùng bấm mở cửa sổ lỗi.
+     */
+    revalidateErrorsList() {
+        if (Date.now() < this.suppressRevalidateUntil) return;
+        this.refreshErrorsList({ showSkeleton: false });
     }
 
     /**
@@ -563,17 +610,26 @@ class UIManager {
         });
 
         errorItem.click(async () => {
+            if (!error.url) {
+                AlertManager.error('Lỗi này không có URL để mở');
+                return;
+            }
+
+            // Mở cửa sổ lỗi sẽ cướp rồi trả lại focus cho popup; đừng để cú focus
+            // đó kích hoạt revalidate và làm nháy danh sách.
+            this.suppressRevalidateUntil = Date.now() + REVALIDATE_SUPPRESS_MS;
+
             try {
-                TabManager.sendMessageToBackground({
+                await TabManager.sendMessageToBackground({
                     action: 'openOrResizeErrorWindow',
                     url: error.url,
                     width: error.breakpoint?.width,
                     height: error.breakpoint?.height,
                     errorId: error.id,
                 });
-                AlertManager.close();
-            } catch {
-                console.log('Cannot highlight error - content script not available');
+            } catch (openError) {
+                console.error('Cannot open error window', openError);
+            } finally {
                 AlertManager.close();
             }
         });
@@ -589,7 +645,9 @@ $(document).ready(async function () {
         );
 
     chrome.runtime.onMessage.addListener((message) => {
-        if (message.action === 'errorAdded' && uiManager) uiManager.refreshErrorsList();
+        // Sự kiện nền, không phải người dùng bấm — cập nhật im lặng.
+        if (message.action === 'errorAdded' && uiManager)
+            uiManager.refreshErrorsList({ showSkeleton: false });
     });
 
     const domainName = await TabManager.getCurrentTabDomain();

@@ -14,6 +14,8 @@ export class ErrorRenderer {
         this.container = null;
         this.errorsData = new Map();
         this.currentHoveredId = null;
+        this.highlightedElement = null;
+        this.highlightTimeoutId = null;
         this.initializeContainer();
         this.setupMouseMoveHandler();
     }
@@ -241,6 +243,57 @@ export class ErrorRenderer {
             if (errorData) this.positionErrorOverlay(overlayElement, errorData);
         });
         ErrorLogger.debug('All error borders updated', { count: this.errorBorders.length });
+    }
+
+    /**
+     * Scroll one overlay into view and flash it exactly once.
+     *
+     * Any highlight already running is cancelled first, so repeated requests
+     * never stack competing smooth-scrolls or leave a stuck highlight class.
+     *
+     * @returns {boolean} false when the overlay is not rendered yet.
+     */
+    highlightError(errorId) {
+        if (!this.container) return false;
+
+        const overlayElement = this.container.querySelector(`[data-error-id="${errorId}"]`);
+        if (!overlayElement) return false;
+
+        this.clearHighlight();
+
+        overlayElement.classList.add(ConfigurationManager.CSS_CLASSES.ERROR_HIGHLIGHT);
+        overlayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        this.highlightedElement = overlayElement;
+        this.highlightTimeoutId = setTimeout(
+            () => this.clearHighlight(),
+            ConfigurationManager.UI.HIGHLIGHT_DURATION_MS,
+        );
+
+        ErrorLogger.debug('Error highlighted', { errorId });
+        return true;
+    }
+
+    /**
+     * Stop the current highlight, if any.
+     */
+    clearHighlight() {
+        clearTimeout(this.highlightTimeoutId);
+        this.highlightTimeoutId = null;
+
+        if (this.highlightedElement) {
+            this.highlightedElement.classList.remove(
+                ConfigurationManager.CSS_CLASSES.ERROR_HIGHLIGHT,
+            );
+            this.highlightedElement = null;
+        }
+
+        // Dọn cả những overlay còn sót class từ lần chạy trước (ví dụ sau khi vẽ lại).
+        this.container
+            ?.querySelectorAll(`.${ConfigurationManager.CSS_CLASSES.ERROR_HIGHLIGHT}`)
+            .forEach((element) =>
+                element.classList.remove(ConfigurationManager.CSS_CLASSES.ERROR_HIGHLIGHT),
+            );
     }
 
     /**

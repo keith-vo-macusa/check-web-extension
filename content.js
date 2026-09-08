@@ -41,6 +41,7 @@ export default class WebsiteTestingAssistant {
         );
         this.errorDataManager = new ErrorDataManager(this.currentUrl, this.domainName);
 
+        this.pendingHighlightErrorId = null;
         this.drawOpenErrors = false;
         this.drawResolvedErrors = false;
         this.allErrorsVisible = false;
@@ -156,6 +157,11 @@ export default class WebsiteTestingAssistant {
                     this.errorDataManager.getCurrentTabErrors(),
                 );
                 sendResponse({ success: true });
+                break;
+            case ConfigurationManager.ACTIONS.HIGHLIGHT_ERROR:
+                // Trả success ngay cả khi overlay chưa vẽ xong: đã nhận thì background
+                // ngừng retry, phần còn lại do displayExistingErrors lo.
+                sendResponse({ success: true, pending: !this.highlightError(message.errorId) });
                 break;
             case ConfigurationManager.ACTIONS.SET_ERRORS_IN_CONTENT:
                 this.refreshErrors();
@@ -333,6 +339,19 @@ export default class WebsiteTestingAssistant {
         }
     }
 
+    /**
+     * Highlight one error overlay. When the overlay has not been rendered yet the
+     * request is queued and replayed by displayExistingErrors().
+     */
+    highlightError(errorId) {
+        if (!errorId) return false;
+
+        document.body.classList.add(ConfigurationManager.CSS_CLASSES.IS_POPUP);
+        const didHighlight = this.errorRenderer.highlightError(errorId);
+        this.pendingHighlightErrorId = didHighlight ? null : errorId;
+        return didHighlight;
+    }
+
     displayExistingErrors() {
         const currentTabErrors = this.errorDataManager.getCurrentTabErrors();
         currentTabErrors.forEach((errorData) => {
@@ -340,6 +359,12 @@ export default class WebsiteTestingAssistant {
         });
         this.updateErrorVisibility();
         ErrorLogger.info('Existing errors displayed', { count: currentTabErrors.length });
+
+        if (this.pendingHighlightErrorId) {
+            const targetErrorId = this.pendingHighlightErrorId;
+            this.pendingHighlightErrorId = null;
+            this.highlightError(targetErrorId);
+        }
     }
 
     showAllErrors() {

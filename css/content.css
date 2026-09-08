@@ -1106,3 +1106,6 @@ div:where(.swal2-container) {
 .testing-comment-thread .bug-list-search {
     cursor: text !important;
 }
+body #testing-error-container .testing-error-border.testing-error-highlight {
+    display: block !important;
+}

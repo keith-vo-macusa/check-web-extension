@@ -1,294 +1,301 @@
-const WINDOW_DECORATIONS = {
-    win32: { titleBar: 32, borderHorizontal: 16, borderVertical: 8 },
-    darwin: { titleBar: 28, borderHorizontal: 0, borderVertical: 0 },
-    linux: { titleBar: 35, borderHorizontal: 8, borderVertical: 8 },
-};
+import { ConfigurationManager } from '../config/ConfigurationManager.js';
+import { ErrorLogger } from '../utils/ErrorLogger.js';
+import { WindowsService } from '../core/WindowsService.js';
+
+/**
+ * Opens (or reuses) one dedicated window sized to an error's breakpoint, points it
+ * at the error page and asks the content script to highlight that error.
+ *
+ * The pipeline is linear and cancellable: clicking another error supersedes the
+ * request in flight instead of racing it, so only one highlight ever runs.
+ *
+ * Order matters — navigate first, measure second. Measuring the old page and then
+ * navigating gives a wrong correction whenever the two pages differ in scrollbars.
+ */
+
+const STORAGE_KEY = 'errorWindowId';
+const DEFAULT_INNER_SIZE = { width: 800, height: 600 };
+const NAVIGATION_TIMEOUT_MS = 15000;
+const SIZE_TOLERANCE_PX = 1;
+const SIZE_CORRECTION_PASSES = 2;
+const MIN_WINDOW_SIZE_PX = 200;
+const MAX_WINDOW_SIZE_PX = 10000;
+const HIGHLIGHT_MAX_ATTEMPTS = 8;
+const HIGHLIGHT_RETRY_DELAY_MS = 350;
+
 let currentPlatform = 'win32';
-function calculateOuterDimensions(innerWidth, innerHeight) {
-    const decorations = WINDOW_DECORATIONS[currentPlatform] || WINDOW_DECORATIONS.win32;
+let activeRequestId = 0;
+
+if (chrome.runtime?.getPlatformInfo) {
+    Promise.resolve(chrome.runtime.getPlatformInfo())
+        .then((platformInfo) => {
+            if (platformInfo?.os) currentPlatform = platformInfo.os;
+        })
+        .catch(() => {});
+}
+
+const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+/** A newer click has arrived — abandon this run. */
+const isStale = (requestId) => requestId !== activeRequestId;
+
+/** Never command a nonsense size off a bad measurement. */
+const clampWindowSize = (value) =>
+    Math.min(MAX_WINDOW_SIZE_PX, Math.max(MIN_WINDOW_SIZE_PX, Math.round(value)));
+
+/** Rough decoration sizes, only used to open a new window close to the target. */
+function estimateOuterSize(innerSize) {
+    const allDecorations = ConfigurationManager.WINDOW_DECORATIONS;
+    const decorations = allDecorations[currentPlatform] ?? allDecorations.win32;
     return {
-        width: Math.round(innerWidth + decorations.borderHorizontal),
-        height: Math.round(innerHeight + decorations.titleBar + decorations.borderVertical),
+        width: Math.round(innerSize.width + decorations.borderHorizontal),
+        height: Math.round(innerSize.height + decorations.titleBar + decorations.borderVertical),
     };
 }
 
-function measureAndAdjustWindow(windowId, tabId, expectedInnerWidth, expectedInnerHeight, errorId) {
-    chrome.scripting.executeScript(
-        {
+/**
+ * Resolve once the tab finishes loading. Always detaches its listeners, so a tab
+ * that never completes cannot leak a listener into the next run.
+ */
+function waitForTabComplete(tabId, timeoutMs = NAVIGATION_TIMEOUT_MS) {
+    return new Promise((resolve) => {
+        let isSettled = false;
+
+        const finish = (didComplete) => {
+            if (isSettled) return;
+            isSettled = true;
+            chrome.tabs.onUpdated.removeListener(onTabUpdated);
+            chrome.tabs.onRemoved.removeListener(onTabRemoved);
+            clearTimeout(timeoutId);
+            resolve(didComplete);
+        };
+
+        const onTabUpdated = (updatedTabId, changeInfo) => {
+            if (updatedTabId === tabId && changeInfo.status === 'complete') finish(true);
+        };
+        const onTabRemoved = (removedTabId) => {
+            if (removedTabId === tabId) finish(false);
+        };
+
+        const timeoutId = setTimeout(() => finish(false), timeoutMs);
+        chrome.tabs.onUpdated.addListener(onTabUpdated);
+        chrome.tabs.onRemoved.addListener(onTabRemoved);
+    });
+}
+
+async function ensureTabLoaded(tabId) {
+    try {
+        const tab = await chrome.tabs.get(tabId);
+        if (tab?.status === 'complete') return true;
+    } catch {
+        return false;
+    }
+    return await waitForTabComplete(tabId);
+}
+
+/**
+ * Point the tab at the target URL and wait for it. The waiter is attached before
+ * the update call so a fast load cannot fire before anyone is listening.
+ */
+async function navigateTab(tabId, targetUrl) {
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab) return false;
+    if (tab.url === targetUrl) return await ensureTabLoaded(tabId);
+
+    const loadPromise = waitForTabComplete(tabId);
+    try {
+        await chrome.tabs.update(tabId, { url: targetUrl });
+    } catch (error) {
+        ErrorLogger.error('Không chuyển được tab sang URL lỗi', { tabId, targetUrl, error });
+        return false;
+    }
+    return await loadPromise;
+}
+
+async function measureInnerSize(tabId) {
+    try {
+        const results = await chrome.scripting.executeScript({
             target: { tabId },
-            func: () => ({ innerWidth: window.innerWidth, innerHeight: window.innerHeight }),
-        },
-        (results) => {
-            if (chrome.runtime.lastError || !results?.[0]?.result)
-                return (
-                    console.log('Không thể đo inner dimensions, tiếp tục với kích thước hiện tại'),
-                    void injectHighlightScript(tabId, errorId)
-                );
-
-            const actualInnerSize = results[0].result;
-            const widthDiff = expectedInnerWidth - actualInnerSize.innerWidth;
-            const heightDiff = expectedInnerHeight - actualInnerSize.innerHeight;
-
-            console.log(`Inner thực tế: ${actualInnerSize.innerWidth}x${actualInnerSize.innerHeight}`);
-            console.log(`Inner mong muốn: ${expectedInnerWidth}x${expectedInnerHeight}`);
-            console.log(`Chênh lệch: ${widthDiff}x${heightDiff}`);
-            Math.abs(widthDiff) > 0 || Math.abs(heightDiff) > 0
-                ? chrome.windows.get(windowId, (windowInfo) => {
-                      if (chrome.runtime.lastError || !windowInfo) return;
-                      const adjustedWidth = Math.round(windowInfo.width + widthDiff);
-                      const adjustedHeight = Math.round(windowInfo.height + heightDiff);
-
-                      chrome.windows.update(
-                          windowId,
-                          { width: Math.floor(adjustedWidth), height: Math.floor(adjustedHeight) },
-                          () => {
-                              if (chrome.runtime.lastError) {
-                                  console.error('Lỗi khi điều chỉnh kích thước:', chrome.runtime.lastError);
-                              } else {
-                                  console.log(
-                                      `Đã điều chỉnh cửa sổ ${windowId} thành ${adjustedWidth}x${adjustedHeight} (outer) để đạt ${expectedInnerWidth}x${expectedInnerHeight} (inner)`,
-                                  );
-                              }
-                              injectHighlightScript(tabId, errorId);
-                          },
-                      );
-                  })
-                : (console.log('Kích thước đã chính xác, không cần điều chỉnh'),
-                  injectHighlightScript(tabId, errorId));
-        },
-    );
+            func: () => ({ width: window.innerWidth, height: window.innerHeight }),
+        });
+        return results?.[0]?.result ?? null;
+    } catch (error) {
+        ErrorLogger.warn('Không đo được kích thước nội dung', { tabId, error });
+        return null;
+    }
 }
 
-function resizeWindowToInnerSize(windowId, windowInfo, targetUrl, width, height, errorId) {
-    width = Math.floor(Number(width) || 800);
-    height = Math.floor(Number(height) || 600);
-    const tabId = windowInfo.tabs[0].id;
-    chrome.scripting.executeScript(
-        {
+/**
+ * Resize the window until its viewport matches the breakpoint. Two passes is
+ * enough: the first absorbs the decoration guess, the second any scrollbar shift.
+ */
+async function applyInnerSize(windowId, tabId, targetInnerSize, requestId) {
+    for (let pass = 0; pass < SIZE_CORRECTION_PASSES; pass++) {
+        if (isStale(requestId)) return;
+
+        const measuredSize = await measureInnerSize(tabId);
+        // Trang trắng/chưa layout xong có thể trả 0 — số đo đó vô nghĩa, bỏ qua.
+        if (!measuredSize || measuredSize.width <= 0 || measuredSize.height <= 0) return;
+
+        const widthDiff = targetInnerSize.width - measuredSize.width;
+        const heightDiff = targetInnerSize.height - measuredSize.height;
+        if (
+            Math.abs(widthDiff) <= SIZE_TOLERANCE_PX &&
+            Math.abs(heightDiff) <= SIZE_TOLERANCE_PX
+        ) {
+            return;
+        }
+
+        const windowInfo = await WindowsService.getWindow(windowId);
+        if (!windowInfo) return;
+
+        await WindowsService.updateWindow(windowId, {
+            width: clampWindowSize(windowInfo.width + widthDiff),
+            height: clampWindowSize(windowInfo.height + heightDiff),
+        });
+    }
+}
+
+/**
+ * Ask the content script to highlight. Retrying only covers the window where the
+ * content script has not booted yet — once it answers, we stop.
+ */
+async function requestHighlight(tabId, errorId, requestId) {
+    if (!errorId) return true;
+
+    for (let attempt = 0; attempt < HIGHLIGHT_MAX_ATTEMPTS; attempt++) {
+        if (isStale(requestId)) return false;
+
+        try {
+            const response = await chrome.tabs.sendMessage(tabId, {
+                action: ConfigurationManager.ACTIONS.HIGHLIGHT_ERROR,
+                errorId,
+            });
+            if (response?.success) return true;
+        } catch {
+            // Content script chưa sẵn sàng nhận message — thử lại.
+        }
+
+        await delay(HIGHLIGHT_RETRY_DELAY_MS);
+    }
+    return false;
+}
+
+/**
+ * Last resort when no content script answers: one scroll, one highlight, no observers.
+ */
+async function highlightWithoutContentScript(tabId, errorId) {
+    try {
+        await chrome.scripting.executeScript({
             target: { tabId },
-            func: () => ({ innerWidth: window.innerWidth, innerHeight: window.innerHeight }),
-        },
-        (results) => {
-            if (chrome.runtime.lastError || !results?.[0]?.result) {
-                const outerDimensions = calculateOuterDimensions(width, height);
-                return void chrome.windows.update(
-                    windowId,
-                    {
-                        width: Math.floor(outerDimensions.width),
-                        height: Math.floor(outerDimensions.height),
-                        drawAttention: true,
-                    },
-                    () => {
-                        handleTabUpdate(windowInfo, targetUrl, errorId);
-                    },
+            args: [errorId, ConfigurationManager.CSS_CLASSES.ERROR_HIGHLIGHT],
+            func: (targetErrorId, highlightClass) => {
+                const overlayElement = document.querySelector(
+                    `[data-error-id="${targetErrorId}"]`,
                 );
-            }
+                if (!overlayElement) return false;
 
-            const actualInnerSize = results[0].result;
-            const widthDiff = width - actualInnerSize.innerWidth;
-            const heightDiff = height - actualInnerSize.innerHeight;
-            const adjustedWidth = Math.round(windowInfo.width + widthDiff);
-            const adjustedHeight = Math.round(windowInfo.height + heightDiff);
-
-            chrome.windows.update(
-                windowId,
-                {
-                    width: Math.floor(adjustedWidth),
-                    height: Math.floor(adjustedHeight),
-                    drawAttention: true,
-                },
-                () => {
-                    chrome.runtime.lastError
-                        ? console.error('Lỗi khi resize cửa sổ:', chrome.runtime.lastError)
-                        : (console.log(
-                              `Đã resize cửa sổ ${windowId} thành ${adjustedWidth}x${adjustedHeight} (outer) để đạt ${width}x${height} (inner)`,
-                          ),
-                          handleTabUpdate(windowInfo, targetUrl, errorId));
-                },
-            );
-        },
-    );
+                overlayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                overlayElement.classList.add(highlightClass);
+                setTimeout(() => overlayElement.classList.remove(highlightClass), 4000);
+                return true;
+            },
+        });
+    } catch (error) {
+        ErrorLogger.warn('Fallback highlight thất bại', { tabId, errorId, error });
+    }
 }
 
-function handleTabUpdate(windowInfo, targetUrl, errorId) {
-    windowInfo.tabs[0].url !== targetUrl
-        ? (console.log(`Chuyển hướng tab ${windowInfo.tabs[0].id} sang URL mới: ${targetUrl}`),
-          chrome.tabs.update(windowInfo.tabs[0].id, { url: targetUrl }, () => {
-              chrome.runtime.lastError
-                  ? console.error('Lỗi khi update tab:', chrome.runtime.lastError)
-                  : chrome.tabs.onUpdated.addListener(function onUpdated(tabId, changeInfo) {
-                        if (tabId === windowInfo.tabs[0].id && changeInfo.status === 'complete') {
-                            chrome.tabs.onUpdated.removeListener(onUpdated);
-                            console.log(`Tab ${tabId} đã tải xong, inject script`);
-                            injectHighlightScript(tabId, errorId);
-                        }
-                    });
-          }))
-        : (console.log(`Tab ${windowInfo.tabs[0].id} đã ở đúng URL, inject script`),
-          injectHighlightScript(windowInfo.tabs[0].id, errorId));
+async function getStoredWindowId() {
+    try {
+        const storage = await chrome.storage.local.get([STORAGE_KEY]);
+        return storage?.[STORAGE_KEY] ?? null;
+    } catch {
+        return null;
+    }
 }
 
-chrome.runtime.getPlatformInfo &&
-    chrome.runtime.getPlatformInfo((platformInfo) => {
-        currentPlatform = platformInfo.os;
+async function createErrorWindow(url, targetInnerSize) {
+    const outerSize = estimateOuterSize(targetInnerSize);
+    const createdWindow = await WindowsService.createWindow({
+        url,
+        type: 'popup',
+        width: outerSize.width,
+        height: outerSize.height,
     });
 
-export function handleWindowMessage(message) {
-    const { url, width, height, errorId } = message;
-    chrome.storage.local.get(['errorWindowId'], (storage) => {
-        const errorWindowId = storage.errorWindowId;
-        errorWindowId
-            ? chrome.windows.get(errorWindowId, { populate: true }, (windowInfo) => {
-                  chrome.runtime.lastError || !windowInfo
-                      ? (console.log(
-                            'Cửa sổ không tồn tại, tạo mới:',
-                            chrome.runtime.lastError?.message,
-                        ),
-                        openNewErrorWindow(url, width, height, errorId))
-                      : resizeWindowToInnerSize(
-                            errorWindowId,
-                            windowInfo,
-                            url,
-                            width,
-                            height,
-                            errorId,
-                        );
-              })
-            : (console.log('Không tìm thấy errorWindowId, tạo cửa sổ mới'),
-              openNewErrorWindow(url, width, height, errorId));
+    const tabId = createdWindow?.tabs?.[0]?.id;
+    if (!createdWindow || !tabId) return null;
+
+    await chrome.storage.local.set({ [STORAGE_KEY]: createdWindow.id });
+    await ensureTabLoaded(tabId);
+    return { windowId: createdWindow.id, tabId, isNewWindow: true };
+}
+
+/** Quiet lookup: a closed window is the normal case here, not an error worth logging. */
+async function findExistingWindow(windowId) {
+    try {
+        return await chrome.windows.get(windowId, { populate: true });
+    } catch {
+        return null;
+    }
+}
+
+async function resolveTargetWindow(url, targetInnerSize) {
+    const storedWindowId = await getStoredWindowId();
+    if (storedWindowId) {
+        const windowInfo = await findExistingWindow(storedWindowId);
+        const tabId = windowInfo?.tabs?.[0]?.id;
+        if (tabId) return { windowId: storedWindowId, tabId, isNewWindow: false };
+
+        await chrome.storage.local.remove(STORAGE_KEY).catch(() => {});
+    }
+    return await createErrorWindow(url, targetInnerSize);
+}
+
+async function runErrorWindowFlow({ url, width, height, errorId }) {
+    const requestId = ++activeRequestId;
+    const targetInnerSize = {
+        width: Math.floor(Number(width) || DEFAULT_INNER_SIZE.width),
+        height: Math.floor(Number(height) || DEFAULT_INNER_SIZE.height),
+    };
+
+    const target = await resolveTargetWindow(url, targetInnerSize);
+    if (!target) return;
+    if (isStale(requestId)) return;
+
+    if (!target.isNewWindow) {
+        const didNavigate = await navigateTab(target.tabId, url);
+        if (isStale(requestId)) return;
+        if (!didNavigate) {
+            ErrorLogger.warn('Tab chưa báo tải xong, vẫn tiếp tục', { tabId: target.tabId, url });
+        }
+    }
+
+    await applyInnerSize(target.windowId, target.tabId, targetInnerSize, requestId);
+    if (isStale(requestId)) return;
+
+    await WindowsService.updateWindow(target.windowId, { focused: true, drawAttention: true });
+    if (isStale(requestId)) return;
+
+    const didHighlight = await requestHighlight(target.tabId, errorId, requestId);
+    if (!didHighlight && errorId && !isStale(requestId)) {
+        await highlightWithoutContentScript(target.tabId, errorId);
+    }
+}
+
+/**
+ * Entry point for the `openOrResizeErrorWindow` message.
+ */
+export function handleWindowMessage(message, sender, sendResponse) {
+    runErrorWindowFlow(message).catch((error) => {
+        ErrorLogger.error('Không mở được cửa sổ lỗi', { message, error });
     });
+    if (sendResponse) sendResponse({ success: true });
 }
 
 export function handleWindowClose(windowId) {
-    chrome.storage.local.get(['errorWindowId'], (storage) => {
-        if (storage.errorWindowId === windowId) chrome.storage.local.remove('errorWindowId');
+    getStoredWindowId().then((storedWindowId) => {
+        if (storedWindowId === windowId) chrome.storage.local.remove(STORAGE_KEY).catch(() => {});
     });
-}
-
-function openNewErrorWindow(url, width, height, errorId) {
-    const targetInnerWidth = Math.floor(Number(width) || 800);
-    const targetInnerHeight = Math.floor(Number(height) || 600);
-    const outerDimensions = calculateOuterDimensions(targetInnerWidth, targetInnerHeight);
-    const finalWidth = Math.floor(outerDimensions.width);
-    const finalHeight = Math.floor(outerDimensions.height);
-
-    console.log(`Estimated dimensions: ${outerDimensions.width}x${outerDimensions.height}`);
-    console.log(`Final dimensions (integer): ${finalWidth}x${finalHeight}`);
-    chrome.windows.create({ url, type: 'panel', width: finalWidth, height: finalHeight }, (windowInfo) => {
-        if (chrome.runtime.lastError || !windowInfo)
-            return void console.error('Lỗi khi tạo cửa sổ mới:', chrome.runtime.lastError);
-
-        const windowId = windowInfo.id;
-        const tabId = windowInfo.tabs?.[0]?.id;
-        console.log(
-            `Tạo cửa sổ mới ${windowId}, inner size mong muốn: ${targetInnerWidth}x${targetInnerHeight}`,
-        );
-        chrome.storage.local.set({ errorWindowId: windowId });
-        if (tabId) {
-            chrome.tabs.onUpdated.addListener(function onUpdated(updatedTabId, changeInfo) {
-                if (updatedTabId === tabId && changeInfo.status === 'complete') {
-                    chrome.tabs.onUpdated.removeListener(onUpdated);
-                    measureAndAdjustWindow(
-                        windowId,
-                        tabId,
-                        targetInnerWidth,
-                        targetInnerHeight,
-                        errorId,
-                    );
-                }
-            });
-        }
-    });
-}
-
-function injectHighlightScript(tabId, errorId) {
-    chrome.scripting.executeScript(
-        {
-            target: { tabId },
-            func: (errorIdArg) => {
-                console.log(`Inject script cho errorId: ${errorIdArg}`);
-                const highlightError = () => {
-                    document.body.classList.add('ext-is-popup');
-                    const errorElement = document.querySelector(`div[data-error-id="${errorIdArg}"]`);
-                    if (errorElement) {
-                        console.log(`Tìm thấy element với errorId: ${errorIdArg}`);
-                        const delayMs = 300;
-                        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        setTimeout(() => {
-                            errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            const runHighlight = () => {
-                                errorElement.removeEventListener('animationend', runHighlight);
-                                errorElement.removeEventListener('transitionend', runHighlight);
-                                console.log(`Thêm highlight cho errorId: ${errorIdArg}`);
-                                errorElement.classList.add('testing-error-highlight');
-                                setTimeout(() => {
-                                    errorElement.classList.remove('testing-error-highlight');
-                                    console.log(`Xóa highlight cho errorId: ${errorIdArg}`);
-                                }, 4000);
-                            };
-                            errorElement.addEventListener('animationend', runHighlight);
-                            errorElement.addEventListener('transitionend', runHighlight);
-                            setTimeout(runHighlight, 500);
-                        }, delayMs);
-                        return true;
-                    }
-                    console.log(`Không tìm thấy element với errorId: ${errorIdArg}`);
-                    return false;
-                };
-
-                if (document.readyState === 'complete') {
-                    if (highlightError()) return;
-                } else {
-                    console.log('DOM chưa sẵn sàng, chờ load');
-                    window.addEventListener(
-                        'load',
-                        () => {
-                            console.log('DOM loaded, chạy highlight');
-                            highlightError();
-                        },
-                        { once: true },
-                    );
-                }
-
-                console.log('Khởi tạo MutationObserver cho errorId:', errorIdArg);
-                const observer = new MutationObserver(() => {
-                    if (highlightError()) {
-                        console.log('Element xuất hiện, ngắt MutationObserver');
-                        observer.disconnect();
-                    }
-                });
-                observer.observe(document.body || document.documentElement, {
-                    childList: true,
-                    subtree: true,
-                });
-
-                let retryCount = 0;
-                const retry = () => {
-                    if (retryCount >= 6) {
-                        console.log(`Hết 6 lần thử cho errorId: ${errorIdArg}`);
-                        observer.disconnect();
-                        return;
-                    }
-                    retryCount++;
-                    console.log(`Thử lại lần ${retryCount} cho errorId: ${errorIdArg}`);
-                    highlightError() ? observer.disconnect() : setTimeout(retry, 600);
-                };
-                setTimeout(retry, 600);
-                window.addEventListener(
-                    'resize',
-                    () => {
-                        console.log('Sự kiện resize, thử chạy lại highlight');
-                        highlightError();
-                    },
-                    { once: true },
-                );
-            },
-            args: [errorId],
-        },
-        () => {
-            chrome.runtime.lastError
-                ? console.error('Lỗi khi inject script:', chrome.runtime.lastError)
-                : console.log(`Inject script thành công cho tab ${tabId}`);
-        },
-    );
 }
