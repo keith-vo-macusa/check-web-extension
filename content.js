@@ -32,16 +32,22 @@ export default class WebsiteTestingAssistant {
             this.coordsCalculator,
             this.handleErrorClick.bind(this),
         );
-        this.commentThreadManager = new CommentThreadManager(
-            this.getUserInfoBasic.bind(this),
-            this.handleCommentAdded.bind(this),
-            this.handleCommentEdited.bind(this),
-            this.handleCommentDeleted.bind(this),
-            this.handleErrorStatusToggled.bind(this),
-            this.handleErrorDeleted.bind(this),
-            this.handleBugListUpdated.bind(this),
-        );
         this.errorDataManager = new ErrorDataManager(this.currentUrl, this.domainName);
+        this.commentThreadManager = new CommentThreadManager({
+            getUserInfo: this.getUserInfoBasic.bind(this),
+            resolveError: this.errorDataManager.resolveError.bind(this.errorDataManager),
+            onCommentAdded: this.handleCommentAdded.bind(this),
+            onCommentEdited: this.handleCommentEdited.bind(this),
+            onCommentDeleted: this.handleCommentDeleted.bind(this),
+            onErrorResolved: this.handleErrorStatusToggled.bind(this),
+            onErrorDeleted: this.handleErrorDeleted.bind(this),
+            onBugListUpdated: this.handleBugListUpdated.bind(this),
+        });
+
+        // Dữ liệu đổi ở đâu thì overlay tự cập nhật ở đó, không phải nhớ gọi tay.
+        this.errorDataManager.subscribe((errors) => {
+            this.errorRenderer.updateAllErrorBorders(errors);
+        });
 
         this.pendingHighlightErrorId = null;
         this.drawOpenErrors = false;
@@ -283,7 +289,6 @@ export default class WebsiteTestingAssistant {
 
     async handleErrorStatusToggled(errorData) {
         await this.errorDataManager.toggleErrorStatus(errorData);
-        this.errorRenderer.updateAllErrorBorders(this.errorDataManager.getCurrentTabErrors());
     }
 
     async handleErrorDeleted(errorData) {

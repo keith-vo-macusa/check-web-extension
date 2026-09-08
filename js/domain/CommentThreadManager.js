@@ -7,23 +7,30 @@ import { formatTime, getStatusText } from '../shared/format.js';
 
 export class CommentThreadManager {
     /**
-     * @param {Function} getUserInfo
-     * @param {Function} onCommentAdded
-     * @param {Function} onCommentEdited
-     * @param {Function} onCommentDeleted
-     * @param {Function} onErrorResolved
-     * @param {Function} onErrorDeleted
+     * @param {object} handlers
+     * @param {Function} handlers.getUserInfo
+     * @param {Function} handlers.resolveError Đổi một error object có thể đã cũ
+     *   lấy bản đang sống trong ErrorStore. Nếu thiếu, panel sẽ dùng object bắt
+     *   được lúc mở — chính là nguồn gốc bug "sửa/xoá comment không ăn".
+     * @param {Function} handlers.onCommentAdded
+     * @param {Function} handlers.onCommentEdited
+     * @param {Function} handlers.onCommentDeleted
+     * @param {Function} handlers.onErrorResolved
+     * @param {Function} handlers.onErrorDeleted
+     * @param {Function} handlers.onBugListUpdated
      */
-    constructor(
+    constructor({
         getUserInfo,
+        resolveError = null,
         onCommentAdded,
         onCommentEdited,
         onCommentDeleted,
         onErrorResolved,
         onErrorDeleted,
         onBugListUpdated,
-    ) {
+    } = {}) {
         this.getUserInfo = getUserInfo;
+        this.resolveError = resolveError;
         this.onCommentAdded = onCommentAdded;
         this.onCommentEdited = onCommentEdited;
         this.onCommentDeleted = onCommentDeleted;
@@ -317,7 +324,12 @@ export class CommentThreadManager {
     bindThreadEvents(panelElement, errorData) {
         // Panel có thể được vẽ lại bằng dữ liệu mới từ server (refreshThreadPanel),
         // nên handler phải luôn đọc error object hiện tại thay vì object lúc bind.
-        const getError = () => this.currentThread?.error ?? errorData;
+        // Luôn đi qua store: object bắt được lúc bind có thể đã bị thay bằng bản
+        // mới từ server, và khi đó id comment trong DOM không còn khớp object cũ.
+        const getError = () => {
+            const candidate = this.currentThread?.error ?? errorData;
+            return this.resolveError?.(candidate) ?? candidate;
+        };
 
         panelElement.querySelector('.thread-close').addEventListener('click', () => {
             this.closeCommentThread();

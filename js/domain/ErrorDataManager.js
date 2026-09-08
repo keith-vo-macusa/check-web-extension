@@ -5,6 +5,7 @@ import { MessagingService } from '../core/MessagingService.js';
 import { BugListService } from './BugListService.js';
 import { ApiClient } from '../core/http/ApiClient.js';
 import { generateUUID } from '../shared/id.js';
+import { ErrorStore } from './ErrorStore.js';
 
 export class ErrorDataManager {
     /**
@@ -14,7 +15,17 @@ export class ErrorDataManager {
     constructor(currentUrl, domainName) {
         this.currentUrl = currentUrl;
         this.domainName = domainName;
-        this.currentTabErrors = [];
+        this.store = new ErrorStore();
+    }
+
+    /** Đăng ký nhận thay đổi của danh sách lỗi. Trả về hàm huỷ đăng ký. */
+    subscribe(listener) {
+        return this.store.subscribe(listener);
+    }
+
+    /** Đổi một error object có thể đã cũ lấy bản đang sống trong store. */
+    resolveError(errorLike) {
+        return this.store.resolve(errorLike);
     }
 
     /**
@@ -31,9 +42,9 @@ export class ErrorDataManager {
                 const currentPathData = response.path.find(
                     (pathItem) => pathItem.full_url === this.currentUrl,
                 );
-                this.currentTabErrors = currentPathData ? currentPathData.data : [];
+                this.store.setAll(currentPathData ? currentPathData.data : []);
                 ErrorLogger.info('Errors fetched successfully', {
-                    count: this.currentTabErrors.length,
+                    count: this.store.size,
                 });
             }
 
@@ -64,14 +75,14 @@ export class ErrorDataManager {
             const currentPathData = domainData.path?.find(
                 (pathItem) => pathItem.full_url === this.currentUrl,
             );
-            this.currentTabErrors = currentPathData ? currentPathData.data : [];
+            this.store.setAll(currentPathData ? currentPathData.data : []);
             ErrorLogger.info('Fresh errors loaded from server', {
-                count: this.currentTabErrors.length,
+                count: this.store.size,
             });
-            return this.currentTabErrors;
+            return this.store.getAll();
         } catch (error) {
             ErrorLogger.error('Failed to fetch fresh errors', { error });
-            return this.currentTabErrors;
+            return this.store.getAll();
         }
     }
 
@@ -105,7 +116,7 @@ export class ErrorDataManager {
                 }
             }
 
-            this.currentTabErrors.push(errorData);
+            this.store.upsert(errorData);
             await this.syncErrorsToBackground();
             ErrorLogger.info('Bug added successfully via API', { bugId: errorData.id });
             return true;
@@ -126,12 +137,7 @@ export class ErrorDataManager {
                 bug: errorData,
             });
 
-            const currentTabIndex = this.currentTabErrors.findIndex(
-                (currentError) => currentError.id === errorData.id,
-            );
-            if (currentTabIndex !== -1) {
-                this.currentTabErrors[currentTabIndex] = errorData;
-            }
+            this.store.upsert(errorData);
 
             await this.syncErrorsToBackground();
             ErrorLogger.info('Bug updated successfully via API', { bugId: errorData.id });
@@ -176,9 +182,7 @@ export class ErrorDataManager {
                 full_url: this.currentUrl,
             });
 
-            this.currentTabErrors = this.currentTabErrors.filter(
-                (currentError) => currentError.id !== errorId,
-            );
+            this.store.remove(errorId);
 
             await this.syncErrorsToBackground();
             ErrorLogger.info('Bug deleted successfully via API', { bugId: errorId });
@@ -357,7 +361,7 @@ export class ErrorDataManager {
     }
 
     /**
-     * Sync local currentTabErrors to the full errors payload and notify background.
+     * Sync the store into the full domain payload and notify background.
      */
     async syncErrorsToBackground() {
         try {
@@ -366,7 +370,8 @@ export class ErrorDataManager {
                 (pathItem) => pathItem.full_url === this.currentUrl,
             );
 
-            if (this.currentTabErrors.length === 0) {
+            const errors = this.store.getAll();
+            if (errors.length === 0) {
                 if (pathIndex !== -1) {
                     errorsPayload.path.splice(pathIndex, 1);
                 }
@@ -374,10 +379,10 @@ export class ErrorDataManager {
                 if (pathIndex === -1) {
                     errorsPayload.path.push({
                         full_url: this.currentUrl,
-                        data: [...this.currentTabErrors],
+                        data: errors,
                     });
                 } else {
-                    errorsPayload.path[pathIndex].data = [...this.currentTabErrors];
+                    errorsPayload.path[pathIndex].data = errors;
                 }
             }
 
@@ -411,7 +416,7 @@ export class ErrorDataManager {
      * Get cached errors for current tab URL.
      */
     getCurrentTabErrors() {
-        return this.currentTabErrors;
+        return this.store.getAll();
     }
 
     /**
