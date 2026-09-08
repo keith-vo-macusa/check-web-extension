@@ -398,10 +398,14 @@ export default class WebsiteTestingAssistant {
         this.updateErrorVisibility();
     }
 
+    /**
+     * Background đã xoá trên server rồi mới báo xuống đây, nên phía này chỉ dọn
+     * phần hiển thị và đồng bộ lại từ cache.
+     */
     async clearAllErrors() {
-        await this.errorDataManager.clearAllErrors();
         this.errorRenderer.removeAllErrorBorders();
         this.commentThreadManager.closeCommentThread();
+        await this.refreshErrors();
         ErrorLogger.info('All errors cleared');
     }
 

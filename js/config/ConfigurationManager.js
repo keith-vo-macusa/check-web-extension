@@ -1,3 +1,5 @@
+import { API_BASE_URL } from './env.js';
+
 export class ConfigurationManager {
     static BREAKPOINTS = { ALL: 'all', DESKTOP: 'desktop', TABLET: 'tablet', MOBILE: 'mobile' };
     static BREAKPOINT_THRESHOLDS = {
@@ -22,7 +24,7 @@ export class ConfigurationManager {
         login_required: 'Vui lòng đăng nhập để tiếp tục',
     };
     static API = {
-        BASE_URL: 'http://127.0.0.1:8000/',
+        BASE_URL: API_BASE_URL,
         ENDPOINTS: {
             LOGIN: 'api/loginForExt',
             SEND_NOTIFICATION: 'api/v1/websites/check-wise/ext/notification',

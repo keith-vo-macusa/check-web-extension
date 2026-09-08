@@ -335,11 +335,57 @@ export class BadgeManager {
      */
     async clearAllErrorsForDomain(domainName) {
         try {
-            const emptyErrors = { path: [] };
-            await this.setErrors(domainName, emptyErrors);
+            const errorsData = this.getErrors(domainName);
+            const deletions = (errorsData?.path ?? []).flatMap((pathItem) =>
+                (pathItem.data ?? []).map((error) => ({
+                    errorId: error.id,
+                    fullUrl: pathItem.full_url,
+                })),
+            );
+
+            // Chưa có endpoint xoá hàng loạt, nên xoá từng bug. Chạy tuần tự để
+            // không dội hàng chục request cùng lúc lên server.
+            const failedIds = [];
+            for (const deletion of deletions) {
+                try {
+                    await ApiClient.delete(ConfigurationManager.getBugUrl(deletion.errorId), {
+                        domain: domainName,
+                        full_url: deletion.fullUrl,
+                    });
+                } catch (error) {
+                    failedIds.push(deletion.errorId);
+                    ErrorLogger.error('Failed to delete bug while clearing all', {
+                        domain: domainName,
+                        errorId: deletion.errorId,
+                        error,
+                    });
+                }
+            }
+
+            // Chỉ dọn cache những gì server đã xoá thật, để lần fetch sau không
+            // làm các bug xoá hụt "sống lại" một cách khó hiểu.
+            const remainingPaths = (errorsData?.path ?? [])
+                .map((pathItem) => ({
+                    ...pathItem,
+                    data: (pathItem.data ?? []).filter((error) => failedIds.includes(error.id)),
+                }))
+                .filter((pathItem) => pathItem.data.length > 0);
+
+            await this.setErrors(domainName, { ...errorsData, path: remainingPaths });
             this.notifyContentScript();
             await this.updateBadge(domainName);
-            ErrorLogger.info('All errors cleared for domain locally', { domain: domainName });
+
+            if (failedIds.length > 0) {
+                return {
+                    success: false,
+                    message: `Không xoá được ${failedIds.length}/${deletions.length} lỗi`,
+                };
+            }
+
+            ErrorLogger.info('All errors cleared for domain', {
+                domain: domainName,
+                count: deletions.length,
+            });
             return { success: true };
         } catch (error) {
             ErrorLogger.error('Failed to clear all errors', { domain: domainName, error });

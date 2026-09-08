@@ -1,3 +1,4 @@
+// @ts-check
 import { ConfigurationManager } from '../config/ConfigurationManager.js';
 import { ErrorLogger } from '../utils/ErrorLogger.js';
 import { ApiClient } from '../core/http/ApiClient.js';

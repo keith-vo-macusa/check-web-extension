@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { resolve, dirname, join } from 'path';
 import {
     copyFileSync,
@@ -111,7 +111,7 @@ function minifyCSSInDir(dir) {
     }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
     build: {
         outDir: 'dist',
         emptyOutDir: true,
@@ -162,6 +162,24 @@ export default defineConfig({
                     copyDir(dir, join('dist', dir));
                 });
 
+                // Thay URL backend bằng VITE_API_BASE_URL trong .env (nếu có).
+                // Build copy source chứ không bundle nên phải thay thủ công ở đây.
+                const envBaseUrl = loadEnv(mode, __dirname, 'VITE_').VITE_API_BASE_URL;
+                if (envBaseUrl) {
+                    const envFile = join('dist', 'js', 'config', 'env.js');
+                    if (existsSync(envFile)) {
+                        const source = readFileSync(envFile, 'utf8');
+                        writeFileSync(
+                            envFile,
+                            source.replace(
+                                /export const API_BASE_URL = '[^']*';/,
+                                `export const API_BASE_URL = '${envBaseUrl}';`,
+                            ),
+                        );
+                        console.log(`✓ API_BASE_URL = ${envBaseUrl}`);
+                    }
+                }
+
                 // Minify JS files in dist
                 console.log('\n🔧 Minifying JavaScript files...');
                 await minifyJSInDir('dist/js');
@@ -180,4 +198,4 @@ export default defineConfig({
             },
         },
     ],
-});
+}));

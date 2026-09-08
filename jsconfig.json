@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ES2022",
+        "moduleResolution": "bundler",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "checkJs": false,
+        "strictNullChecks": true,
+        "noImplicitAny": false,
+        "types": ["chrome"]
+    },
+    "include": ["js/**/*.js", "background.js", "content.js", "content-loader.js", "scripts/**/*.mjs"],
+    "exclude": ["node_modules", "dist", "lib", "assets"]
+}
